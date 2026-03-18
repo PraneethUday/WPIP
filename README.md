@@ -376,4 +376,4 @@ gigguard/
 
 ---
 
-*Built for Guidewire DEVTrails 2026 | Team GigGuard*
+*Built for Guidewire DEVTrails 2026 | Team LowKey Legends
