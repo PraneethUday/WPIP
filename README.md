@@ -59,14 +59,14 @@ GigGuard also supports multi-platform workers — a single worker can be registe
 
 ### Scenario 1 — Heavy Rainfall (Environmental Disruption)
 
-Character: Ravi, a Zomato delivery partner in Chennai, working 8 hours/day, earning approximately Rs. 2,800/week.
+Character: Ravi, a Zomato delivery partner in Chennai, working 8 hours/day, earning approximately Rs. 2,800/week across Zomato and Amazon Flex combined.
 
 Event: IMD issues a Red Alert for Chennai. Rainfall exceeds 64.5mm in 24 hours. Zomato suspends delivery operations in affected zones.
 
 GigGuard Response:
 - Weather API detects rainfall threshold breach at 6:14 AM.
 - GigGuard automatically creates a claim for Ravi's policy covering that disruption window.
-- AI validates: Ravi's GPS confirms he was in the active zone; no deliveries were logged; no duplicate claim exists; eligibility check passes (Ravi has worked 3+ weeks).
+- AI validates: Ravi's GPS confirms he was in the active zone; no deliveries were logged on any registered platform; no duplicate claim exists; eligibility check passes (Ravi has worked 3+ weeks).
 - Payout of Rs. 175 (50% of daily wage for disrupted hours) is transferred to Ravi's UPI/bank in under 10 minutes.
 - Ravi receives an app notification: "GigGuard has credited Rs. 175 to your account for today's disruption."
 
@@ -148,7 +148,7 @@ Delivery Partner Onboards
 
 ### Why Weekly?
 
-Gig workers operate week-to-week. Daily income is variable. A monthly premium model does not align with their cash flow — they may not have Rs. 200 upfront but can afford Rs. 40-70 per week, auto-deducted from platform payouts.
+Gig workers operate week-to-week. Daily income is variable. A monthly premium model does not align with their cash flow — they may not have Rs. 200 upfront but can afford Rs. 20-60 per week, auto-deducted from platform payouts.
 
 ---
 
@@ -181,8 +181,8 @@ Example:
 - Chennai forecast shows 80% probability of heavy rain next week.
 - The model detects that approximately 2,400 active workers in Chennai will likely trigger claims.
 - Regional exposure factor is raised for Chennai for that week only.
-- Workers in Chennai pay a slightly higher premium that week — say Rs. 85 instead of Rs. 65.
-- Workers in Pune (clear weather forecast) continue paying Rs. 55 — completely unaffected.
+- Workers in Chennai pay a slightly higher premium that week — say Rs. 55 instead of Rs. 40.
+- Workers in Pune (clear weather forecast) continue paying Rs. 35 — completely unaffected.
 - The company collects enough premium in Chennai to cover the expected payout volume and maintain its profit margin.
 
 This adjustment is fully automated. No human intervention is needed. The model recalculates every Monday before the new policy week begins.
@@ -203,7 +203,7 @@ These discounts are automatically factored into the ML model output each week �
 ### Premium Formula (Simplified)
 
 ```
-Base Premium = Weekly Earnings Avg x Coverage Rate (5-8%)
+Base Premium = Weekly Earnings Avg x Coverage Rate (3.5%)
 
 Dynamic Multiplier = f(zone_risk_score, weather_forecast, aqi_forecast, regional_exposure_factor)
 
@@ -212,26 +212,38 @@ Final Weekly Premium = Base Premium x Dynamic Multiplier x (1 - Loyalty Discount
 Coverage Payout = Disrupted Hours x (Weekly Earnings Avg / Active Hours in Week)
 ```
 
-Example (Typical Full-Time Rider):
+**Why 3.5%?**
+A coverage rate of 3.5% means a worker earning Rs. 2,000/week pays just Rs. 70 as their base premium — roughly Rs. 10/day, less than a cup of tea. Yet when a disruption strikes and 6 hours of work are lost, the payout can be Rs. 300-500. The worker gets back 4-7x what they paid that week. This rate is affordable for the worker while still allowing GigGuard to remain profitable through the regional exposure model and by pooling risk across thousands of workers in low-risk zones.
+
+Example (Typical Full-Time Rider — Single Platform):
+- Kiran's 4-week average earnings on Swiggy: Rs. 2,000/week
+- Base coverage rate: 3.5% — Base Premium = Rs. 70
+- Zone risk multiplier: 1.05 (moderate zone)
+- Weather forecast multiplier: 1.08 (mild rain chance next week)
+- Loyalty discount: 5% (5 weeks continuous payment)
+- AutoPay discount: 5% (enabled)
+- Final Premium = Rs. 70 x 1.05 x 1.08 x 0.95 x 0.95 = approximately Rs. 72/week
+
+Example (Multi-Platform Rider — Higher Earner):
 - Ravi's 4-week average earnings across Zomato + Amazon Flex: Rs. 2,800/week
-- Base coverage rate: 6% — Base Premium = Rs. 168
+- Base coverage rate: 3.5% — Base Premium = Rs. 98
 - Zone risk multiplier: 1.05 (moderate zone, Chennai)
 - Weather forecast multiplier: 1.10 (moderate rain forecast next week)
 - Loyalty discount: 8% (8 weeks continuous payment)
 - AutoPay discount: 5% (enabled)
-- Final Premium = Rs. 168 x 1.05 x 1.10 x 0.92 x 0.95 = approximately Rs. 170/week
+- Final Premium = Rs. 98 x 1.05 x 1.10 x 0.92 x 0.95 = approximately Rs. 99/week
 
 ---
 
 ### Premium Tiers (Indicative)
 
-| Coverage Tier | Weekly Premium | Max Weekly Payout | Best For |
-|---|---|---|---|
-| Basic Shield | Rs. 30-60 | Rs. 500 | Part-time riders |
-| Standard Guard | Rs. 60-130 | Rs. 1,200 | Full-time riders |
-| Pro Protect | Rs. 130-200 | Rs. 2,500 | High-earning riders |
+| Coverage Tier | Typical Weekly Earnings | Weekly Premium | Max Weekly Payout | Best For |
+|---|---|---|---|---|
+| Basic Shield | Rs. 800 - 1,500 | Rs. 20 - 40 | Rs. 500 | Part-time riders, weekend-only workers |
+| Standard Guard | Rs. 1,500 - 3,000 | Rs. 40 - 80 | Rs. 1,200 | Regular full-time single-platform riders |
+| Pro Protect | Rs. 3,000 - 5,000+ | Rs. 80 - 130 | Rs. 2,500 | High-earning or multi-platform riders |
 
-The ML model selects the most appropriate tier automatically and allows the worker to upgrade or downgrade.
+The ML model selects the most appropriate tier automatically based on the worker's verified earnings and allows the worker to upgrade or downgrade at any time.
 
 ---
 
