@@ -45,8 +45,8 @@ const HomeScreen = ({ navigation }) => {
           {/* Stats Summary Card Group */}
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <View style={[styles.statIconContainer, { backgroundColor: COLORS.milkTea + '15' }]}>
-                <Ionicons name="star" size={20} color={COLORS.milkTea} />
+              <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+                <Ionicons name="star" size={20} color={'#F59E0B'} />
               </View>
               <Text style={styles.statValue}>₹4,200</Text>
               <Text style={styles.statLabel}>Total claimed</Text>
@@ -81,15 +81,15 @@ const HomeScreen = ({ navigation }) => {
 
           {/* Quick Actions Grid Mockup */}
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={styles.quickActionItem}>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => navigation.navigate('Claims')}>
               <View style={[styles.actionIconBg, { backgroundColor: COLORS.accent + '15' }]}>
                 <Ionicons name="document-text-outline" size={24} color={COLORS.accent} />
               </View>
               <Text style={styles.actionText}>My claims</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionItem}>
-              <View style={[styles.actionIconBg, { backgroundColor: COLORS.milkTea + '15' }]}>
-                <Ionicons name="time-outline" size={24} color={COLORS.milkTea} />
+              <View style={[styles.actionIconBg, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+                <Ionicons name="time-outline" size={24} color={'#F59E0B'} />
               </View>
               <Text style={styles.actionText}>History</Text>
             </TouchableOpacity>
@@ -110,15 +110,15 @@ const HomeScreen = ({ navigation }) => {
           <Text style={[styles.navText, { color: COLORS.primary }]}>Home</Text>
           <View style={styles.activeDot} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Claims')}>
           <Ionicons name="document-outline" size={24} color="#A1A1AA" />
           <Text style={styles.navText}>Claims</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Policy')}>
           <Ionicons name="shield-outline" size={24} color="#A1A1AA" />
           <Text style={styles.navText}>Coverage</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
           <Ionicons name="person-outline" size={24} color="#A1A1AA" />
           <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>

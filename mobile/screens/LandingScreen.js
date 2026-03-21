@@ -49,6 +49,12 @@ const LandingScreen = ({ navigation }) => {
             <Text style={styles.motto}>
               Protecting your hustle,{"\n"}rain or shine.
             </Text>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.ctaButtonText}>Get Protected →</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -283,6 +289,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bold,
     fontSize: 14,
   },
+  stepContainer: {
+    marginTop: SIZES.base,
+  },
   stepText: {
     flex: 1,
     fontSize: SIZES.body,
@@ -290,17 +299,50 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     opacity: 0.8,
   },
+  benefitsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SIZES.base,
+  },
+  benefitIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(165,28,48,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SIZES.base * 0.75,
+  },
+  ctaButton: {
+    marginTop: SIZES.padding * 1.2,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.padding * 1.5,
+    paddingVertical: 14,
+    borderRadius: SIZES.radius,
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  ctaButtonText: {
+    fontSize: 16,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    letterSpacing: 0.3,
+  },
   benefitRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: SIZES.padding * 0.5,
   },
   benefitItem: {
-    flex: 0.48,
+    width: '47%',
     alignItems: 'center',
-    padding: SIZES.base,
-    backgroundColor: COLORS.brookGreen + '15',
-    borderRadius: SIZES.radius * 0.5,
+    padding: SIZES.base * 1.5,
+    backgroundColor: 'rgba(165,28,48,0.07)',
+    borderRadius: SIZES.radius * 0.75,
   },
   benefitIcon: {
     marginBottom: SIZES.base * 0.5,
