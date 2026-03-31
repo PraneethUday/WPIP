@@ -13,6 +13,7 @@
     "@expo/metro-runtime": "~55.0.6",
     "@react-navigation/native": "^7.1.33",
     "@react-navigation/native-stack": "^7.14.5",
+    "babel-preset-expo": "^55.0.13",
     "expo": "~55.0.6",
     "expo-font": "^55.0.4",
     "expo-splash-screen": "~55.0.10",
@@ -24,5 +25,8 @@
     "react-native-screens": "~4.23.0",
     "react-native-web": "^0.21.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "react-native-dotenv": "^3.4.11"
+  }
 }
