@@ -1,0 +1,30 @@
+{
+  "rmse": 17.2009,
+  "n_samples": 200,
+  "trained_at": "2026-04-01",
+  "features": [
+    "avg_earnings_7d",
+    "avg_deliveries_7d",
+    "avg_hours_7d",
+    "avg_rating_7d",
+    "weekly_earnings_est",
+    "earnings_trend",
+    "delivery_trend",
+    "earnings_cv",
+    "earnings_std",
+    "total_days_active",
+    "earn_per_delivery",
+    "earn_per_hour",
+    "temperature",
+    "aqi_index",
+    "rain_1h",
+    "rain_3h",
+    "humidity",
+    "wind_speed",
+    "is_heavy_rain",
+    "is_extreme_heat",
+    "is_severe_aqi",
+    "weather_risk",
+    "city_risk"
+  ]
+}

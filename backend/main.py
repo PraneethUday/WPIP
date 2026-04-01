@@ -1,9 +1,11 @@
 """
-FastAPI application for GigGuard — Delivery Platform Data API.
+FastAPI application for GigGuard — Delivery Platform Data API + ML Premium Engine.
 
-Exposes endpoints for the AI/ML service to consume worker activity data.
-Runs a background scheduler that generates and inserts synthetic data
-every 15 minutes.
+Exposes endpoints for:
+  - Worker activity data (per platform)
+  - ML-powered premium prediction
+  - Weather data
+  - Admin premium management
 """
 
 import asyncio
@@ -12,9 +14,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from db import fetch_workers, fetch_worker_history
+from db import fetch_workers, fetch_worker_history, supabase
 from scheduler import tick, INTERVAL_SECONDS
+from ml.weather import fetch_weather, fetch_all_cities
+from ml.premium_model import (
+    build_features_from_history,
+    predict_premium,
+    load_model,
+    load_metadata,
+    compute_target_premium,
+    TIER_CONFIG,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -173,3 +185,104 @@ async def get_worker_history(
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# ML Premium Endpoints
+# ---------------------------------------------------------------------------
+
+class PremiumRequest(BaseModel):
+    delivery_id: str
+    city: str = "Unknown"
+    tier: str = "standard"
+
+
+@app.post("/api/premium/predict")
+async def predict_worker_premium(req: PremiumRequest):
+    """Predict weekly premium for a single worker using trained ML model."""
+    # Fetch worker history
+    history = fetch_worker_history(req.delivery_id, days=30)
+    weather = fetch_weather(req.city)
+    features = build_features_from_history(history, weather)
+
+    model = load_model()
+    if model:
+        result = predict_premium(model, features, req.tier)
+    else:
+        premium = compute_target_premium(features, req.tier)
+        cfg = TIER_CONFIG.get(req.tier, TIER_CONFIG["standard"])
+        result = {
+            "weekly_premium": premium,
+            "weekly_premium_autopay": round(premium * 0.95, 2),
+            "raw_prediction": premium,
+            "tier": req.tier,
+            "max_payout": cfg["max_payout"],
+            "weather_risk": features.get("weather_risk", 0),
+            "city_risk": features.get("city_risk", 1.0),
+            "weekly_earnings_est": features.get("weekly_earnings_est", 0),
+        }
+
+    result["history_days"] = len(history)
+    result["weather"] = weather
+    return result
+
+
+@app.get("/api/premium/worker/{worker_id}")
+async def get_worker_premium(worker_id: str):
+    """Get the latest computed premium for a registered worker from DB."""
+    try:
+        resp = (
+            supabase.table("premium_predictions")
+            .select("*")
+            .eq("worker_id", worker_id)
+            .order("week_start", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return {"found": True, "premium": resp.data[0]}
+        return {"found": False, "message": "No premium computed yet for this worker."}
+    except Exception as e:
+        return {"found": False, "error": str(e)}
+
+
+@app.get("/api/premium/all")
+async def get_all_premiums(limit: int = Query(100, ge=1, le=1000)):
+    """Get latest computed premiums for all workers."""
+    try:
+        resp = (
+            supabase.table("premium_predictions")
+            .select("*")
+            .order("computed_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"count": len(resp.data), "data": resp.data}
+    except Exception as e:
+        return {"count": 0, "error": str(e), "data": []}
+
+
+@app.get("/api/weather/{city}")
+async def get_city_weather(city: str):
+    """Get real-time weather + AQI for a city from OpenWeatherMap."""
+    data = fetch_weather(city)
+    return {"city": city, "weather": data}
+
+
+@app.get("/api/weather")
+async def get_all_weather():
+    """Get weather for all supported cities."""
+    data = fetch_all_cities()
+    return {"cities": data}
+
+
+@app.get("/api/model/status")
+async def model_status():
+    """Get info about the currently loaded ML model."""
+    meta = load_metadata()
+    model = load_model()
+    return {
+        "model_loaded": model is not None,
+        "metadata": meta,
+        "tiers": TIER_CONFIG,
+    }

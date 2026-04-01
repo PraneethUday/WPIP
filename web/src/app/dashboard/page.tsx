@@ -8,6 +8,25 @@ type User = {
   area?: string; delivery_id?: string; autopay?: boolean; phone?: string;
 }
 
+type Premium = {
+  weekly_premium: number;
+  weekly_premium_autopay: number;
+  raw_prediction: number;
+  tier: string;
+  max_payout: number;
+  weather_risk: number;
+  city_risk: number;
+  weekly_earnings_est: number;
+  history_days?: number;
+  weather?: {
+    temperature: number;
+    aqi_index: number;
+    rain_1h: number;
+    weather_main: string;
+    humidity: number;
+  };
+}
+
 const PLATFORM_NAMES: Record<string, string> = {
   swiggy: 'Swiggy', zomato: 'Zomato', amazon: 'Amazon Flex',
   blinkit: 'Blinkit', zepto: 'Zepto', meesho: 'Meesho',
@@ -23,6 +42,9 @@ export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [tab, setTab] = useState('home')
+  const [premium, setPremium] = useState<Premium | null>(null)
+  const [premiumLoading, setPremiumLoading] = useState(false)
+  const [premiumError, setPremiumError] = useState('')
 
   useEffect(() => {
     const token = localStorage.getItem('gg_token')
@@ -30,6 +52,28 @@ export default function DashboardPage() {
     if (!token || !raw) { router.replace('/login'); return }
     try { setUser(JSON.parse(raw)) } catch { router.replace('/login') }
   }, [router])
+
+  // Fetch premium when user loads
+  useEffect(() => {
+    if (!user?.delivery_id) return
+    setPremiumLoading(true)
+    fetch('/api/premium/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        delivery_id: user.delivery_id,
+        city: user.city || 'Unknown',
+        tier: user.tier || 'standard',
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) setPremiumError(data.error)
+        else setPremium(data)
+      })
+      .catch(() => setPremiumError('Could not fetch premium. Backend may be offline.'))
+      .finally(() => setPremiumLoading(false))
+  }, [user])
 
   const logout = () => {
     localStorage.removeItem('gg_token')
@@ -98,6 +142,67 @@ export default function DashboardPage() {
                   <Card label="City" value={user.city || '-'} color="#0f172a" />
                 </div>
 
+                {/* Premium section */}
+                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 24 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Weekly Premium (AI-Computed)</h3>
+                  {premiumLoading ? (
+                    <div style={{ color: '#64748b', fontSize: 14 }}>Calculating your premium...</div>
+                  ) : premiumError ? (
+                    <div style={{ color: '#dc2626', fontSize: 13 }}>{premiumError}</div>
+                  ) : premium ? (
+                    <div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+                        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: 16, textAlign: 'center' }}>
+                          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase' }}>Your Premium</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>
+                            &#8377;{user.autopay ? premium.weekly_premium_autopay : premium.weekly_premium}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>per week</div>
+                        </div>
+                        <div style={{ background: '#eef2ff', borderRadius: 10, padding: 16, textAlign: 'center' }}>
+                          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase' }}>Max Payout</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: '#4f46e5' }}>&#8377;{premium.max_payout}</div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>per claim</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, textAlign: 'center' }}>
+                          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase' }}>Est. Weekly Earn</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>&#8377;{Math.round(premium.weekly_earnings_est)}</div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>based on history</div>
+                        </div>
+                        <div style={{ background: riskBg(premium.weather_risk), borderRadius: 10, padding: 16, textAlign: 'center' }}>
+                          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase' }}>Risk Level</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: riskColor(premium.weather_risk) }}>
+                            {riskLabel(premium.weather_risk)}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>weather + AQI</div>
+                        </div>
+                      </div>
+
+                      {/* Weather info */}
+                      {premium.weather && (
+                        <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>Current conditions in {user.city}</div>
+                          <div style={{ display: 'flex', gap: 24, fontSize: 13, color: '#64748b' }}>
+                            <span>Temp: <strong style={{ color: '#0f172a' }}>{premium.weather.temperature}°C</strong></span>
+                            <span>AQI: <strong style={{ color: '#0f172a' }}>{premium.weather.aqi_index}</strong></span>
+                            <span>Rain: <strong style={{ color: '#0f172a' }}>{premium.weather.rain_1h}mm/h</strong></span>
+                            <span>Humidity: <strong style={{ color: '#0f172a' }}>{premium.weather.humidity}%</strong></span>
+                            <span>Condition: <strong style={{ color: '#0f172a' }}>{premium.weather.weather_main}</strong></span>
+                          </div>
+                        </div>
+                      )}
+
+                      {user.autopay && (
+                        <div style={{ marginTop: 12, fontSize: 12, color: '#16a34a', fontWeight: 500 }}>
+                          AutoPay enabled — 5% discount applied
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#64748b', fontSize: 13 }}>No premium data available.</div>
+                  )}
+                </div>
+
                 {/* Connected platforms */}
                 <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, marginBottom: 24 }}>
                   <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>Connected platforms</h3>
@@ -111,7 +216,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Info banner */}
                 {!verified && (
                   <div style={{
                     background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,
@@ -142,6 +246,12 @@ export default function DashboardPage() {
                     <ProfileRow label="Verification" value={verified ? 'Verified' : 'Pending'} />
                     <ProfileRow label="AutoPay" value={user.autopay ? 'Enabled' : 'Disabled'} />
                     <ProfileRow label="Platforms" value={user.platforms.map(p => PLATFORM_NAMES[p] || p).join(', ')} />
+                    {premium && (
+                      <>
+                        <ProfileRow label="Weekly Premium" value={`\u20B9${user.autopay ? premium.weekly_premium_autopay : premium.weekly_premium}`} />
+                        <ProfileRow label="Max Payout" value={`\u20B9${premium.max_payout}`} />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -151,6 +261,27 @@ export default function DashboardPage() {
       </div>
     </div>
   )
+}
+
+function riskLabel(risk: number): string {
+  if (risk < 0.15) return 'Low'
+  if (risk < 0.4) return 'Moderate'
+  if (risk < 0.7) return 'High'
+  return 'Severe'
+}
+
+function riskColor(risk: number): string {
+  if (risk < 0.15) return '#16a34a'
+  if (risk < 0.4) return '#d97706'
+  if (risk < 0.7) return '#dc2626'
+  return '#991b1b'
+}
+
+function riskBg(risk: number): string {
+  if (risk < 0.15) return '#f0fdf4'
+  if (risk < 0.4) return '#fffbeb'
+  if (risk < 0.7) return '#fef2f2'
+  return '#fef2f2'
 }
 
 function Card({ label, value, color }: { label: string; value: string; color: string }) {
