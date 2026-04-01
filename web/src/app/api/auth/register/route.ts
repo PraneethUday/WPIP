@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Verify deliveryId against selected platform tables
-    let verificationStatus = 'pending'
+    // Auto-check deliveryId against selected platform tables.
+    // Final approval is done by admin, so status remains pending here.
+    const matchedPlatforms: string[] = []
     for (const platform of platforms) {
       const table = PLATFORM_TABLE[platform]
       if (!table) continue
@@ -47,10 +48,10 @@ export async function POST(req: NextRequest) {
         .eq('worker_id', deliveryId)
         .limit(1)
       if (data && data.length > 0) {
-        verificationStatus = 'verified'
-        break
+        matchedPlatforms.push(platform)
       }
     }
+    const autoVerified = matchedPlatforms.length > 0
 
     // Hash password and create user
     const passwordHash = await hashPassword(password)
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
         gps_consent: !!gpsConsent,
         autopay: !!autopay,
         tier: tier || 'standard',
-        verification_status: verificationStatus,
+        verification_status: 'pending',
       })
       .select('id, name, email, platforms, tier, verification_status, city')
       .single()
@@ -90,7 +91,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       token,
       user: newUser,
-      verified: verificationStatus === 'verified',
+      verified: false,
+      auto_verified: autoVerified,
+      auto_verified_platforms: matchedPlatforms,
     })
   } catch (err) {
     console.error('Register error:', err)

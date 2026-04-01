@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001/admin'
 
   const handleLogin = async () => {
     if (!form.email || !form.password) {
@@ -15,7 +16,7 @@ export default function LoginPage() {
       return
     }
     if (tab === 'admin') {
-      router.push('/admin')
+      window.location.href = adminUrl
       return
     }
     setLoading(true)
