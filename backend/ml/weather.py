@@ -6,6 +6,7 @@ Uses:
 """
 
 import os
+import time
 import httpx
 from dotenv import load_dotenv
 
@@ -33,8 +34,28 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
 AQI_SCALE_MAP = {1: 50, 2: 100, 3: 200, 4: 300, 5: 450}
 
 
+# ---------------------------------------------------------------------------
+# In-memory weather cache (5-minute TTL)
+# ---------------------------------------------------------------------------
+_weather_cache: dict[str, tuple[float, dict]] = {}  # city -> (timestamp, data)
+_CACHE_TTL = 300  # 5 minutes
+
+
 def fetch_weather(city: str) -> dict:
-    """Fetch current weather for a city. Returns a flat dict of features."""
+    """Fetch current weather for a city. Returns a flat dict of features.
+    
+    Results are cached for 5 minutes to avoid hammering the API.
+    """
+    # Normalize city name aliases
+    if city in ("Bengaluru",):
+        city = "Bangalore"
+
+    # Check cache first
+    if city in _weather_cache:
+        cached_time, cached_data = _weather_cache[city]
+        if time.time() - cached_time < _CACHE_TTL:
+            return cached_data
+
     coords = CITY_COORDS.get(city)
     if not coords:
         return _default_weather()
@@ -78,11 +99,11 @@ def fetch_weather(city: str) -> dict:
 
         # Derived risk flags
         is_heavy_rain = rain_1h > 20.0 or rain_3h > 64.5
-        is_extreme_heat = temp > 45.0
+        is_extreme_heat = temp > 28.0
         is_severe_aqi = aqi_raw >= 4  # Poor or Very Poor
         is_flood_risk = rain_3h > 100.0
 
-        return {
+        result = {
             "temperature": round(temp, 1),
             "humidity": humidity,
             "wind_speed": round(wind_speed, 1),
@@ -98,6 +119,10 @@ def fetch_weather(city: str) -> dict:
             "is_severe_aqi": is_severe_aqi,
             "is_flood_risk": is_flood_risk,
         }
+
+        # Store in cache
+        _weather_cache[city] = (time.time(), result)
+        return result
 
     except Exception as e:
         print(f"[weather] Error fetching for {city}: {e}")

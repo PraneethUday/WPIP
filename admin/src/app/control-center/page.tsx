@@ -213,6 +213,7 @@ export default function ControlCenterPage() {
           <span style={{ background: "#059669", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, marginLeft: 4 }}>Control Center</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <a href="/disruptions" style={{ color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none", padding: "6px 14px", background: "#dc2626", borderRadius: 6 }}>🚨 Disruptions</a>
           <a href="/admin" style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600, textDecoration: "none", padding: "6px 14px", border: "1px solid #334155", borderRadius: 6 }}>Admin Dashboard</a>
           <button type="button" onClick={refresh} style={{ background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Refresh</button>
         </div>

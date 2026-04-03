@@ -3,15 +3,24 @@ import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, T
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import InputField from '../components/InputField';
 import Button from '../components/Button';
+import { supabase } from '../lib/supabase';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // Implement login logic here
-    console.log('Login with:', email, password);
-    navigation.navigate('Home');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert('Please enter both email and password');
+      return;
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(error.message);
+    } else {
+      console.log('Login successful:', data.user.id);
+      navigation.navigate('Home', { userId: data.user.id });
+    }
   };
 
   return (

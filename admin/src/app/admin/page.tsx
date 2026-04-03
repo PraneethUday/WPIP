@@ -183,6 +183,23 @@ export default function AdminPage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <a
+            href="/disruptions"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "#dc2626",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            🚨 Disruptions
+          </a>
+          <a
             href="/control-center"
             style={{
               display: "inline-flex",

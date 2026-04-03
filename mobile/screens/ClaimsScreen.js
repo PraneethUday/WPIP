@@ -3,24 +3,47 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Fla
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 
-const CLAIMS = [
-  { id: 'CLM-4821', type: 'Heavy Rain', icon: 'rainy-outline', date: '18 Mar 2026', zone: 'Chennai South', hours: 4, amount: 175, status: 'paid' },
-  { id: 'CLM-4755', type: 'AQI Alert', icon: 'cloud-outline', date: '12 Mar 2026', zone: 'Chennai Central', hours: 6, amount: 263, status: 'paid' },
-  { id: 'CLM-4690', type: 'Curfew', icon: 'ban-outline', date: '2 Mar 2026', zone: 'Chennai North', hours: 3, amount: 131, status: 'paid' },
-  { id: 'CLM-4610', type: 'Heavy Rain', icon: 'rainy-outline', date: '21 Feb 2026', zone: 'Chennai South', hours: 5, amount: 219, status: 'under-review' },
-];
+const BACKEND_URL = 'http://localhost:8000'; // Target FastAPI backend
 
 const statusConfig = {
   paid: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a', label: 'Paid', icon: 'checkmark-circle' },
-  'under-review': { bg: 'rgba(245,158,11,0.12)', color: '#d97706', label: 'Under Review', icon: 'time' },
+  approved: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a', label: 'Approved', icon: 'checkmark-circle' },
+  'under_review': { bg: 'rgba(245,158,11,0.12)', color: '#d97706', label: 'Under Review', icon: 'time' },
+  pending: { bg: 'rgba(245,158,11,0.12)', color: '#d97706', label: 'Pending', icon: 'time' },
   rejected: { bg: 'rgba(239,68,68,0.12)', color: '#dc2626', label: 'Rejected', icon: 'close-circle' },
+  auto_initiated: { bg: 'rgba(59,130,246,0.12)', color: '#2563eb', label: 'Initiated', icon: 'flash' },
 };
 
-export default function ClaimsScreen({ navigation }) {
+export default function ClaimsScreen({ route, navigation }) {
   const [filter, setFilter] = useState('all');
-  const filtered = filter === 'all' ? CLAIMS : CLAIMS.filter(c => c.status === filter);
+  const [claims, setClaims] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const totalPaid = CLAIMS.filter(c => c.status === 'paid').reduce((a, c) => a + c.amount, 0);
+  // Fallback to a mock worker ID if not passed mapping to the test data
+  const workerId = route?.params?.userId || 'w_sw_001';
+
+  React.useEffect(() => {
+    fetchClaims();
+  }, [workerId]);
+
+  const fetchClaims = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/claims/worker/${workerId}`);
+      const data = await res.json();
+      if (data && data.data) {
+        setClaims(data.data);
+      }
+    } catch (e) {
+      console.log('Error fetching claims:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = filter === 'all' ? claims : claims.filter(c => c.payout_status === filter || c.status === filter);
+
+  const totalPaid = claims.filter(c => c.payout_status === 'paid').reduce((a, c) => a + c.payout_amount, 0);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -36,7 +59,7 @@ export default function ClaimsScreen({ navigation }) {
         {/* Summary Banner */}
         <View style={styles.summaryBanner}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{CLAIMS.length}</Text>
+            <Text style={styles.summaryValue}>{claims.length}</Text>
             <Text style={styles.summaryLabel}>Total Claims</Text>
           </View>
           <View style={styles.summaryDivider} />
@@ -46,7 +69,7 @@ export default function ClaimsScreen({ navigation }) {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{CLAIMS.filter(c => c.status === 'paid').length}</Text>
+            <Text style={styles.summaryValue}>{claims.filter(c => c.payout_status === 'paid' || c.payout_status === 'approved').length}</Text>
             <Text style={styles.summaryLabel}>Approved</Text>
           </View>
         </View>
@@ -59,7 +82,7 @@ export default function ClaimsScreen({ navigation }) {
 
         {/* Filter Tabs */}
         <View style={styles.filterRow}>
-          {['all', 'paid', 'under-review'].map(f => (
+          {['all', 'paid', 'pending'].map(f => (
             <TouchableOpacity
               key={f}
               onPress={() => setFilter(f)}
@@ -74,17 +97,20 @@ export default function ClaimsScreen({ navigation }) {
 
         {/* Claims List */}
         <View style={styles.claimsList}>
-          {filtered.map((claim, i) => {
-            const sc = statusConfig[claim.status];
+          {loading ? (
+            <Text style={{ textAlign: 'center', marginTop: 20 }}>Loading claims...</Text>
+          ) : filtered.map((claim, i) => {
+            const sc = statusConfig[claim.status] || statusConfig['auto_initiated'];
+            const claimDate = new Date(claim.created_at).toLocaleDateString();
             return (
               <View key={claim.id} style={styles.claimCard}>
                 <View style={styles.claimTop}>
                   <View style={styles.claimIconWrap}>
-                    <Ionicons name={claim.icon} size={22} color={COLORS.primary} />
+                    <Ionicons name={sc.icon} size={22} color={COLORS.primary} />
                   </View>
                   <View style={styles.claimInfo}>
-                    <Text style={styles.claimType}>{claim.type}</Text>
-                    <Text style={styles.claimDate}>{claim.date} · {claim.zone}</Text>
+                    <Text style={styles.claimType}>{claim.trigger_type.replace('_', ' ')}</Text>
+                    <Text style={styles.claimDate}>{claimDate} · {claim.city}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
                     <Text style={[styles.statusBadgeText, { color: sc.color }]}>{sc.label}</Text>
@@ -93,15 +119,15 @@ export default function ClaimsScreen({ navigation }) {
                 <View style={styles.claimBottom}>
                   <View style={styles.claimDetail}>
                     <Text style={styles.claimDetailLabel}>Disrupted</Text>
-                    <Text style={styles.claimDetailValue}>{claim.hours} hours</Text>
+                    <Text style={styles.claimDetailValue}>{claim.disrupted_hours} hours</Text>
                   </View>
                   <View style={styles.claimDetail}>
                     <Text style={styles.claimDetailLabel}>Claim ID</Text>
-                    <Text style={styles.claimDetailValue}>{claim.id}</Text>
+                    <Text style={styles.claimDetailValue}>{claim.claim_number}</Text>
                   </View>
                   <View style={styles.claimDetail}>
                     <Text style={styles.claimDetailLabel}>Payout</Text>
-                    <Text style={[styles.claimDetailValue, styles.claimAmount]}>₹{claim.amount}</Text>
+                    <Text style={[styles.claimDetailValue, styles.claimAmount]}>₹{claim.payout_amount}</Text>
                   </View>
                 </View>
               </View>
