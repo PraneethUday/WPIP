@@ -11,13 +11,11 @@ Exposes endpoints for:
 import asyncio
 import io
 import logging
-import random
-import string
 import sys
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -33,6 +31,7 @@ from ml.premium_model import (
     clamp_premium,
     TIER_CONFIG,
 )
+from triggers import poll_triggers, get_trigger_status, test_fire_trigger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,7 +93,8 @@ async def _retrain_with_logs() -> None:
 
 async def _scheduler_loop() -> None:
     """Background loop that generates data every 15 minutes."""
-    logger.info("Background scheduler started (interval=%ds).", INTERVAL_SECONDS)
+    logger.info("Background scheduler started (interval=%ds). Waiting 30s before first tick...", INTERVAL_SECONDS)
+    await asyncio.sleep(30)  # Let the server start serving requests first
     while True:
         await tick()
         await asyncio.sleep(INTERVAL_SECONDS)
@@ -226,7 +226,7 @@ async def get_dunzo_workers(limit: int = Query(500, ge=1, le=5000)):
 
 
 @app.get("/api/workers/{worker_id}/history")
-async def get_worker_history(
+def get_worker_history(
     worker_id: str,
     days: int = Query(30, ge=1, le=365),
 ):
@@ -251,7 +251,7 @@ class PremiumRequest(BaseModel):
 
 
 @app.post("/api/premium/predict")
-async def predict_worker_premium(req: PremiumRequest):
+def predict_worker_premium(req: PremiumRequest):
     """Predict weekly premium for a single worker using trained ML model."""
     # Fetch worker history
     history = fetch_worker_history(req.delivery_id, days=30)
@@ -317,14 +317,14 @@ async def get_all_premiums(limit: int = Query(100, ge=1, le=1000)):
 
 
 @app.get("/api/weather/{city}")
-async def get_city_weather(city: str):
+def get_city_weather(city: str):
     """Get real-time weather + AQI for a city from OpenWeatherMap."""
     data = fetch_weather(city)
     return {"city": city, "weather": data}
 
 
 @app.get("/api/weather")
-async def get_all_weather():
+def get_all_weather():
     """Get weather for all supported cities."""
     data = fetch_all_cities()
     return {"cities": data}
@@ -473,205 +473,165 @@ async def trigger_data_generation():
 
 
 # ---------------------------------------------------------------------------
-# Mock Payment helpers
+# Parametric Trigger & Claims Endpoints
 # ---------------------------------------------------------------------------
 
-def _mock_payment_id() -> str:
-    chars = string.ascii_letters + string.digits
-    return "rzp_mock_" + "".join(random.choices(chars, k=14))
+@app.get("/api/triggers/status")
+def triggers_status():
+    """Get current weather + trigger evaluation for all monitored cities."""
+    return get_trigger_status()
 
 
-def _mock_payout_id() -> str:
-    chars = string.ascii_letters + string.digits
-    return "pout_mock_" + "".join(random.choices(chars, k=14))
+@app.get("/api/disruptions")
+async def get_disruptions(limit: int = Query(50, ge=1, le=500)):
+    """Get recent disruption events."""
+    try:
+        resp = (
+            supabase.table("disruption_events")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"count": len(resp.data), "data": resp.data}
+    except Exception as e:
+        return {"count": 0, "error": str(e), "data": []}
 
 
-def _current_week() -> tuple[date, date]:
-    today = date.today()
-    monday = today - timedelta(days=today.weekday())
-    sunday = monday + timedelta(days=6)
-    return monday, sunday
-
-
-# ---------------------------------------------------------------------------
-# Payment endpoints
-# ---------------------------------------------------------------------------
-
-class PayPremiumRequest(BaseModel):
-    worker_id: str
-    amount: float
-    tier: str
-    payment_method: str = "upi"
-
-
-@app.post("/api/payment/pay-premium")
-async def pay_premium(req: PayPremiumRequest):
-    """Record a mock Razorpay premium payment for the current week."""
-    if req.tier not in ("basic", "standard", "pro"):
-        return {"error": "Invalid tier."}, 400
-    if req.payment_method not in ("upi", "card", "netbanking"):
-        return {"error": "Invalid payment method."}, 400
-
-    week_start, week_end = _current_week()
-
-    # Prevent double-payment for same week
-    existing = (
-        supabase.table("worker_payments")
-        .select("id")
-        .eq("worker_id", req.worker_id)
-        .eq("week_start", week_start.isoformat())
-        .eq("status", "success")
-        .limit(1)
-        .execute()
-    )
-    if existing.data:
-        return {"error": "Premium already paid for this week.", "already_paid": True}
-
-    payment_id = _mock_payment_id()
-    resp = supabase.table("worker_payments").insert({
-        "worker_id": req.worker_id,
-        "amount": round(req.amount, 2),
-        "tier": req.tier,
-        "payment_method": req.payment_method,
-        "razorpay_payment_id": payment_id,
-        "week_start": week_start.isoformat(),
-        "week_end": week_end.isoformat(),
-        "status": "success",
-    }).execute()
-
-    if not resp.data:
-        return {"error": "Failed to record payment."}
-
-    return {
-        "status": "success",
-        "payment_id": payment_id,
-        "amount": round(req.amount, 2),
-        "tier": req.tier,
-        "week_start": week_start.isoformat(),
-        "week_end": week_end.isoformat(),
-        "message": f"Payment of ₹{req.amount:.0f} recorded successfully.",
-    }
-
-
-@app.get("/api/payment/history/{worker_id}")
-async def payment_history(worker_id: str):
-    """Fetch premium payment history for a worker."""
-    resp = (
-        supabase.table("worker_payments")
-        .select("*")
-        .eq("worker_id", worker_id)
-        .order("created_at", desc=True)
-        .limit(20)
-        .execute()
-    )
-    # Check if this week's premium is already paid
-    week_start, _ = _current_week()
-    paid_this_week = any(
-        p["week_start"] == week_start.isoformat() and p["status"] == "success"
-        for p in resp.data
-    )
-    return {"payments": resp.data, "paid_this_week": paid_this_week}
-
-
-# ---------------------------------------------------------------------------
-# Claims endpoints
-# ---------------------------------------------------------------------------
-
-class FileClaimRequest(BaseModel):
-    worker_id: str
-    worker_name: str
-    claim_type: str
-    description: str
-    incident_date: str
-    claim_amount: float
-    upi: str | None = None
-
-
-@app.post("/api/claims/file")
-async def file_claim(req: FileClaimRequest):
-    """File a new insurance claim."""
-    valid_types = ["accident", "income_loss", "weather_disruption", "other"]
-    if req.claim_type not in valid_types:
-        return {"error": "Invalid claim type."}
-    if req.claim_amount <= 0:
-        return {"error": "Claim amount must be positive."}
-
-    resp = supabase.table("insurance_claims").insert({
-        "worker_id": req.worker_id,
-        "worker_name": req.worker_name,
-        "claim_type": req.claim_type,
-        "description": req.description,
-        "incident_date": req.incident_date,
-        "claim_amount": round(req.claim_amount, 2),
-        "upi": req.upi or None,
-        "status": "pending",
-    }).execute()
-
-    if not resp.data:
-        return {"error": "Failed to file claim."}
-
-    return {"status": "ok", "claim": resp.data[0], "message": "Claim filed successfully. We will review it within 24 hours."}
+@app.get("/api/claims")
+async def get_claims(limit: int = Query(100, ge=1, le=1000)):
+    """Get recent auto-generated claims."""
+    try:
+        resp = (
+            supabase.table("claims")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"count": len(resp.data), "data": resp.data}
+    except Exception as e:
+        return {"count": 0, "error": str(e), "data": []}
 
 
 @app.get("/api/claims/worker/{worker_id}")
-async def worker_claims(worker_id: str):
-    """Get all claims filed by a specific worker."""
-    resp = (
-        supabase.table("insurance_claims")
-        .select("*")
-        .eq("worker_id", worker_id)
-        .order("created_at", desc=True)
-        .limit(20)
-        .execute()
-    )
-    return {"claims": resp.data}
+def get_worker_claims(worker_id: str):
+    """Get all claims for a specific worker."""
+    try:
+        resp = (
+            supabase.table("claims")
+            .select("*")
+            .eq("worker_id", worker_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return {"count": len(resp.data), "worker_id": worker_id, "data": resp.data}
+    except Exception as e:
+        return {"count": 0, "error": str(e), "data": []}
 
 
-@app.get("/api/claims/all")
-async def all_claims(limit: int = Query(100, ge=1, le=500)):
-    """Admin: get all insurance claims."""
-    resp = (
-        supabase.table("insurance_claims")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return {"count": len(resp.data), "claims": resp.data}
+class TestFireRequest(BaseModel):
+    city: str = "Chennai"
+    trigger_id: str = "T-01"
 
 
-class UpdateClaimRequest(BaseModel):
-    status: str
-    approved_amount: float | None = None
-    admin_notes: str | None = None
+@app.post("/api/triggers/test-fire")
+def test_fire(req: TestFireRequest):
+    """Manually fire a trigger for testing (creates mock disruption + claims)."""
+    result = test_fire_trigger(city=req.city, trigger_id=req.trigger_id)
+    return result
 
 
-@app.patch("/api/claims/{claim_id}")
-async def update_claim(claim_id: str, req: UpdateClaimRequest):
-    """Admin: approve, reject, or mark a claim as paid."""
-    valid_statuses = ["pending", "under_review", "approved", "rejected", "paid"]
-    if req.status not in valid_statuses:
-        return {"error": "Invalid status."}
+# ---------------------------------------------------------------------------
+# Phase 3: Payouts, GPS, & Exposure
+# ---------------------------------------------------------------------------
 
-    update_data: dict = {
-        "status": req.status,
-        "updated_at": datetime.utcnow().isoformat(),
-    }
-    if req.approved_amount is not None:
-        update_data["approved_amount"] = round(req.approved_amount, 2)
-    if req.admin_notes is not None:
-        update_data["admin_notes"] = req.admin_notes
-    if req.status == "paid":
-        update_data["razorpay_payout_id"] = _mock_payout_id()
+class PayoutRequest(BaseModel):
+    claim_ids: list[str] = []  # If empty, execute all 'approved' claims
 
-    resp = (
-        supabase.table("insurance_claims")
-        .update(update_data)
-        .eq("id", claim_id)
-        .execute()
-    )
+@app.post("/api/claims/execute-payouts")
+def execute_payouts(req: PayoutRequest):
+    """Mock integration with external payment gateway. Pays out approved claims."""
+    try:
+        # Fetch approved claims that are not yet paid
+        query = supabase.table("claims").select("id").eq("payout_status", "approved")
+        if req.claim_ids:
+            query = query.in_("id", req.claim_ids)
+        
+        resp = query.execute()
+        claims = resp.data
 
-    if not resp.data:
-        return {"error": "Claim not found or update failed."}
+        if not claims:
+            return {"status": "ok", "paid_count": 0, "message": "No approved claims found to pay."}
 
-    return {"status": "ok", "claim": resp.data[0]}
+        paid_count = 0
+        import time
+        import uuid
+        
+        # Simulate network delay to payment gateway
+        time.sleep(0.5)
+
+        for c in claims:
+            txn_id = f"TXN_MOCK_{uuid.uuid4().hex[:8].upper()}"
+            supabase.table("claims").update({
+                "payout_status": "paid",
+                "status": "paid",
+                "transaction_id": txn_id,
+                "paid_at": datetime.utcnow().isoformat(),
+            }).eq("id", c["id"]).execute()
+            paid_count += 1
+
+        return {
+            "status": "ok",
+            "paid_count": paid_count,
+            "message": f"Successfully paid {paid_count} claims.",
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+class GPSCheckinRequest(BaseModel):
+    worker_id: str
+    latitude: float
+    longitude: float
+
+@app.post("/api/gps/checkin")
+def gps_checkin(req: GPSCheckinRequest):
+    """Mobile app calls this periodically to update worker location."""
+    return store_gps_checkin(req.worker_id, req.latitude, req.longitude)
+
+
+@app.get("/api/admin/exposure")
+async def regional_exposure():
+    """Get aggregated risk exposure by city for the heatmap."""
+    try:
+        # Fetch all active workers
+        resp = supabase.table("registered_workers").select("id, city, coverage_tier").eq("status", "active").execute()
+        workers = resp.data
+
+        # Aggregate by city
+        exposure = {}
+        for w in workers:
+            city = w.get("city", "Unknown")
+            tier = w.get("coverage_tier", "basic")
+            
+            # Max payout estimations based on tier
+            max_payout = 500 if tier == "basic" else (1200 if tier == "standard" else 2500)
+            
+            if city not in exposure:
+                exposure[city] = {"worker_count": 0, "max_exposure_inr": 0}
+            
+            exposure[city]["worker_count"] += 1
+            exposure[city]["max_exposure_inr"] += max_payout
+
+        # Also get current weather risk for these cities
+        weather = fetch_all_cities()
+        for city, stats in exposure.items():
+            stats["active_alerts"] = 0
+            w = weather.get(city, {})
+            if w.get("is_heavy_rain") or w.get("is_extreme_heat") or w.get("is_severe_aqi"):
+                stats["active_alerts"] = 1
+
+        return {"status": "ok", "exposure": exposure}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
