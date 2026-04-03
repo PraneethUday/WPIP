@@ -15,7 +15,6 @@ type User = {
   delivery_id?: string;
   autopay?: boolean;
   phone?: string;
-  upi?: string;
 };
 
 type Premium = {
@@ -39,31 +38,6 @@ type Premium = {
 
 type Tier = "basic" | "standard" | "pro";
 type QuoteMap = Partial<Record<Tier, Premium>>;
-
-type Payment = {
-  id: string;
-  amount: number;
-  tier: string;
-  payment_method: string;
-  razorpay_payment_id: string;
-  week_start: string;
-  week_end: string;
-  status: string;
-  created_at: string;
-};
-
-type Claim = {
-  id: string;
-  claim_type: string;
-  description: string;
-  incident_date: string;
-  claim_amount: number;
-  approved_amount: number | null;
-  status: string;
-  admin_notes: string | null;
-  razorpay_payout_id: string | null;
-  created_at: string;
-};
 
 const PLATFORM_NAMES: Record<string, string> = {
   swiggy: "Swiggy",
@@ -110,17 +84,9 @@ const PLAN_DETAILS: Record<
 
 const NAV = [
   { id: "home", label: "Dashboard" },
-  { id: "payments", label: "Payments" },
-  { id: "claims", label: "Claims" },
+  { id: "claims", label: "Claims History" },
   { id: "profile", label: "Profile" },
 ];
-
-const CLAIM_TYPES: Record<string, string> = {
-  accident: "Accident",
-  income_loss: "Income Loss",
-  weather_disruption: "Weather Disruption",
-  other: "Other",
-};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -133,25 +99,8 @@ export default function DashboardPage() {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [premiumError, setPremiumError] = useState("");
   const [planMessage, setPlanMessage] = useState("");
-
-  // Payments
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [paidThisWeek, setPaidThisWeek] = useState(false);
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [payMethod, setPayMethod] = useState<"upi" | "card" | "netbanking">("upi");
-  const [payLoading, setPayLoading] = useState(false);
-  const [paySuccess, setPaySuccess] = useState<{ payment_id: string; amount: number } | null>(null);
-  const [payError, setPayError] = useState("");
-
-  // Claims
-  const [claims, setClaims] = useState<Claim[]>([]);
-  const [showClaimModal, setShowClaimModal] = useState(false);
-  const [claimType, setClaimType] = useState("accident");
-  const [claimDesc, setClaimDesc] = useState("");
-  const [claimDate, setClaimDate] = useState("");
-  const [claimAmount, setClaimAmount] = useState("");
-  const [claimLoading, setClaimLoading] = useState(false);
-  const [claimMsg, setClaimMsg] = useState("");
+  const [claims, setClaims] = useState<any[]>([]);
+  const [loadingClaims, setLoadingClaims] = useState(false);
 
   const refreshUserFromServer = async (token: string, fallback: User) => {
     try {
@@ -212,9 +161,24 @@ export default function DashboardPage() {
 
     fetchCurrentPremium(user);
     fetchTierQuotes(user);
-    fetchPayments();
-    fetchClaims();
+    fetchClaims(user);
   }, [user]);
+
+  const fetchClaims = async (targetUser: User) => {
+    if (!targetUser.delivery_id) return;
+    setLoadingClaims(true);
+    try {
+      const res = await fetch(`/api/backend/claims/worker/${targetUser.delivery_id}`);
+      const data = await res.json();
+      if (data && data.data) {
+        setClaims(data.data);
+      }
+    } catch {
+      // silently fail if claims cannot be fetched
+    } finally {
+      setLoadingClaims(false);
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem("gg_token");
@@ -262,91 +226,6 @@ export default function DashboardPage() {
       setQuotes(nextQuotes);
     } finally {
       setLoadingQuotes(false);
-    }
-  };
-
-  const fetchPayments = async () => {
-    const token = localStorage.getItem("gg_token");
-    if (!token) return;
-    try {
-      const res = await fetch("/api/payment/history", { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (data.payments) setPayments(data.payments);
-      if (typeof data.paid_this_week === "boolean") setPaidThisWeek(data.paid_this_week);
-    } catch { /* backend offline */ }
-  };
-
-  const fetchClaims = async () => {
-    const token = localStorage.getItem("gg_token");
-    if (!token) return;
-    try {
-      const res = await fetch("/api/claims/worker", { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (data.claims) setClaims(data.claims);
-    } catch { /* backend offline */ }
-  };
-
-  const handlePayPremium = async () => {
-    if (!user || !currentPremium) return;
-    const token = localStorage.getItem("gg_token");
-    if (!token) return;
-    setPayLoading(true);
-    setPayError("");
-    setPaySuccess(null);
-    const amount = user.autopay ? currentPremium.weekly_premium_autopay : currentPremium.weekly_premium;
-    try {
-      const res = await fetch("/api/payment/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount, tier: user.tier, payment_method: payMethod }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        setPayError(data.error);
-      } else {
-        setPaySuccess({ payment_id: data.payment_id, amount: data.amount });
-        setPaidThisWeek(true);
-        fetchPayments();
-      }
-    } catch {
-      setPayError("Payment failed. Backend may be offline.");
-    } finally {
-      setPayLoading(false);
-    }
-  };
-
-  const handleFileClaim = async () => {
-    if (!user) return;
-    const token = localStorage.getItem("gg_token");
-    if (!token) return;
-    if (!claimDate || !claimDesc || !claimAmount) { setClaimMsg("Please fill in all fields."); return; }
-    setClaimLoading(true);
-    setClaimMsg("");
-    try {
-      const res = await fetch("/api/claims/file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          worker_name: user.name,
-          claim_type: claimType,
-          description: claimDesc,
-          incident_date: claimDate,
-          claim_amount: parseFloat(claimAmount),
-          upi: user.upi || null,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) { setClaimMsg(data.error); }
-      else {
-        setClaimMsg(data.message || "Claim filed successfully.");
-        setClaimDesc(""); setClaimDate(""); setClaimAmount(""); setClaimType("accident");
-        fetchClaims();
-        setTimeout(() => setShowClaimModal(false), 2000);
-      }
-    } catch {
-      setClaimMsg("Failed to file claim. Backend may be offline.");
-    } finally {
-      setClaimLoading(false);
     }
   };
 
@@ -467,22 +346,6 @@ export default function DashboardPage() {
                     tone="ink"
                   />
                 </div>
-
-                {verified && currentPremium && (
-                  <div className={styles.payBanner}>
-                    <div>
-                      <div className={styles.payBannerTitle}>This week&apos;s premium</div>
-                      <div className={styles.payBannerAmount}>{money(currentWeeklyPremium)}</div>
-                    </div>
-                    {paidThisWeek ? (
-                      <div className={styles.payBannerPaid}>Paid this week</div>
-                    ) : (
-                      <button type="button" className={styles.payBannerBtn} onClick={() => { setShowPayModal(true); setPaySuccess(null); setPayError(""); }}>
-                        Pay Now
-                      </button>
-                    )}
-                  </div>
-                )}
 
                 <section className={styles.panel}>
                   <div className={styles.panelHead}>
@@ -685,88 +548,44 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {tab === "payments" && (
-              <div>
-                <div className={styles.tabHeader}>
-                  <div>
-                    <h1 className={styles.profileTitle}>Payment History</h1>
-                    <p className={styles.panelSub}>Your weekly premium payments.</p>
-                  </div>
-                  {!paidThisWeek && currentPremium && verified && (
-                    <button type="button" className={styles.primaryBtn} onClick={() => { setShowPayModal(true); setPaySuccess(null); setPayError(""); }}>
-                      Pay this week&apos;s premium
-                    </button>
-                  )}
-                  {paidThisWeek && <div className={styles.paidBadge}>Paid this week</div>}
-                </div>
-
-                {payments.length === 0 ? (
-                  <div className={styles.emptyState}>No payments yet. Pay your first premium to get covered.</div>
-                ) : (
-                  <div className={styles.panel}>
-                    <table className={styles.dataTable}>
-                      <thead>
-                        <tr>
-                          {["Week", "Tier", "Amount", "Method", "Payment ID", "Status"].map(h => (
-                            <th key={h}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.map(p => (
-                          <tr key={p.id}>
-                            <td>{p.week_start} – {p.week_end}</td>
-                            <td><span className={styles[`tier_${p.tier}`]}>{p.tier.charAt(0).toUpperCase() + p.tier.slice(1)}</span></td>
-                            <td><strong>{money(p.amount)}</strong></td>
-                            <td>{p.payment_method.toUpperCase()}</td>
-                            <td className={styles.monoSmall}>{p.razorpay_payment_id}</td>
-                            <td><span className={p.status === "success" ? styles.badgeGreen : styles.badgeRed}>{p.status}</span></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
             {tab === "claims" && (
               <div>
-                <div className={styles.tabHeader}>
-                  <div>
-                    <h1 className={styles.profileTitle}>Insurance Claims</h1>
-                    <p className={styles.panelSub}>File and track your insurance claims.</p>
+                <h1 className={styles.profileTitle}>Claims History</h1>
+                <p className={styles.muted} style={{ marginBottom: 20 }}>
+                  Claims are automatically generated by GigGuard during severe weather disruptions.
+                </p>
+                {loadingClaims ? (
+                  <div className={styles.muted}>Loading claims...</div>
+                ) : claims.length === 0 ? (
+                  <div className={styles.panel}>
+                    <p className={styles.muted}>You have no claims yet.</p>
                   </div>
-                  <button type="button" className={styles.primaryBtn} onClick={() => { setShowClaimModal(true); setClaimMsg(""); }}>
-                    File a Claim
-                  </button>
-                </div>
-
-                {claims.length === 0 ? (
-                  <div className={styles.emptyState}>No claims filed yet.</div>
                 ) : (
-                  <div className={styles.claimsGrid}>
-                    {claims.map(c => (
-                      <div key={c.id} className={styles.claimCard}>
-                        <div className={styles.claimCardHead}>
-                          <span className={styles.claimType}>{CLAIM_TYPES[c.claim_type] || c.claim_type}</span>
-                          <ClaimStatusBadge status={c.status} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {claims.map((c) => (
+                      <div key={c.id} className={styles.panel} style={{ marginBottom: 0 }}>
+                        <div className={styles.planTopRow}>
+                          <h4 style={{ margin: 0, fontSize: 16 }}>{c.claim_number}</h4>
+                          <span
+                            className={styles.planTag}
+                            style={{
+                              background: c.payout_status === "paid" ? "#dcfce7" : c.payout_status === "rejected" ? "#fee2e2" : "#fef3c7",
+                              color: c.payout_status === "paid" ? "#14532d" : c.payout_status === "rejected" ? "#991b1b" : "#b45309",
+                              borderColor: c.payout_status === "paid" ? "#86efac" : c.payout_status === "rejected" ? "#fca5a5" : "#fde68a",
+                            }}
+                          >
+                            {c.payout_status.toUpperCase()}
+                          </span>
                         </div>
-                        <p className={styles.claimDesc}>{c.description}</p>
-                        <div className={styles.claimMeta}>
-                          <span>Incident: <strong>{c.incident_date}</strong></span>
-                          <span>Claimed: <strong>{money(c.claim_amount)}</strong></span>
-                          {c.approved_amount != null && (
-                            <span>Approved: <strong className={styles.greenText}>{money(c.approved_amount)}</strong></span>
-                          )}
-                          {c.razorpay_payout_id && (
-                            <span className={styles.monoSmall}>Payout: {c.razorpay_payout_id}</span>
+                        <div style={{ marginTop: 12, borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
+                          <ProfileRow label="Disruption Event" value={c.trigger_type.replace("_", " ")} />
+                          <ProfileRow label="Payout Amount" value={`\u20B9${c.payout_amount}`} />
+                          <ProfileRow label="City" value={c.city} />
+                          <ProfileRow label="Date Initiated" value={new Date(c.created_at).toLocaleDateString()} />
+                          {c.payout_status === "paid" && (
+                            <ProfileRow label="Transaction ID" value={c.transaction_id || "-"} mono />
                           )}
                         </div>
-                        {c.admin_notes && (
-                          <div className={styles.adminNotes}>Note: {c.admin_notes}</div>
-                        )}
-                        <div className={styles.claimDate}>Filed {new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
                       </div>
                     ))}
                   </div>
@@ -824,105 +643,6 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
-
-      {/* ── Pay Premium Modal ─────────────────────────────── */}
-      {showPayModal && currentPremium && (
-        <div className={styles.modalOverlay} onClick={() => !payLoading && setShowPayModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>Pay this week&apos;s premium</h3>
-            <p className={styles.modalSub}>Powered by Razorpay (mock)</p>
-
-            {!paySuccess ? (
-              <>
-                <div className={styles.modalAmountBox}>
-                  <div className={styles.modalAmountLabel}>Amount due</div>
-                  <div className={styles.modalAmount}>{money(currentWeeklyPremium)}</div>
-                  <div className={styles.modalTier}>{tierLabel} · {user.autopay ? "AutoPay 5% off applied" : "Standard rate"}</div>
-                </div>
-
-                <div className={styles.modalField}>
-                  <label className={styles.modalLabel}>Payment method</label>
-                  <div className={styles.methodGrid}>
-                    {(["upi", "card", "netbanking"] as const).map(m => (
-                      <button
-                        key={m}
-                        type="button"
-                        className={payMethod === m ? styles.methodBtnSelected : styles.methodBtn}
-                        onClick={() => setPayMethod(m)}
-                      >
-                        {m === "upi" ? "UPI" : m === "card" ? "Card" : "Net Banking"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {payError && <div className={styles.modalError}>{payError}</div>}
-
-                <div className={styles.modalActions}>
-                  <button type="button" className={styles.modalCancelBtn} onClick={() => setShowPayModal(false)} disabled={payLoading}>Cancel</button>
-                  <button type="button" className={styles.modalPayBtn} onClick={handlePayPremium} disabled={payLoading}>
-                    {payLoading ? "Processing..." : `Pay ${money(currentWeeklyPremium)}`}
-                  </button>
-                </div>
-
-                <p className={styles.modalDisclaimer}>This is a simulated payment. No real money will be charged.</p>
-              </>
-            ) : (
-              <div className={styles.paySuccessBox}>
-                <div className={styles.paySuccessIcon}>✓</div>
-                <div className={styles.paySuccessTitle}>Payment successful!</div>
-                <div className={styles.paySuccessAmount}>{money(paySuccess.amount)} paid</div>
-                <div className={styles.paySuccessId}>{paySuccess.payment_id}</div>
-                <button type="button" className={styles.modalPayBtn} onClick={() => setShowPayModal(false)}>Done</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── File Claim Modal ──────────────────────────────── */}
-      {showClaimModal && (
-        <div className={styles.modalOverlay} onClick={() => !claimLoading && setShowClaimModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <h3 className={styles.modalTitle}>File an insurance claim</h3>
-            <p className={styles.modalSub}>Max payout: {money(currentPremium?.max_payout)}</p>
-
-            <div className={styles.modalField}>
-              <label htmlFor="claim-type" className={styles.modalLabel}>Claim type</label>
-              <select id="claim-type" className={styles.modalSelect} value={claimType} onChange={e => setClaimType(e.target.value)}>
-                <option value="accident">Accident</option>
-                <option value="income_loss">Income Loss</option>
-                <option value="weather_disruption">Weather Disruption</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className={styles.modalField}>
-              <label htmlFor="claim-date" className={styles.modalLabel}>Incident date</label>
-              <input id="claim-date" type="date" className={styles.modalInput} value={claimDate} onChange={e => setClaimDate(e.target.value)} max={new Date().toISOString().split("T")[0]} />
-            </div>
-
-            <div className={styles.modalField}>
-              <label htmlFor="claim-amount" className={styles.modalLabel}>Claim amount (₹)</label>
-              <input id="claim-amount" type="number" className={styles.modalInput} placeholder="e.g. 500" value={claimAmount} onChange={e => setClaimAmount(e.target.value)} min="1" max={currentPremium?.max_payout || 2500} />
-            </div>
-
-            <div className={styles.modalField}>
-              <label htmlFor="claim-desc" className={styles.modalLabel}>Description</label>
-              <textarea id="claim-desc" className={styles.modalTextarea} rows={3} placeholder="Briefly describe the incident..." value={claimDesc} onChange={e => setClaimDesc(e.target.value)} />
-            </div>
-
-            {claimMsg && <div className={claimMsg.includes("success") ? styles.modalSuccess : styles.modalError}>{claimMsg}</div>}
-
-            <div className={styles.modalActions}>
-              <button type="button" className={styles.modalCancelBtn} onClick={() => setShowClaimModal(false)} disabled={claimLoading}>Cancel</button>
-              <button type="button" className={styles.modalPayBtn} onClick={handleFileClaim} disabled={claimLoading}>
-                {claimLoading ? "Submitting..." : "Submit Claim"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -981,24 +701,6 @@ function riskLabel(risk: number): string {
   if (risk < 0.4) return "Moderate";
   if (risk < 0.7) return "High";
   return "Severe";
-}
-
-function ClaimStatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: styles.badgeAmber,
-    under_review: styles.badgeBlue,
-    approved: styles.badgeGreen,
-    rejected: styles.badgeRed,
-    paid: styles.badgePurple,
-  };
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    under_review: "Under Review",
-    approved: "Approved",
-    rejected: "Rejected",
-    paid: "Paid",
-  };
-  return <span className={map[status] || styles.badgeAmber}>{labels[status] || status}</span>;
 }
 
 function StatusPill({

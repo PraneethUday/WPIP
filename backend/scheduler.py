@@ -9,6 +9,7 @@ from datetime import date
 
 from generator import generate_daily_rows
 from db import upsert_rows
+from triggers import poll_triggers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,17 +34,25 @@ async def tick() -> None:
     _tick_count += 1
 
     today = date.today()
-    rows = generate_daily_rows(target_date=today)
+    rows = await asyncio.to_thread(generate_daily_rows, target_date=today)
     logger.info("Generated %d rows for %s", len(rows), today.isoformat())
 
     try:
-        upsert_rows(rows)
+        await asyncio.to_thread(upsert_rows, rows)
         logger.info(
             "Upserted %d rows into Supabase (insert or update).",
             len(rows),
         )
     except Exception as exc:
         logger.error("Supabase upsert failed: %s", exc)
+
+    # Poll parametric triggers (weather/AQI thresholds)
+    try:
+        trigger_summary = await poll_triggers()
+        if trigger_summary:
+            logger.info("Trigger summary: %s", trigger_summary)
+    except Exception as exc:
+        logger.error("Trigger polling failed: %s", exc)
 
     # Auto-retrain the ML model periodically
     if _tick_count % RETRAIN_EVERY_N_TICKS == 0:
