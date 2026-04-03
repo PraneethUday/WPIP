@@ -107,11 +107,17 @@ async def poll_triggers() -> dict:
                     )
 
                     # Upsert disruption event (idempotent per trigger+city+date)
-                    event_id = _upsert_disruption_event(city, weather, rule, today)
+                    # Run in thread to avoid blocking the async event loop
+                    event_id = await asyncio.to_thread(
+                        _upsert_disruption_event, city, weather, rule, today
+                    )
 
                     if event_id:
                         # Auto-create claims for all workers in this city
-                        _auto_create_claims(event_id, city, rule, today)
+                        # Run in thread — this makes many synchronous Supabase calls
+                        await asyncio.to_thread(
+                            _auto_create_claims, event_id, city, rule, today
+                        )
                         fired.append(rule["trigger_id"])
 
             except Exception as exc:
