@@ -1,9 +1,15 @@
 import React from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts, EBGaramond_400Regular, EBGaramond_500Medium, EBGaramond_700Bold } from '@expo-google-fonts/eb-garamond';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 
 import LandingScreen from './screens/LandingScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -25,9 +31,10 @@ const hideSplash = async () => {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    EBGaramond_400Regular,
-    EBGaramond_500Medium,
-    EBGaramond_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   const onLayoutRootView = React.useCallback(async () => {
@@ -38,8 +45,8 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFDFB', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#A51C30" />
+      <View style={{ flex: 1, backgroundColor: '#0C0E18', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#6C63FF" />
       </View>
     );
   }
