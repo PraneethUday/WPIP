@@ -1,6 +1,11 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { COLORS, FONTS, SIZES } from '../constants/theme';
+import React from "react";
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import { COLORS, FONTS, SIZES } from "../constants/theme";
 
 const Button = ({ title, onPress, loading, style, textStyle, secondary }) => {
   return (
@@ -34,10 +39,10 @@ const Button = ({ title, onPress, loading, style, textStyle, secondary }) => {
 const styles = StyleSheet.create({
   container: {
     height: 56,
-    width: '100%',
+    width: "100%",
     borderRadius: SIZES.radius,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginVertical: SIZES.base,
     shadowColor: COLORS.background,
     shadowOffset: { width: 0, height: 4 },
@@ -49,7 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   secondaryContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: COLORS.primary,
   },

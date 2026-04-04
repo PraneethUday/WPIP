@@ -70,7 +70,13 @@ export default function PaymentScreen({ navigation }) {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [method, setMethod] = useState("upi");
-  const [form, setForm] = useState({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
+  const [form, setForm] = useState({
+    upiId: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    name: "",
+  });
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
   const [paySuccess, setPaySuccess] = useState(null);
@@ -149,11 +155,13 @@ export default function PaymentScreen({ navigation }) {
   function validateForm() {
     if (method === "upi") {
       if (!form.upiId.trim()) return "Enter your UPI ID.";
-      if (!/^[\w.\-+]+@[\w]+$/.test(form.upiId.trim())) return "Enter a valid UPI ID (e.g. name@upi).";
+      if (!/^[\w.\-+]+@[\w]+$/.test(form.upiId.trim()))
+        return "Enter a valid UPI ID (e.g. name@upi).";
     } else {
       const digits = form.cardNumber.replace(/\s/g, "");
       if (digits.length !== 16) return "Enter a valid 16-digit card number.";
-      if (!form.expiry || form.expiry.length < 5) return "Enter a valid expiry (MM/YY).";
+      if (!form.expiry || form.expiry.length < 5)
+        return "Enter a valid expiry (MM/YY).";
       if (!form.cvv || form.cvv.length < 3) return "Enter a valid CVV.";
       if (!form.name.trim()) return "Enter the cardholder name.";
     }
@@ -162,7 +170,10 @@ export default function PaymentScreen({ navigation }) {
 
   async function handlePay() {
     const err = validateForm();
-    if (err) { setPayError(err); return; }
+    if (err) {
+      setPayError(err);
+      return;
+    }
 
     setPaying(true);
     setPayError("");
@@ -203,14 +214,20 @@ export default function PaymentScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={20} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payments</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
         {/* Pay Banner */}
         <View style={styles.payBanner}>
           <View style={styles.bannerGlow} />
@@ -222,19 +239,27 @@ export default function PaymentScreen({ navigation }) {
           )}
           <View style={styles.bannerMeta}>
             <Text style={styles.bannerTier}>
-              {(user?.tier || "standard").charAt(0).toUpperCase() + (user?.tier || "standard").slice(1)} Plan
+              {(user?.tier || "standard").charAt(0).toUpperCase() +
+                (user?.tier || "standard").slice(1)}{" "}
+              Plan
             </Text>
             {user?.autopay && (
               <>
                 <View style={styles.metaDot} />
-                <Text style={styles.bannerDiscount}>5% AutoPay discount applied</Text>
+                <Text style={styles.bannerDiscount}>
+                  5% AutoPay discount applied
+                </Text>
               </>
             )}
           </View>
 
           {paidThisWeek ? (
             <View style={styles.paidBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={COLORS.success}
+              />
               <Text style={styles.paidBadgeText}>Paid this week</Text>
             </View>
           ) : (
@@ -254,31 +279,57 @@ export default function PaymentScreen({ navigation }) {
 
         {payments.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="receipt-outline" size={32} color={COLORS.textFaint} />
+            <Ionicons
+              name="receipt-outline"
+              size={32}
+              color={COLORS.textFaint}
+            />
             <Text style={styles.emptyText}>No payments yet.</Text>
-            <Text style={styles.emptySubText}>Your payment receipts will appear here.</Text>
+            <Text style={styles.emptySubText}>
+              Your payment receipts will appear here.
+            </Text>
           </View>
         ) : (
           <View style={styles.historyCard}>
             {payments.map((p, i) => (
               <View
                 key={p.transaction_id || i}
-                style={[styles.historyRow, i < payments.length - 1 && styles.historyBorder]}
+                style={[
+                  styles.historyRow,
+                  i < payments.length - 1 && styles.historyBorder,
+                ]}
               >
-                <View style={[styles.historyIcon, { backgroundColor: COLORS.successContainer }]}>
+                <View
+                  style={[
+                    styles.historyIcon,
+                    { backgroundColor: COLORS.successContainer },
+                  ]}
+                >
                   <Ionicons
-                    name={p.method === "upi" ? "phone-portrait-outline" : "card-outline"}
+                    name={
+                      p.method === "upi"
+                        ? "phone-portrait-outline"
+                        : "card-outline"
+                    }
                     size={18}
                     color={COLORS.success}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.historyTitle}>
-                    {p.method === "upi" ? "UPI" : p.method === "debit" ? "Debit Card" : "Credit Card"}
+                    {p.method === "upi"
+                      ? "UPI"
+                      : p.method === "debit"
+                        ? "Debit Card"
+                        : "Credit Card"}
                     {" · "}
-                    <Text style={styles.historyTxn}>{p.transaction_id || "—"}</Text>
+                    <Text style={styles.historyTxn}>
+                      {p.transaction_id || "—"}
+                    </Text>
                   </Text>
-                  <Text style={styles.historyDate}>{formatDate(p.timestamp)}</Text>
+                  <Text style={styles.historyDate}>
+                    {formatDate(p.timestamp)}
+                  </Text>
                 </View>
                 <View style={styles.historyRight}>
                   <Text style={styles.historyAmount}>{money(p.amount)}</Text>
@@ -291,7 +342,12 @@ export default function PaymentScreen({ navigation }) {
       </ScrollView>
 
       {/* Payment Modal */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={closeModal}>
+      <Modal
+        visible={showModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeModal}
+      >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -301,11 +357,19 @@ export default function PaymentScreen({ navigation }) {
               /* Success State */
               <View style={styles.successWrap}>
                 <View style={styles.successIcon}>
-                  <Ionicons name="checkmark-circle" size={56} color={COLORS.success} />
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={56}
+                    color={COLORS.success}
+                  />
                 </View>
                 <Text style={styles.successTitle}>Payment Successful</Text>
-                <Text style={styles.successTxn}>{paySuccess.transaction_id}</Text>
-                <Text style={styles.successAmount}>{money(paySuccess.amount)} paid</Text>
+                <Text style={styles.successTxn}>
+                  {paySuccess.transaction_id}
+                </Text>
+                <Text style={styles.successAmount}>
+                  {money(paySuccess.amount)} paid
+                </Text>
                 <TouchableOpacity style={styles.doneBtn} onPress={closeModal}>
                   <Text style={styles.doneBtnText}>Done</Text>
                 </TouchableOpacity>
@@ -315,7 +379,10 @@ export default function PaymentScreen({ navigation }) {
               <>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Pay Premium</Text>
-                  <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
+                  <TouchableOpacity
+                    onPress={closeModal}
+                    style={styles.modalClose}
+                  >
                     <Ionicons name="close" size={20} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -328,15 +395,28 @@ export default function PaymentScreen({ navigation }) {
                   {METHOD_OPTIONS.map((m) => (
                     <TouchableOpacity
                       key={m.id}
-                      style={[styles.methodChip, method === m.id && styles.methodChipActive]}
-                      onPress={() => { setMethod(m.id); setPayError(""); }}
+                      style={[
+                        styles.methodChip,
+                        method === m.id && styles.methodChipActive,
+                      ]}
+                      onPress={() => {
+                        setMethod(m.id);
+                        setPayError("");
+                      }}
                     >
                       <Ionicons
                         name={m.icon}
                         size={16}
-                        color={method === m.id ? COLORS.primary : COLORS.textFaint}
+                        color={
+                          method === m.id ? COLORS.primary : COLORS.textFaint
+                        }
                       />
-                      <Text style={[styles.methodChipText, method === m.id && styles.methodChipTextActive]}>
+                      <Text
+                        style={[
+                          styles.methodChipText,
+                          method === m.id && styles.methodChipTextActive,
+                        ]}
+                      >
                         {m.label}
                       </Text>
                     </TouchableOpacity>
@@ -344,7 +424,10 @@ export default function PaymentScreen({ navigation }) {
                 </View>
 
                 {/* Form Fields */}
-                <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+                <ScrollView
+                  style={styles.formScroll}
+                  showsVerticalScrollIndicator={false}
+                >
                   {method === "upi" ? (
                     <View style={styles.field}>
                       <Text style={styles.fieldLabel}>UPI ID</Text>
@@ -353,11 +436,15 @@ export default function PaymentScreen({ navigation }) {
                         placeholder="yourname@upi"
                         placeholderTextColor={COLORS.textFaint}
                         value={form.upiId}
-                        onChangeText={(t) => setForm((f) => ({ ...f, upiId: t }))}
+                        onChangeText={(t) =>
+                          setForm((f) => ({ ...f, upiId: t }))
+                        }
                         autoCapitalize="none"
                         keyboardType="email-address"
                       />
-                      <Text style={styles.inputHint}>e.g. name@okicici, name@ybl, name@paytm</Text>
+                      <Text style={styles.inputHint}>
+                        e.g. name@okicici, name@ybl, name@paytm
+                      </Text>
                     </View>
                   ) : (
                     <>
@@ -368,7 +455,9 @@ export default function PaymentScreen({ navigation }) {
                           placeholder="Name on card"
                           placeholderTextColor={COLORS.textFaint}
                           value={form.name}
-                          onChangeText={(t) => setForm((f) => ({ ...f, name: t }))}
+                          onChangeText={(t) =>
+                            setForm((f) => ({ ...f, name: t }))
+                          }
                           autoCapitalize="words"
                         />
                       </View>
@@ -379,32 +468,51 @@ export default function PaymentScreen({ navigation }) {
                           placeholder="0000 0000 0000 0000"
                           placeholderTextColor={COLORS.textFaint}
                           value={form.cardNumber}
-                          onChangeText={(t) => setForm((f) => ({ ...f, cardNumber: formatCardNumber(t) }))}
+                          onChangeText={(t) =>
+                            setForm((f) => ({
+                              ...f,
+                              cardNumber: formatCardNumber(t),
+                            }))
+                          }
                           keyboardType="numeric"
                           maxLength={19}
                         />
                       </View>
                       <View style={styles.row}>
-                        <View style={[styles.field, { flex: 1, marginRight: 8 }]}>
+                        <View
+                          style={[styles.field, { flex: 1, marginRight: 8 }]}
+                        >
                           <Text style={styles.fieldLabel}>Expiry</Text>
                           <TextInput
                             style={styles.input}
                             placeholder="MM/YY"
                             placeholderTextColor={COLORS.textFaint}
                             value={form.expiry}
-                            onChangeText={(t) => setForm((f) => ({ ...f, expiry: formatExpiry(t) }))}
+                            onChangeText={(t) =>
+                              setForm((f) => ({
+                                ...f,
+                                expiry: formatExpiry(t),
+                              }))
+                            }
                             keyboardType="numeric"
                             maxLength={5}
                           />
                         </View>
-                        <View style={[styles.field, { flex: 1, marginLeft: 8 }]}>
+                        <View
+                          style={[styles.field, { flex: 1, marginLeft: 8 }]}
+                        >
                           <Text style={styles.fieldLabel}>CVV</Text>
                           <TextInput
                             style={styles.input}
                             placeholder="•••"
                             placeholderTextColor={COLORS.textFaint}
                             value={form.cvv}
-                            onChangeText={(t) => setForm((f) => ({ ...f, cvv: t.replace(/\D/g, "").slice(0, 4) }))}
+                            onChangeText={(t) =>
+                              setForm((f) => ({
+                                ...f,
+                                cvv: t.replace(/\D/g, "").slice(0, 4),
+                              }))
+                            }
                             keyboardType="numeric"
                             secureTextEntry
                             maxLength={4}
@@ -416,13 +524,20 @@ export default function PaymentScreen({ navigation }) {
 
                   {!!payError && (
                     <View style={styles.errorBox}>
-                      <Ionicons name="warning-outline" size={14} color={COLORS.error} />
+                      <Ionicons
+                        name="warning-outline"
+                        size={14}
+                        color={COLORS.error}
+                      />
                       <Text style={styles.errorText}>{payError}</Text>
                     </View>
                   )}
 
                   <TouchableOpacity
-                    style={[styles.submitBtn, paying && styles.submitBtnDisabled]}
+                    style={[
+                      styles.submitBtn,
+                      paying && styles.submitBtnDisabled,
+                    ]}
                     onPress={handlePay}
                     disabled={paying}
                     activeOpacity={0.85}
@@ -432,7 +547,9 @@ export default function PaymentScreen({ navigation }) {
                     ) : (
                       <>
                         <Ionicons name="lock-closed" size={16} color="#fff" />
-                        <Text style={styles.submitBtnText}>Pay {money(amount)}</Text>
+                        <Text style={styles.submitBtnText}>
+                          Pay {money(amount)}
+                        </Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -470,7 +587,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  headerTitle: { fontSize: SIZES.h3, fontFamily: FONTS.bold, color: COLORS.white },
+  headerTitle: {
+    fontSize: SIZES.h3,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
 
   scroll: { padding: SIZES.padding, paddingBottom: SIZES.padding * 3 },
 
@@ -501,11 +622,34 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 6,
   },
-  bannerAmount: { fontSize: 40, fontFamily: FONTS.bold, color: "#fff", marginBottom: 8 },
-  bannerMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: SIZES.padding },
-  bannerTier: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.7)" },
-  bannerDiscount: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.7)" },
-  metaDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)" },
+  bannerAmount: {
+    fontSize: 40,
+    fontFamily: FONTS.bold,
+    color: "#fff",
+    marginBottom: 8,
+  },
+  bannerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: SIZES.padding,
+  },
+  bannerTier: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: "rgba(255,255,255,0.7)",
+  },
+  bannerDiscount: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: "rgba(255,255,255,0.7)",
+  },
+  metaDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.3)",
+  },
 
   payBtn: {
     flexDirection: "row",
@@ -530,7 +674,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: SIZES.radiusFull,
   },
-  paidBadgeText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.success },
+  paidBadgeText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+  },
 
   // Section
   sectionTitle: {
@@ -549,8 +697,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  emptyText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.textMuted },
-  emptySubText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint, textAlign: "center" },
+  emptyText: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.bold,
+    color: COLORS.textMuted,
+  },
+  emptySubText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: COLORS.textFaint,
+    textAlign: "center",
+  },
 
   // History
   historyCard: {
@@ -573,15 +730,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  historyTitle: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white },
-  historyTxn: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint },
-  historyDate: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, marginTop: 2 },
+  historyTitle: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.white,
+  },
+  historyTxn: {
+    fontSize: SIZES.tiny,
+    fontFamily: FONTS.medium,
+    color: COLORS.textFaint,
+  },
+  historyDate: {
+    fontSize: SIZES.tiny,
+    fontFamily: FONTS.medium,
+    color: COLORS.textFaint,
+    marginTop: 2,
+  },
   historyRight: { alignItems: "flex-end" },
-  historyAmount: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
-  historyStatus: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.success, marginTop: 2 },
+  historyAmount: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
+  historyStatus: {
+    fontSize: SIZES.tiny,
+    fontFamily: FONTS.bold,
+    color: COLORS.success,
+    marginTop: 2,
+  },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
   modalSheet: {
     backgroundColor: COLORS.surfaceContainer,
     borderTopLeftRadius: SIZES.radius * 2,
@@ -595,7 +778,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: SIZES.padding,
   },
-  modalTitle: { fontSize: SIZES.h3, fontFamily: FONTS.bold, color: COLORS.white },
+  modalTitle: {
+    fontSize: SIZES.h3,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+  },
   modalClose: {
     width: 36,
     height: 36,
@@ -625,8 +812,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     backgroundColor: COLORS.surfaceHigh,
   },
-  methodChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryContainer },
-  methodChipText: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textFaint },
+  methodChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryContainer,
+  },
+  methodChipText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textFaint,
+  },
   methodChipTextActive: { color: COLORS.primary },
 
   formScroll: { maxHeight: 380 },
@@ -665,7 +859,12 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: SIZES.padding * 0.75,
   },
-  errorText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error, flex: 1 },
+  errorText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: COLORS.error,
+    flex: 1,
+  },
 
   submitBtn: {
     flexDirection: "row",
@@ -679,7 +878,11 @@ const styles = StyleSheet.create({
     ...SHADOWS.button,
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
+  submitBtnText: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.bold,
+    color: "#fff",
+  },
   secureNote: {
     fontSize: SIZES.tiny,
     fontFamily: FONTS.medium,
@@ -691,9 +894,24 @@ const styles = StyleSheet.create({
   // Success
   successWrap: { alignItems: "center", paddingVertical: SIZES.padding * 1.5 },
   successIcon: { marginBottom: SIZES.padding },
-  successTitle: { fontSize: SIZES.h2, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 6 },
-  successTxn: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginBottom: 4 },
-  successAmount: { fontSize: SIZES.body, fontFamily: FONTS.semiBold, color: COLORS.success, marginBottom: SIZES.padding * 1.5 },
+  successTitle: {
+    fontSize: SIZES.h2,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    marginBottom: 6,
+  },
+  successTxn: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    marginBottom: 4,
+  },
+  successAmount: {
+    fontSize: SIZES.body,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.success,
+    marginBottom: SIZES.padding * 1.5,
+  },
   doneBtn: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 40,
