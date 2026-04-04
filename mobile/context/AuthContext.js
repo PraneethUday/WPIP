@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as api from '../lib/api';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as api from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -12,23 +12,23 @@ export function AuthProvider({ children }) {
   const clearSession = async () => {
     setToken(null);
     setUser(null);
-    await AsyncStorage.removeItem('gg_token');
-    await AsyncStorage.removeItem('gg_user');
+    await AsyncStorage.removeItem("gg_token");
+    await AsyncStorage.removeItem("gg_user");
   };
 
   const saveSession = async (newToken, newUser) => {
     setToken(newToken);
     setUser(newUser);
-    await AsyncStorage.setItem('gg_token', newToken);
-    await AsyncStorage.setItem('gg_user', JSON.stringify(newUser));
+    await AsyncStorage.setItem("gg_token", newToken);
+    await AsyncStorage.setItem("gg_user", JSON.stringify(newUser));
   };
 
   // Restore session on mount
   useEffect(() => {
     (async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('gg_token');
-        const storedUser = await AsyncStorage.getItem('gg_user');
+        const storedToken = await AsyncStorage.getItem("gg_token");
+        const storedUser = await AsyncStorage.getItem("gg_user");
         if (storedToken && storedUser) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
             const data = await api.getMe(storedToken);
             if (data.user) {
               setUser(data.user);
-              await AsyncStorage.setItem('gg_user', JSON.stringify(data.user));
+              await AsyncStorage.setItem("gg_user", JSON.stringify(data.user));
             }
           } catch {
             // Token expired — clear session
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
       const data = await api.getMe(token);
       if (data.user) {
         setUser(data.user);
-        await AsyncStorage.setItem('gg_user', JSON.stringify(data.user));
+        await AsyncStorage.setItem("gg_user", JSON.stringify(data.user));
       }
     } catch {
       // silently fail
@@ -93,7 +93,9 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, login, register, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

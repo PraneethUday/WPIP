@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, SafeAreaView,
-  KeyboardAvoidingView, TouchableOpacity, TextInput, Platform, ActivityIndicator,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
-import { useAuth } from '../context/AuthContext';
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS, SIZES, SHADOWS } from "../constants/theme";
+import { useAuth } from "../context/AuthContext";
 
 const LoginScreen = ({ navigation }) => {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      setError('Please enter your email and password.');
+      setError("Please enter your email and password.");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       await login(email.trim(), password);
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -36,8 +43,10 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         {/* Top glow */}
         <View style={styles.bgGlow} />
 
@@ -45,13 +54,19 @@ const LoginScreen = ({ navigation }) => {
           {/* Logo */}
           <View style={styles.logoWrap}>
             <View style={styles.logoIcon}>
-              <Ionicons name="shield-checkmark" size={24} color={COLORS.white} />
+              <Ionicons
+                name="shield-checkmark"
+                size={24}
+                color={COLORS.white}
+              />
             </View>
             <Text style={styles.logoText}>GigGuard</Text>
           </View>
 
           <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your income protection account</Text>
+          <Text style={styles.subtitle}>
+            Sign in to your income protection account
+          </Text>
 
           {/* Card */}
           <View style={styles.card}>
@@ -83,8 +98,15 @@ const LoginScreen = ({ navigation }) => {
                 secureTextEntry={!showPwd}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowPwd(v => !v)} style={styles.eyeBtn}>
-                <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color={COLORS.textFaint} />
+              <TouchableOpacity
+                onPress={() => setShowPwd((v) => !v)}
+                style={styles.eyeBtn}
+              >
+                <Ionicons
+                  name={showPwd ? "eye-off-outline" : "eye-outline"}
+                  size={18}
+                  color={COLORS.textFaint}
+                />
               </TouchableOpacity>
             </View>
 
@@ -105,8 +127,14 @@ const LoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate('SignUp')} style={styles.signupLink}>
-            <Text style={styles.signupLinkText}>Don't have an account? <Text style={{ color: COLORS.primary }}>Register free</Text></Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("SignUp")}
+            style={styles.signupLink}
+          >
+            <Text style={styles.signupLinkText}>
+              Don't have an account?{" "}
+              <Text style={{ color: COLORS.primary }}>Register free</Text>
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -116,32 +144,127 @@ const LoginScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
-  bgGlow: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: COLORS.primary, opacity: 0.06, top: -100, alignSelf: 'center' },
-  content: { flex: 1, paddingHorizontal: SIZES.padding, justifyContent: 'center', paddingBottom: SIZES.padding * 2 },
+  bgGlow: {
+    position: "absolute",
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: COLORS.primary,
+    opacity: 0.06,
+    top: -100,
+    alignSelf: "center",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SIZES.padding,
+    justifyContent: "center",
+    paddingBottom: SIZES.padding * 2,
+  },
 
-  logoWrap: { flexDirection: 'row', alignItems: 'center', gap: SIZES.base, justifyContent: 'center', marginBottom: SIZES.padding * 2 },
-  logoIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  logoWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SIZES.base,
+    justifyContent: "center",
+    marginBottom: SIZES.padding * 2,
+  },
+  logoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   logoText: { fontSize: SIZES.h2, fontFamily: FONTS.bold, color: COLORS.white },
 
-  title: { fontSize: SIZES.h1, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 6 },
-  subtitle: { fontSize: SIZES.small, fontFamily: FONTS.regular, color: COLORS.textMuted, marginBottom: SIZES.padding * 1.5, lineHeight: 20 },
+  title: {
+    fontSize: SIZES.h1,
+    fontFamily: FONTS.bold,
+    color: COLORS.white,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.regular,
+    color: COLORS.textMuted,
+    marginBottom: SIZES.padding * 1.5,
+    lineHeight: 20,
+  },
 
-  card: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.5, padding: SIZES.padding, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
+  card: {
+    backgroundColor: COLORS.surfaceContainer,
+    borderRadius: SIZES.radius * 1.5,
+    padding: SIZES.padding,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
+  },
 
-  errorBox: { backgroundColor: COLORS.errorContainer, borderRadius: SIZES.radius, paddingHorizontal: 12, paddingVertical: 10, marginBottom: SIZES.base, borderWidth: 1, borderColor: COLORS.error + '40' },
-  errorText: { color: COLORS.error, fontSize: SIZES.small, fontFamily: FONTS.medium },
+  errorBox: {
+    backgroundColor: COLORS.errorContainer,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: SIZES.base,
+    borderWidth: 1,
+    borderColor: COLORS.error + "40",
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+  },
 
-  fieldLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted, marginBottom: 6, marginTop: SIZES.padding * 0.5 },
-  fieldInput: { height: 48, backgroundColor: COLORS.surfaceHighest, borderRadius: SIZES.radius, paddingHorizontal: 14, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.white, borderWidth: 1, borderColor: COLORS.border },
+  fieldLabel: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.semiBold,
+    color: COLORS.textMuted,
+    marginBottom: 6,
+    marginTop: SIZES.padding * 0.5,
+  },
+  fieldInput: {
+    height: 48,
+    backgroundColor: COLORS.surfaceHighest,
+    borderRadius: SIZES.radius,
+    paddingHorizontal: 14,
+    fontSize: SIZES.body,
+    fontFamily: FONTS.regular,
+    color: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
 
-  passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceHighest, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border, height: 48, paddingLeft: 14 },
+  passwordWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.surfaceHighest,
+    borderRadius: SIZES.radius,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    height: 48,
+    paddingLeft: 14,
+  },
   eyeBtn: { paddingHorizontal: 14 },
 
-  loginBtn: { height: 52, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, ...SHADOWS.button },
-  loginBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: '#fff' },
+  loginBtn: {
+    height: 52,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: COLORS.primary,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    ...SHADOWS.button,
+  },
+  loginBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
 
-  signupLink: { alignItems: 'center', marginTop: SIZES.padding * 1.5 },
-  signupLinkText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint },
+  signupLink: { alignItems: "center", marginTop: SIZES.padding * 1.5 },
+  signupLinkText: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: COLORS.textFaint,
+  },
 });
 
 export default LoginScreen;
