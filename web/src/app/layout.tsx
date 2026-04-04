@@ -1,17 +1,27 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'Worker Protection Insurance Platoform (WPIP) — Income Protection for Delivery Workers',
-  description: 'Parametric insurance for gig workers across Swiggy, Zomato, Blinkit & more.',
-}
+  title:
+    "Worker Protection Insurance Platoform (WPIP) — Income Protection for Delivery Workers",
+  description:
+    "Parametric insurance for gig workers across Swiggy, Zomato, Blinkit & more.",
+};
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
@@ -19,5 +29,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>{children}</body>
     </html>
-  )
+  );
 }

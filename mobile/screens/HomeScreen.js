@@ -207,9 +207,7 @@ const HomeScreen = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>
-            Loading your WPIP dashboard...
-          </Text>
+          <Text style={styles.loaderText}>Loading your WPIP dashboard...</Text>
         </View>
       </SafeAreaView>
     );

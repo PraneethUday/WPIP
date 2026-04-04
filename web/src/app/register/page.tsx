@@ -1,304 +1,745 @@
-'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const PLATFORMS = [
-  { id: 'zomato', name: 'Zomato', symbol: 'ZO', bg: '#fff1f2', color: '#be123c', border: '#fecdd3' },
-  { id: 'swiggy', name: 'Swiggy', symbol: 'SW', bg: '#eef2ff', color: '#4f46e5', border: '#c7d2fe' },
-  { id: 'amazon', name: 'Amazon Flex', symbol: 'AF', bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
-  { id: 'blinkit', name: 'Blinkit', symbol: 'BL', bg: '#fefce8', color: '#a16207', border: '#fde047' },
-  { id: 'zepto', name: 'Zepto', symbol: 'ZE', bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
-  { id: 'meesho', name: 'Meesho', symbol: 'ME', bg: '#fdf4ff', color: '#a21caf', border: '#f0abfc' },
-  { id: 'porter', name: 'Porter', symbol: 'PO', bg: '#ecfeff', color: '#0f766e', border: '#99f6e4' },
-  { id: 'dunzo', name: 'Dunzo', symbol: 'DZ', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
-]
-const CITIES = ['Bengaluru', 'Chennai', 'Delhi', 'Mumbai', 'Hyderabad', 'Pune', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Surat']
-const STEPS = ['Platform', 'Personal Info', 'Documents', 'Coverage']
+  {
+    id: "zomato",
+    name: "Zomato",
+    symbol: "ZO",
+    bg: "#fff1f2",
+    color: "#be123c",
+    border: "#fecdd3",
+  },
+  {
+    id: "swiggy",
+    name: "Swiggy",
+    symbol: "SW",
+    bg: "#eef2ff",
+    color: "#4f46e5",
+    border: "#c7d2fe",
+  },
+  {
+    id: "amazon",
+    name: "Amazon Flex",
+    symbol: "AF",
+    bg: "#fffbeb",
+    color: "#b45309",
+    border: "#fde68a",
+  },
+  {
+    id: "blinkit",
+    name: "Blinkit",
+    symbol: "BL",
+    bg: "#fefce8",
+    color: "#a16207",
+    border: "#fde047",
+  },
+  {
+    id: "zepto",
+    name: "Zepto",
+    symbol: "ZE",
+    bg: "#f5f3ff",
+    color: "#6d28d9",
+    border: "#ddd6fe",
+  },
+  {
+    id: "meesho",
+    name: "Meesho",
+    symbol: "ME",
+    bg: "#fdf4ff",
+    color: "#a21caf",
+    border: "#f0abfc",
+  },
+  {
+    id: "porter",
+    name: "Porter",
+    symbol: "PO",
+    bg: "#ecfeff",
+    color: "#0f766e",
+    border: "#99f6e4",
+  },
+  {
+    id: "dunzo",
+    name: "Dunzo",
+    symbol: "DZ",
+    bg: "#eff6ff",
+    color: "#1d4ed8",
+    border: "#bfdbfe",
+  },
+];
+const CITIES = [
+  "Bengaluru",
+  "Chennai",
+  "Delhi",
+  "Mumbai",
+  "Hyderabad",
+  "Pune",
+  "Kolkata",
+  "Ahmedabad",
+  "Jaipur",
+  "Surat",
+];
+const STEPS = ["Platform", "Personal Info", "Documents", "Coverage"];
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 44, padding: '0 14px', fontSize: 14,
-  border: '1px solid #d1d5db', borderRadius: 8, outline: 'none',
-  transition: 'border-color 0.15s, box-shadow 0.15s',
-}
+  width: "100%",
+  height: 44,
+  padding: "0 14px",
+  fontSize: 14,
+  border: "1px solid #d1d5db",
+  borderRadius: 8,
+  outline: "none",
+  transition: "border-color 0.15s, box-shadow 0.15s",
+};
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6,
-}
+  display: "block",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#374151",
+  marginBottom: 6,
+};
 const focusHandler = {
-  onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => { e.target.style.borderColor = '#4f46e5'; e.target.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.1)' },
-  onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none' },
-}
+  onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = "#4f46e5";
+    e.target.style.boxShadow = "0 0 0 3px rgba(79,70,229,0.1)";
+  },
+  onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = "#d1d5db";
+    e.target.style.boxShadow = "none";
+  },
+};
 
 const platformLabel = (id: string) => {
-  const platform = PLATFORMS.find((p) => p.id === id)
-  if (!platform) return id
-  return `${platform.symbol} ${platform.name}`
-}
+  const platform = PLATFORMS.find((p) => p.id === id);
+  if (!platform) return id;
+  return `${platform.symbol} ${platform.name}`;
+};
 
 type Form = {
-  platforms: string[]; name: string; age: string; phone: string; email: string;
-  password: string; confirmPassword: string;
-  pan: string; aadhaar: string; city: string; area: string; deliveryId: string;
-  upi: string; bank: string;
-  consent: boolean; gpsConsent: boolean; autopay: boolean; tier: string;
-}
+  platforms: string[];
+  name: string;
+  age: string;
+  phone: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  pan: string;
+  aadhaar: string;
+  city: string;
+  area: string;
+  deliveryId: string;
+  upi: string;
+  bank: string;
+  consent: boolean;
+  gpsConsent: boolean;
+  autopay: boolean;
+  tier: string;
+};
 
 export default function RegisterPage() {
-  const router = useRouter()
-  const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [verifyResult, setVerifyResult] = useState<{verified: boolean; matched_platforms: string[]} | null>(null)
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{
+    verified: boolean;
+    matched_platforms: string[];
+  } | null>(null);
 
   const [form, setForm] = useState<Form>({
-    platforms: [], name: '', age: '', phone: '', email: '',
-    password: '', confirmPassword: '',
-    pan: '', aadhaar: '', city: '', area: '', deliveryId: '',
-    upi: '', bank: '',
-    consent: false, gpsConsent: false, autopay: false, tier: 'standard',
-  })
+    platforms: [],
+    name: "",
+    age: "",
+    phone: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    pan: "",
+    aadhaar: "",
+    city: "",
+    area: "",
+    deliveryId: "",
+    upi: "",
+    bank: "",
+    consent: false,
+    gpsConsent: false,
+    autopay: false,
+    tier: "standard",
+  });
 
-  const update = (key: keyof Form, val: unknown) => setForm(p => ({ ...p, [key]: val }))
+  const update = (key: keyof Form, val: unknown) =>
+    setForm((p) => ({ ...p, [key]: val }));
   const togglePlatform = (id: string) =>
-    setForm(p => ({ ...p, platforms: p.platforms.includes(id) ? p.platforms.filter(x => x !== id) : [...p.platforms, id] }))
-  const nextStep = () => { setError(''); setStep(s => Math.min(s + 1, 4)) }
-  const prevStep = () => { setError(''); setStep(s => Math.max(s - 1, 1)) }
+    setForm((p) => ({
+      ...p,
+      platforms: p.platforms.includes(id)
+        ? p.platforms.filter((x) => x !== id)
+        : [...p.platforms, id],
+    }));
+  const nextStep = () => {
+    setError("");
+    setStep((s) => Math.min(s + 1, 4));
+  };
+  const prevStep = () => {
+    setError("");
+    setStep((s) => Math.max(s - 1, 1));
+  };
 
-  const weeklyPremium = form.tier === 'basic' ? 30 : form.tier === 'standard' ? 60 : 105
-  const maxPayout = form.tier === 'basic' ? 500 : form.tier === 'standard' ? 1200 : 2500
+  const weeklyPremium =
+    form.tier === "basic" ? 30 : form.tier === "standard" ? 60 : 105;
+  const maxPayout =
+    form.tier === "basic" ? 500 : form.tier === "standard" ? 1200 : 2500;
 
   const handleSubmit = async () => {
-    if (form.password !== form.confirmPassword) { setError('Passwords do not match.'); return }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name, age: form.age, phone: form.phone,
-          email: form.email, password: form.password,
-          city: form.city, area: form.area, deliveryId: form.deliveryId,
-          platforms: form.platforms, pan: form.pan, aadhaar: form.aadhaar,
-          upi: form.upi, bank: form.bank,
-          consent: form.consent, gpsConsent: form.gpsConsent,
-          autopay: form.autopay, tier: form.tier,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Registration failed.'); return }
-      localStorage.setItem('gg_token', data.token)
-      localStorage.setItem('gg_user', JSON.stringify(data.user))
-      router.push('/dashboard')
-    } catch {
-      setError('Something went wrong. Please try again.')
-    } finally {
-      setLoading(false)
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
     }
-  }
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          age: form.age,
+          phone: form.phone,
+          email: form.email,
+          password: form.password,
+          city: form.city,
+          area: form.area,
+          deliveryId: form.deliveryId,
+          platforms: form.platforms,
+          pan: form.pan,
+          aadhaar: form.aadhaar,
+          upi: form.upi,
+          bank: form.bank,
+          consent: form.consent,
+          gpsConsent: form.gpsConsent,
+          autopay: form.autopay,
+          tier: form.tier,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Registration failed.");
+        return;
+      }
+      localStorage.setItem("gg_token", data.token);
+      localStorage.setItem("gg_user", JSON.stringify(data.user));
+      router.push("/dashboard");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleVerifyId = async () => {
     if (!form.deliveryId || form.platforms.length === 0) {
-      setError('Enter your Delivery Partner ID and select at least one platform first.')
-      return
+      setError(
+        "Enter your Delivery Partner ID and select at least one platform first.",
+      );
+      return;
     }
-    setVerifying(true)
-    setError('')
-    setVerifyResult(null)
+    setVerifying(true);
+    setError("");
+    setVerifyResult(null);
     try {
-      const res = await fetch('/api/verify-id', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deliveryId: form.deliveryId, platforms: form.platforms }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Verification failed.'); return }
-      setVerifyResult(data)
+      const res = await fetch("/api/verify-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryId: form.deliveryId,
+          platforms: form.platforms,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Verification failed.");
+        return;
+      }
+      setVerifyResult(data);
       if (!data.verified) {
-        setError('Your Delivery Partner ID was not found in the selected platform databases. Please check your ID and try again. You can still register, but admin approval will require manual verification.')
+        setError(
+          "Your Delivery Partner ID was not found in the selected platform databases. Please check your ID and try again. You can still register, but admin approval will require manual verification.",
+        );
       }
     } catch {
-      setError('Verification service unavailable. You can still proceed with registration.')
+      setError(
+        "Verification service unavailable. You can still proceed with registration.",
+      );
     } finally {
-      setVerifying(false)
+      setVerifying(false);
     }
-  }
+  };
 
   const btnPrimary: React.CSSProperties = {
-    height: 44, background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 8,
-    fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s', flex: 2,
-  }
+    height: 44,
+    background: "#4f46e5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 0.15s",
+    flex: 2,
+  };
   const btnOutline: React.CSSProperties = {
-    height: 44, background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 8,
-    fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s', flex: 1,
-  }
+    height: 44,
+    background: "#fff",
+    color: "#374151",
+    border: "1px solid #d1d5db",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 0.15s",
+    flex: 1,
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 24px' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        padding: "32px 24px",
+      }}
+    >
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{
-            width: 48, height: 48, background: '#4f46e5', borderRadius: 12,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 12,
-          }}>GG</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', margin: 0 }}>Create your account</h1>
-          <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Register as a delivery partner on Worker Protection Insurance Platoform (WPIP)</p>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              background: "#4f46e5",
+              borderRadius: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 18,
+              fontWeight: 800,
+              color: "#fff",
+              marginBottom: 12,
+            }}
+          >
+            GG
+          </div>
+          <h1
+            style={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: "#0f172a",
+              margin: 0,
+            }}
+          >
+            Create your account
+          </h1>
+          <p style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>
+            Register as a delivery partner on Worker Protection Insurance
+            Platoform (WPIP)
+          </p>
         </div>
 
         {/* Stepper */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            marginBottom: 32,
+          }}
+        >
           {STEPS.map((s, i) => (
-            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 600,
-                background: step > i + 1 ? '#4f46e5' : step === i + 1 ? '#4f46e5' : '#e2e8f0',
-                color: step >= i + 1 ? '#fff' : '#64748b',
-                transition: 'all 0.2s',
-              }}>
-                {step > i + 1 ? '\u2713' : i + 1}
+            <div
+              key={s}
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background:
+                    step > i + 1
+                      ? "#4f46e5"
+                      : step === i + 1
+                        ? "#4f46e5"
+                        : "#e2e8f0",
+                  color: step >= i + 1 ? "#fff" : "#64748b",
+                  transition: "all 0.2s",
+                }}
+              >
+                {step > i + 1 ? "\u2713" : i + 1}
               </div>
-              <span style={{ fontSize: 13, fontWeight: step === i + 1 ? 600 : 400, color: step === i + 1 ? '#0f172a' : '#64748b', display: i < 3 ? undefined : undefined }}>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: step === i + 1 ? 600 : 400,
+                  color: step === i + 1 ? "#0f172a" : "#64748b",
+                  display: i < 3 ? undefined : undefined,
+                }}
+              >
                 {s}
               </span>
-              {i < STEPS.length - 1 && <div style={{ width: 32, height: 2, background: step > i + 1 ? '#4f46e5' : '#e2e8f0', borderRadius: 1 }} />}
+              {i < STEPS.length - 1 && (
+                <div
+                  style={{
+                    width: 32,
+                    height: 2,
+                    background: step > i + 1 ? "#4f46e5" : "#e2e8f0",
+                    borderRadius: 1,
+                  }}
+                />
+              )}
             </div>
           ))}
         </div>
 
         {/* Error */}
         {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
-            padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#dc2626', fontWeight: 500,
-          }}>{error}</div>
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 8,
+              padding: "10px 14px",
+              marginBottom: 16,
+              fontSize: 13,
+              color: "#dc2626",
+              fontWeight: 500,
+            }}
+          >
+            {error}
+          </div>
         )}
 
         {/* Card */}
-        <div style={{
-          background: '#fff', borderRadius: 16, padding: 32,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
-          border: '1px solid #e2e8f0',
-        }}>
-
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: 32,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)",
+            border: "1px solid #e2e8f0",
+          }}
+        >
           {/* Step 1: Platforms */}
           {step === 1 && (
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Choose your platforms</h2>
-              <p style={{ color: '#64748b', fontSize: 14, marginBottom: 24 }}>Select all delivery platforms you work with.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
-                {PLATFORMS.map(p => {
-                  const sel = form.platforms.includes(p.id)
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
+                Choose your platforms
+              </h2>
+              <p style={{ color: "#64748b", fontSize: 14, marginBottom: 24 }}>
+                Select all delivery platforms you work with.
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 10,
+                  marginBottom: 24,
+                }}
+              >
+                {PLATFORMS.map((p) => {
+                  const sel = form.platforms.includes(p.id);
                   return (
-                    <div key={p.id} onClick={() => togglePlatform(p.id)} style={{
-                      padding: '14px 12px', textAlign: 'center', cursor: 'pointer', borderRadius: 10,
-                      border: sel ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      background: sel ? '#eef2ff' : '#fff',
-                      transition: 'all 0.15s',
-                    }}>
-                      <div style={{
-                        width: 34, height: 34, margin: '0 auto 8px', borderRadius: 9,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 800, letterSpacing: 0.4,
-                        background: p.bg, color: p.color,
-                        border: `1px solid ${sel ? '#4f46e5' : p.border}`,
-                      }}>{p.symbol}</div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: sel ? '#4f46e5' : '#374151' }}>{p.name}</div>
-                      {sel && <div style={{ fontSize: 12, color: '#4f46e5', marginTop: 4, fontWeight: 500 }}>Selected</div>}
+                    <div
+                      key={p.id}
+                      onClick={() => togglePlatform(p.id)}
+                      style={{
+                        padding: "14px 12px",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        border: sel ? "2px solid #4f46e5" : "1px solid #e2e8f0",
+                        background: sel ? "#eef2ff" : "#fff",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 34,
+                          height: 34,
+                          margin: "0 auto 8px",
+                          borderRadius: 9,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: 0.4,
+                          background: p.bg,
+                          color: p.color,
+                          border: `1px solid ${sel ? "#4f46e5" : p.border}`,
+                        }}
+                      >
+                        {p.symbol}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: sel ? "#4f46e5" : "#374151",
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                      {sel && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#4f46e5",
+                            marginTop: 4,
+                            fontWeight: 500,
+                          }}
+                        >
+                          Selected
+                        </div>
+                      )}
                     </div>
-                  )
+                  );
                 })}
               </div>
               {form.platforms.length > 0 && (
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#16a34a', fontWeight: 500 }}>
-                  {form.platforms.length} platform{form.platforms.length > 1 ? 's' : ''} selected
+                <div
+                  style={{
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    marginBottom: 20,
+                    fontSize: 13,
+                    color: "#16a34a",
+                    fontWeight: 500,
+                  }}
+                >
+                  {form.platforms.length} platform
+                  {form.platforms.length > 1 ? "s" : ""} selected
                 </div>
               )}
-              <button disabled={form.platforms.length === 0} onClick={nextStep} style={{
-                ...btnPrimary, width: '100%', flex: undefined,
-                opacity: form.platforms.length === 0 ? 0.5 : 1,
-                cursor: form.platforms.length === 0 ? 'not-allowed' : 'pointer',
-              }}>Continue</button>
+              <button
+                disabled={form.platforms.length === 0}
+                onClick={nextStep}
+                style={{
+                  ...btnPrimary,
+                  width: "100%",
+                  flex: undefined,
+                  opacity: form.platforms.length === 0 ? 0.5 : 1,
+                  cursor:
+                    form.platforms.length === 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                Continue
+              </button>
             </div>
           )}
 
           {/* Step 2: Personal Info */}
           {step === 2 && (
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Personal information</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div style={{ gridColumn: '1 / -1' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
+                Personal information
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                }}
+              >
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Full Name</label>
-                  <input style={inputStyle} placeholder="Your full name" value={form.name} onChange={e => update('name', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="Your full name"
+                    value={form.name}
+                    onChange={(e) => update("name", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Age</label>
-                  <input style={inputStyle} placeholder="25" type="number" value={form.age} onChange={e => update('age', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="25"
+                    type="number"
+                    value={form.age}
+                    onChange={(e) => update("age", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Phone</label>
-                  <input style={inputStyle} placeholder="+91 98765 43210" value={form.phone} onChange={e => update('phone', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="+91 98765 43210"
+                    value={form.phone}
+                    onChange={(e) => update("phone", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Email</label>
-                  <input style={inputStyle} type="email" placeholder="you@example.com" value={form.email} onChange={e => update('email', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    type="email"
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(e) => update("email", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Password</label>
-                  <input style={inputStyle} type="password" placeholder="Min. 6 characters" value={form.password} onChange={e => update('password', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    type="password"
+                    placeholder="Min. 6 characters"
+                    value={form.password}
+                    onChange={(e) => update("password", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Confirm Password</label>
-                  <input style={inputStyle} type="password" placeholder="Re-enter password" value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    type="password"
+                    placeholder="Re-enter password"
+                    value={form.confirmPassword}
+                    onChange={(e) => update("confirmPassword", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>City</label>
-                  <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.city} onChange={e => update('city', e.target.value)} {...focusHandler}>
+                  <select
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                    value={form.city}
+                    onChange={(e) => update("city", e.target.value)}
+                    {...focusHandler}
+                  >
                     <option value="">Select city</option>
-                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Delivery Area / Zone</label>
-                  <input style={inputStyle} placeholder="e.g. Koramangala" value={form.area} onChange={e => update('area', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="e.g. Koramangala"
+                    value={form.area}
+                    onChange={(e) => update("area", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Primary Delivery Partner ID</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input style={{ ...inputStyle, flex: 1 }} placeholder="Your ID from the platform app" value={form.deliveryId} onChange={e => { update('deliveryId', e.target.value); setVerifyResult(null) }} {...focusHandler} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      style={{ ...inputStyle, flex: 1 }}
+                      placeholder="Your ID from the platform app"
+                      value={form.deliveryId}
+                      onChange={(e) => {
+                        update("deliveryId", e.target.value);
+                        setVerifyResult(null);
+                      }}
+                      {...focusHandler}
+                    />
                     <button
                       type="button"
                       onClick={handleVerifyId}
                       disabled={verifying || !form.deliveryId}
                       style={{
-                        height: 44, padding: '0 18px', background: '#0f172a', color: '#fff',
-                        border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                        cursor: verifying || !form.deliveryId ? 'not-allowed' : 'pointer',
-                        opacity: verifying || !form.deliveryId ? 0.5 : 1, whiteSpace: 'nowrap',
+                        height: 44,
+                        padding: "0 18px",
+                        background: "#0f172a",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor:
+                          verifying || !form.deliveryId
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity: verifying || !form.deliveryId ? 0.5 : 1,
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {verifying ? 'Verifying...' : 'Verify ID'}
+                      {verifying ? "Verifying..." : "Verify ID"}
                     </button>
                   </div>
-                  <p style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Click &quot;Verify ID&quot; to check if your partner ID exists in the selected platform databases.</p>
+                  <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    Click &quot;Verify ID&quot; to check if your partner ID
+                    exists in the selected platform databases.
+                  </p>
                   {verifyResult && verifyResult.verified && (
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginTop: 8, fontSize: 13, color: '#16a34a', fontWeight: 500 }}>
-                      ID verified on: {verifyResult.matched_platforms.map((id) => platformLabel(id)).join(', ')}
+                    <div
+                      style={{
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        marginTop: 8,
+                        fontSize: 13,
+                        color: "#16a34a",
+                        fontWeight: 500,
+                      }}
+                    >
+                      ID verified on:{" "}
+                      {verifyResult.matched_platforms
+                        .map((id) => platformLabel(id))
+                        .join(", ")}
                     </div>
                   )}
                   {verifyResult && !verifyResult.verified && (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginTop: 8, fontSize: 13, color: '#dc2626', fontWeight: 500 }}>
-                      ID not found in any selected platform database. You can still register, but approval will require manual verification by admin.
+                    <div
+                      style={{
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        marginTop: 8,
+                        fontSize: 13,
+                        color: "#dc2626",
+                        fontWeight: 500,
+                      }}
+                    >
+                      ID not found in any selected platform database. You can
+                      still register, but approval will require manual
+                      verification by admin.
                     </div>
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                <button onClick={prevStep} style={btnOutline}>Back</button>
-                <button onClick={nextStep} style={btnPrimary}>Continue</button>
+              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+                <button onClick={prevStep} style={btnOutline}>
+                  Back
+                </button>
+                <button onClick={nextStep} style={btnPrimary}>
+                  Continue
+                </button>
               </div>
             </div>
           )}
@@ -306,43 +747,138 @@ export default function RegisterPage() {
           {/* Step 3: Documents */}
           {step === 3 && (
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Identity & payment</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
+                Identity & payment
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                }}
+              >
                 <div>
                   <label style={labelStyle}>PAN Card Number</label>
-                  <input style={inputStyle} placeholder="ABCDE1234F" value={form.pan} onChange={e => update('pan', e.target.value.toUpperCase())} maxLength={10} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="ABCDE1234F"
+                    value={form.pan}
+                    onChange={(e) =>
+                      update("pan", e.target.value.toUpperCase())
+                    }
+                    maxLength={10}
+                    {...focusHandler}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Aadhaar Number</label>
-                  <input style={inputStyle} placeholder="1234 5678 9012" value={form.aadhaar} onChange={e => update('aadhaar', e.target.value)} maxLength={12} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="1234 5678 9012"
+                    value={form.aadhaar}
+                    onChange={(e) => update("aadhaar", e.target.value)}
+                    maxLength={12}
+                    {...focusHandler}
+                  />
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>UPI ID (for payouts)</label>
-                  <input style={inputStyle} placeholder="yourname@upi" value={form.upi} onChange={e => update('upi', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="yourname@upi"
+                    value={form.upi}
+                    onChange={(e) => update("upi", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
-                <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Bank Account (optional)</label>
-                  <input style={inputStyle} placeholder="IFSC + Account Number" value={form.bank} onChange={e => update('bank', e.target.value)} {...focusHandler} />
+                  <input
+                    style={inputStyle}
+                    placeholder="IFSC + Account Number"
+                    value={form.bank}
+                    onChange={(e) => update("bank", e.target.value)}
+                    {...focusHandler}
+                  />
                 </div>
               </div>
 
-              <div style={{ marginTop: 24, borderTop: '1px solid #e2e8f0', paddingTop: 20 }}>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 14 }}>Consent & authorisations</p>
+              <div
+                style={{
+                  marginTop: 24,
+                  borderTop: "1px solid #e2e8f0",
+                  paddingTop: 20,
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 14,
+                  }}
+                >
+                  Consent & authorisations
+                </p>
                 {[
-                  { key: 'consent' as keyof Form, label: 'I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims.' },
-                  { key: 'gpsConsent' as keyof Form, label: 'I authorise GPS location validation during disruption events for fraud prevention.' },
-                  { key: 'autopay' as keyof Form, label: 'Enable AutoPay — auto-deduct weekly premium from platform payout (5% discount).' },
-                ].map(item => (
-                  <label key={item.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 12 }}>
-                    <input type="checkbox" checked={!!form[item.key]} onChange={e => update(item.key, e.target.checked)}
-                      style={{ width: 18, height: 18, accentColor: '#4f46e5', cursor: 'pointer', marginTop: 2, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{item.label}</span>
+                  {
+                    key: "consent" as keyof Form,
+                    label:
+                      "I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims.",
+                  },
+                  {
+                    key: "gpsConsent" as keyof Form,
+                    label:
+                      "I authorise GPS location validation during disruption events for fraud prevention.",
+                  },
+                  {
+                    key: "autopay" as keyof Form,
+                    label:
+                      "Enable AutoPay — auto-deduct weekly premium from platform payout (5% discount).",
+                  },
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      cursor: "pointer",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!form[item.key]}
+                      onChange={(e) => update(item.key, e.target.checked)}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        accentColor: "#4f46e5",
+                        cursor: "pointer",
+                        marginTop: 2,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: "#374151",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {item.label}
+                    </span>
                   </label>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                <button onClick={prevStep} style={btnOutline}>Back</button>
-                <button onClick={nextStep} style={btnPrimary}>Continue</button>
+              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+                <button onClick={prevStep} style={btnOutline}>
+                  Back
+                </button>
+                <button onClick={nextStep} style={btnPrimary}>
+                  Continue
+                </button>
               </div>
             </div>
           )}
@@ -350,50 +886,160 @@ export default function RegisterPage() {
           {/* Step 4: Coverage */}
           {step === 4 && (
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Choose your coverage</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
+                Choose your coverage
+              </h2>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 12,
+                  marginBottom: 24,
+                }}
+              >
                 {[
-                  { id: 'basic', tier: 'Basic', price: '20-40', payout: '500' },
-                  { id: 'standard', tier: 'Standard', price: '40-80', payout: '1,200', recommended: true },
-                  { id: 'pro', tier: 'Pro', price: '80-130', payout: '2,500' },
-                ].map(t => {
-                  const sel = form.tier === t.id
+                  { id: "basic", tier: "Basic", price: "20-40", payout: "500" },
+                  {
+                    id: "standard",
+                    tier: "Standard",
+                    price: "40-80",
+                    payout: "1,200",
+                    recommended: true,
+                  },
+                  { id: "pro", tier: "Pro", price: "80-130", payout: "2,500" },
+                ].map((t) => {
+                  const sel = form.tier === t.id;
                   return (
-                    <div key={t.id} onClick={() => update('tier', t.id)} style={{
-                      padding: 20, cursor: 'pointer', borderRadius: 12, textAlign: 'center',
-                      border: sel ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                      background: sel ? '#eef2ff' : '#fff', transition: 'all 0.15s', position: 'relative',
-                    }}>
-                      {t.recommended && <div style={{ position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)', background: '#4f46e5', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 10, whiteSpace: 'nowrap' }}>Recommended</div>}
-                      <div style={{ fontSize: 15, fontWeight: 700, color: sel ? '#4f46e5' : '#0f172a', marginBottom: 4 }}>{t.tier}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: sel ? '#4f46e5' : '#0f172a' }}>&#8377;{t.price}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>per week</div>
-                      <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>Max payout: &#8377;{t.payout}</div>
+                    <div
+                      key={t.id}
+                      onClick={() => update("tier", t.id)}
+                      style={{
+                        padding: 20,
+                        cursor: "pointer",
+                        borderRadius: 12,
+                        textAlign: "center",
+                        border: sel ? "2px solid #4f46e5" : "1px solid #e2e8f0",
+                        background: sel ? "#eef2ff" : "#fff",
+                        transition: "all 0.15s",
+                        position: "relative",
+                      }}
+                    >
+                      {t.recommended && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -10,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            background: "#4f46e5",
+                            color: "#fff",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: "2px 10px",
+                            borderRadius: 10,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Recommended
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: sel ? "#4f46e5" : "#0f172a",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {t.tier}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 22,
+                          fontWeight: 800,
+                          color: sel ? "#4f46e5" : "#0f172a",
+                        }}
+                      >
+                        &#8377;{t.price}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>
+                        per week
+                      </div>
+                      <div
+                        style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}
+                      >
+                        Max payout: &#8377;{t.payout}
+                      </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
 
               {/* Summary */}
-              <div style={{ background: '#f8fafc', borderRadius: 10, padding: 20, marginBottom: 24, border: '1px solid #e2e8f0' }}>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Summary</p>
+              <div
+                style={{
+                  background: "#f8fafc",
+                  borderRadius: 10,
+                  padding: 20,
+                  marginBottom: 24,
+                  border: "1px solid #e2e8f0",
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 12,
+                  }}
+                >
+                  Summary
+                </p>
                 {[
-                  ['Platforms', form.platforms.map((id) => platformLabel(id)).join(', ') || '-'],
-                  ['Weekly Premium (est.)', `\u20B9${weeklyPremium}`],
-                  ['Max Weekly Payout', `\u20B9${maxPayout}`],
-                  ['AutoPay', form.autopay ? 'Enabled (5% discount)' : 'Disabled'],
+                  [
+                    "Platforms",
+                    form.platforms.map((id) => platformLabel(id)).join(", ") ||
+                      "-",
+                  ],
+                  ["Weekly Premium (est.)", `\u20B9${weeklyPremium}`],
+                  ["Max Weekly Payout", `\u20B9${maxPayout}`],
+                  [
+                    "AutoPay",
+                    form.autopay ? "Enabled (5% discount)" : "Disabled",
+                  ],
                 ].map(([k, v]) => (
-                  <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0', fontSize: 13 }}>
-                    <span style={{ color: '#64748b' }}>{k}</span>
-                    <span style={{ fontWeight: 600, color: '#0f172a' }}>{v}</span>
+                  <div
+                    key={k}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "8px 0",
+                      borderBottom: "1px solid #e2e8f0",
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: "#64748b" }}>{k}</span>
+                    <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                      {v}
+                    </span>
                   </div>
                 ))}
               </div>
 
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button onClick={prevStep} style={btnOutline}>Back</button>
-                <button onClick={handleSubmit} disabled={loading} style={{ ...btnPrimary, opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
-                  {loading ? 'Creating account...' : 'Create account'}
+              <div style={{ display: "flex", gap: 12 }}>
+                <button onClick={prevStep} style={btnOutline}>
+                  Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  style={{
+                    ...btnPrimary,
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading ? "Creating account..." : "Create account"}
                 </button>
               </div>
             </div>
@@ -401,11 +1047,23 @@ export default function RegisterPage() {
         </div>
 
         {/* Footer */}
-        <p style={{ textAlign: 'center', fontSize: 14, color: '#64748b', marginTop: 24 }}>
-          Already have an account?{' '}
-          <span style={{ color: '#4f46e5', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/login')}>Sign in</span>
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 14,
+            color: "#64748b",
+            marginTop: 24,
+          }}
+        >
+          Already have an account?{" "}
+          <span
+            style={{ color: "#4f46e5", fontWeight: 600, cursor: "pointer" }}
+            onClick={() => router.push("/login")}
+          >
+            Sign in
+          </span>
         </p>
       </div>
     </div>
-  )
+  );
 }

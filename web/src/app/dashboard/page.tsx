@@ -58,7 +58,11 @@ const PLATFORM_META: Record<
 > = {
   swiggy: { name: "Swiggy", symbol: "SW", iconClass: "platformIconSwiggy" },
   zomato: { name: "Zomato", symbol: "ZO", iconClass: "platformIconZomato" },
-  amazon: { name: "Amazon Flex", symbol: "AF", iconClass: "platformIconAmazon" },
+  amazon: {
+    name: "Amazon Flex",
+    symbol: "AF",
+    iconClass: "platformIconAmazon",
+  },
   blinkit: { name: "Blinkit", symbol: "BL", iconClass: "platformIconBlinkit" },
   zepto: { name: "Zepto", symbol: "ZE", iconClass: "platformIconZepto" },
   meesho: { name: "Meesho", symbol: "ME", iconClass: "platformIconMeesho" },
@@ -68,7 +72,10 @@ const PLATFORM_META: Record<
 
 const TIERS: Tier[] = ["basic", "standard", "pro"];
 
-const PLAN_DETAILS: Record<Tier, { label: string; tag: string; includes: string[] }> = {
+const PLAN_DETAILS: Record<
+  Tier,
+  { label: string; tag: string; includes: string[] }
+> = {
   basic: {
     label: "Basic Shield",
     tag: "Low-cost entry cover",
@@ -119,7 +126,10 @@ function getNextWeekWindow(): { label: string } {
   from.setDate(now.getDate() + (7 - dayFromMonday));
   const to = new Date(from);
   to.setDate(from.getDate() + 6);
-  const fmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" });
+  const fmt = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
   return { label: `${fmt.format(from)} – ${fmt.format(to)}` };
 }
 
@@ -165,19 +175,28 @@ async function fetchPremiumForTier(user: User, tier: Tier): Promise<Premium> {
     }),
   });
   const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error || "Premium request failed");
+  if (!res.ok || data.error)
+    throw new Error(data.error || "Premium request failed");
   return data as Premium;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusPill({
-  label, ok, okText, badText,
+  label,
+  ok,
+  okText,
+  badText,
 }: {
-  label: string; ok: boolean; okText: string; badText: string;
+  label: string;
+  ok: boolean;
+  okText: string;
+  badText: string;
 }) {
   return (
-    <div className={`${styles.statusPill} ${ok ? styles.statusOk : styles.statusBad}`}>
+    <div
+      className={`${styles.statusPill} ${ok ? styles.statusOk : styles.statusBad}`}
+    >
       <span>{label}</span>
       <strong>{ok ? okText : badText}</strong>
     </div>
@@ -185,9 +204,13 @@ function StatusPill({
 }
 
 function MetricCard({
-  label, value, tone,
+  label,
+  value,
+  tone,
 }: {
-  label: string; value: string; tone: "blue" | "green" | "amber" | "ink";
+  label: string;
+  value: string;
+  tone: "blue" | "green" | "amber" | "ink";
 }) {
   return (
     <div className={`${styles.metricCard} ${styles[`tone_${tone}`]}`}>
@@ -198,14 +221,20 @@ function MetricCard({
 }
 
 function ProfileRow({
-  label, value, mono,
+  label,
+  value,
+  mono,
 }: {
-  label: string; value: string; mono?: boolean;
+  label: string;
+  value: string;
+  mono?: boolean;
 }) {
   return (
     <div className={styles.profileRow}>
       <span>{label}</span>
-      <strong className={mono ? styles.profileRowMono : undefined}>{value}</strong>
+      <strong className={mono ? styles.profileRowMono : undefined}>
+        {value}
+      </strong>
     </div>
   );
 }
@@ -232,10 +261,19 @@ export default function DashboardPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payMethod, setPayMethod] = useState<"upi" | "debit" | "credit">("upi");
-  const [payForm, setPayForm] = useState({ upi: "", cardNumber: "", expiry: "", cvv: "", name: "" });
+  const [payForm, setPayForm] = useState({
+    upi: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    name: "",
+  });
   const [payLoading, setPayLoading] = useState(false);
   const [payError, setPayError] = useState("");
-  const [paySuccess, setPaySuccess] = useState<{ amount: number; txId: string } | null>(null);
+  const [paySuccess, setPaySuccess] = useState<{
+    amount: number;
+    txId: string;
+  } | null>(null);
 
   // ── auth
   const logout = () => {
@@ -267,17 +305,23 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("gg_token");
     const raw = localStorage.getItem("gg_user");
-    if (!token || !raw) { router.replace("/login"); return; }
+    if (!token || !raw) {
+      router.replace("/login");
+      return;
+    }
     try {
       const parsed = JSON.parse(raw) as User;
       setUser(parsed);
       refreshUserFromServer(token, parsed);
-      const interval = setInterval(() => refreshUserFromServer(token, parsed), 15000);
+      const interval = setInterval(
+        () => refreshUserFromServer(token, parsed),
+        15000,
+      );
       return () => clearInterval(interval);
     } catch {
       router.replace("/login");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // fetch data when user id / tier changes
@@ -292,8 +336,10 @@ export default function DashboardPage() {
     try {
       const stored = localStorage.getItem(paymentsStorageKey(user.id));
       if (stored) setPayments(JSON.parse(stored));
-    } catch { /* ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.tier]);
 
   const fetchClaims = async (u: User) => {
@@ -303,8 +349,11 @@ export default function DashboardPage() {
       const res = await fetch(`/api/backend/claims/worker/${u.delivery_id}`);
       const data = await res.json();
       if (data?.data) setClaims(data.data);
-    } catch { /* silently fail */ }
-    finally { setLoadingClaims(false); }
+    } catch {
+      /* silently fail */
+    } finally {
+      setLoadingClaims(false);
+    }
   };
 
   const fetchCurrentPremium = async (u: User) => {
@@ -326,7 +375,9 @@ export default function DashboardPage() {
     setLoadingQuotes(true);
     try {
       const results = await Promise.allSettled(
-        TIERS.map(async (tier) => [tier, await fetchPremiumForTier(u, tier)] as const)
+        TIERS.map(
+          async (tier) => [tier, await fetchPremiumForTier(u, tier)] as const,
+        ),
       );
       const next: QuoteMap = {};
       results.forEach((r) => {
@@ -372,10 +423,22 @@ export default function DashboardPage() {
       }
     } else {
       const digits = payForm.cardNumber.replace(/\s/g, "");
-      if (digits.length < 16) { setPayError("Enter a valid 16-digit card number"); return; }
-      if (!/^\d{2}\/\d{2}$/.test(payForm.expiry)) { setPayError("Enter expiry as MM/YY (e.g. 09/27)"); return; }
-      if (payForm.cvv.length < 3) { setPayError("Enter a valid 3-digit CVV"); return; }
-      if (!payForm.name.trim()) { setPayError("Enter the cardholder name"); return; }
+      if (digits.length < 16) {
+        setPayError("Enter a valid 16-digit card number");
+        return;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(payForm.expiry)) {
+        setPayError("Enter expiry as MM/YY (e.g. 09/27)");
+        return;
+      }
+      if (payForm.cvv.length < 3) {
+        setPayError("Enter a valid 3-digit CVV");
+        return;
+      }
+      if (!payForm.name.trim()) {
+        setPayError("Enter the cardholder name");
+        return;
+      }
     }
 
     setPayLoading(true);
@@ -417,7 +480,10 @@ export default function DashboardPage() {
       };
       const updated = [record, ...payments];
       setPayments(updated);
-      localStorage.setItem(paymentsStorageKey(user.id), JSON.stringify(updated));
+      localStorage.setItem(
+        paymentsStorageKey(user.id),
+        JSON.stringify(updated),
+      );
     } catch {
       setPayError("Something went wrong. Please try again.");
     } finally {
@@ -437,14 +503,20 @@ export default function DashboardPage() {
   const coveredNextWeek = verified && !!selectedNextQuote;
 
   const currentWeeklyPremium = currentPremium
-    ? user.autopay ? currentPremium.weekly_premium_autopay : currentPremium.weekly_premium
+    ? user.autopay
+      ? currentPremium.weekly_premium_autopay
+      : currentPremium.weekly_premium
     : null;
   const nextWeeklyPremium = selectedNextQuote
-    ? user.autopay ? selectedNextQuote.weekly_premium_autopay : selectedNextQuote.weekly_premium
+    ? user.autopay
+      ? selectedNextQuote.weekly_premium_autopay
+      : selectedNextQuote.weekly_premium
     : null;
 
   const today = new Date().toDateString();
-  const paidToday = payments.length > 0 && new Date(payments[0].timestamp).toDateString() === today;
+  const paidToday =
+    payments.length > 0 &&
+    new Date(payments[0].timestamp).toDateString() === today;
 
   return (
     <div className={styles.pageRoot}>
@@ -456,10 +528,14 @@ export default function DashboardPage() {
         </div>
         <div className={styles.headerActions}>
           <div className={styles.userBadge}>
-            <div className={styles.userInitial}>{user.name.charAt(0).toUpperCase()}</div>
+            <div className={styles.userInitial}>
+              {user.name.charAt(0).toUpperCase()}
+            </div>
             <span className={styles.userName}>{user.name}</span>
           </div>
-          <button type="button" onClick={logout} className={styles.logoutBtn}>Logout</button>
+          <button type="button" onClick={logout} className={styles.logoutBtn}>
+            Logout
+          </button>
         </div>
       </header>
 
@@ -480,34 +556,71 @@ export default function DashboardPage() {
 
         <main className={styles.main}>
           <div className={styles.content}>
-
             {/* ══ HOME TAB ══ */}
             {tab === "home" && (
               <div>
                 <div className={styles.hero}>
-                  <h1 className={styles.heroTitle}>Coverage dashboard for {user.name}</h1>
+                  <h1 className={styles.heroTitle}>
+                    Coverage dashboard for {user.name}
+                  </h1>
                   <p className={styles.heroSub}>
-                    Live insurance status, next-week plan, and weather-adjusted premium insights.
+                    Live insurance status, next-week plan, and weather-adjusted
+                    premium insights.
                   </p>
                   <div className={styles.heroStatusRow}>
-                    <StatusPill label="Now" ok={coveredNow} okText="Covered" badText="Not covered" />
-                    <StatusPill label="Next week" ok={coveredNextWeek} okText="Planned" badText="Not scheduled" />
-                    <StatusPill label="Verification" ok={verified} okText="Verified" badText="Pending" />
+                    <StatusPill
+                      label="Now"
+                      ok={coveredNow}
+                      okText="Covered"
+                      badText="Not covered"
+                    />
+                    <StatusPill
+                      label="Next week"
+                      ok={coveredNextWeek}
+                      okText="Planned"
+                      badText="Not scheduled"
+                    />
+                    <StatusPill
+                      label="Verification"
+                      ok={verified}
+                      okText="Verified"
+                      badText="Pending"
+                    />
                   </div>
                 </div>
 
                 <div className={styles.grid4}>
-                  <MetricCard label="Current plan" value={tierLabel} tone="blue" />
-                  <MetricCard label="Weekly premium" value={money(currentWeeklyPremium)} tone="green" />
-                  <MetricCard label="Max payout" value={money(currentPremium?.max_payout)} tone="amber" />
-                  <MetricCard label="City" value={user.city || "–"} tone="ink" />
+                  <MetricCard
+                    label="Current plan"
+                    value={tierLabel}
+                    tone="blue"
+                  />
+                  <MetricCard
+                    label="Weekly premium"
+                    value={money(currentWeeklyPremium)}
+                    tone="green"
+                  />
+                  <MetricCard
+                    label="Max payout"
+                    value={money(currentPremium?.max_payout)}
+                    tone="amber"
+                  />
+                  <MetricCard
+                    label="City"
+                    value={user.city || "–"}
+                    tone="ink"
+                  />
                 </div>
 
                 {/* Pay Banner */}
                 <div className={styles.payBanner}>
                   <div>
-                    <div className={styles.payBannerTitle}>This week&apos;s premium due</div>
-                    <div className={styles.payBannerAmount}>{money(currentWeeklyPremium)}</div>
+                    <div className={styles.payBannerTitle}>
+                      This week&apos;s premium due
+                    </div>
+                    <div className={styles.payBannerAmount}>
+                      {money(currentWeeklyPremium)}
+                    </div>
                     <div className={styles.bannerMeta}>
                       {tierLabel} · {user.city}
                     </div>
@@ -531,44 +644,77 @@ export default function DashboardPage() {
                   <div className={styles.panelHead}>
                     <h3 className={styles.panelTitle}>Coverage this week</h3>
                     <p className={styles.panelSub}>
-                      Active plan: {PLAN_DETAILS[currentTier].label}. Coverage requires verification and a computed premium.
+                      Active plan: {PLAN_DETAILS[currentTier].label}. Coverage
+                      requires verification and a computed premium.
                     </p>
                   </div>
 
                   {loadingCurrent ? (
-                    <div className={styles.muted}>Calculating current-week premium…</div>
+                    <div className={styles.muted}>
+                      Calculating current-week premium…
+                    </div>
                   ) : premiumError ? (
                     <div className={styles.errorText}>{premiumError}</div>
                   ) : currentPremium ? (
                     <div className={styles.coverageGrid}>
                       <div className={styles.coverageCard}>
                         <div className={styles.coverageLabel}>Status</div>
-                        <div className={styles.coverageValue}>{coveredNow ? "Active coverage" : "Coverage unavailable"}</div>
+                        <div className={styles.coverageValue}>
+                          {coveredNow
+                            ? "Active coverage"
+                            : "Coverage unavailable"}
+                        </div>
                       </div>
                       <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>Weekly premium</div>
-                        <div className={styles.coverageValue}>{money(currentWeeklyPremium)}</div>
+                        <div className={styles.coverageLabel}>
+                          Weekly premium
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {money(currentWeeklyPremium)}
+                        </div>
                       </div>
                       <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>Max payout per claim</div>
-                        <div className={styles.coverageValue}>{money(currentPremium.max_payout)}</div>
+                        <div className={styles.coverageLabel}>
+                          Max payout per claim
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {money(currentPremium.max_payout)}
+                        </div>
                       </div>
                       <div className={styles.coverageCard}>
                         <div className={styles.coverageLabel}>Risk level</div>
-                        <div className={styles.coverageValue}>{riskLabel(currentPremium.weather_risk)}</div>
+                        <div className={styles.coverageValue}>
+                          {riskLabel(currentPremium.weather_risk)}
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className={styles.muted}>Current plan data is not available.</div>
+                    <div className={styles.muted}>
+                      Current plan data is not available.
+                    </div>
                   )}
 
                   {currentPremium?.weather && (
                     <div className={styles.weatherStrip}>
-                      <span>Temp: <strong>{currentPremium.weather.temperature}°C</strong></span>
-                      <span>AQI: <strong>{currentPremium.weather.aqi_index}</strong></span>
-                      <span>Rain: <strong>{currentPremium.weather.rain_1h} mm/h</strong></span>
-                      <span>Humidity: <strong>{currentPremium.weather.humidity}%</strong></span>
-                      <span>Condition: <strong>{currentPremium.weather.weather_main}</strong></span>
+                      <span>
+                        Temp:{" "}
+                        <strong>{currentPremium.weather.temperature}°C</strong>
+                      </span>
+                      <span>
+                        AQI: <strong>{currentPremium.weather.aqi_index}</strong>
+                      </span>
+                      <span>
+                        Rain:{" "}
+                        <strong>{currentPremium.weather.rain_1h} mm/h</strong>
+                      </span>
+                      <span>
+                        Humidity:{" "}
+                        <strong>{currentPremium.weather.humidity}%</strong>
+                      </span>
+                      <span>
+                        Condition:{" "}
+                        <strong>{currentPremium.weather.weather_main}</strong>
+                      </span>
                     </div>
                   )}
 
@@ -582,8 +728,13 @@ export default function DashboardPage() {
                 {/* Next week plan */}
                 <section className={styles.panel}>
                   <div className={styles.panelHead}>
-                    <h3 className={styles.panelTitle}>Insurance for next week</h3>
-                    <p className={styles.panelSub}>{nextWindow.label} · select a plan to schedule it for next week.</p>
+                    <h3 className={styles.panelTitle}>
+                      Insurance for next week
+                    </h3>
+                    <p className={styles.panelSub}>
+                      {nextWindow.label} · select a plan to schedule it for next
+                      week.
+                    </p>
                   </div>
 
                   <div className={styles.grid3}>
@@ -597,20 +748,32 @@ export default function DashboardPage() {
                         >
                           <div className={styles.planTopRow}>
                             <h4>{PLAN_DETAILS[tier].label}</h4>
-                            <span className={styles.planTag}>{PLAN_DETAILS[tier].tag}</span>
+                            <span className={styles.planTag}>
+                              {PLAN_DETAILS[tier].tag}
+                            </span>
                           </div>
                           <div className={styles.planPremium}>
                             {loadingQuotes && !quote
                               ? "Calculating…"
-                              : money(user.autopay ? quote?.weekly_premium_autopay : quote?.weekly_premium)}
+                              : money(
+                                  user.autopay
+                                    ? quote?.weekly_premium_autopay
+                                    : quote?.weekly_premium,
+                                )}
                           </div>
-                          <div className={styles.planPayout}>Max payout: {money(quote?.max_payout)}</div>
+                          <div className={styles.planPayout}>
+                            Max payout: {money(quote?.max_payout)}
+                          </div>
                           <button
                             type="button"
-                            className={selected ? styles.planBtnSelected : styles.planBtn}
+                            className={
+                              selected ? styles.planBtnSelected : styles.planBtn
+                            }
                             onClick={() => applyNextWeekPlan(tier)}
                           >
-                            {selected ? "Scheduled for next week" : "Choose for next week"}
+                            {selected
+                              ? "Scheduled for next week"
+                              : "Choose for next week"}
                           </button>
                         </div>
                       );
@@ -620,15 +783,25 @@ export default function DashboardPage() {
                   <div className={styles.nextWeekSummary}>
                     <div>
                       <div className={styles.coverageLabel}>Scheduled plan</div>
-                      <div className={styles.coverageValue}>{PLAN_DETAILS[nextWeekTier].label}</div>
+                      <div className={styles.coverageValue}>
+                        {PLAN_DETAILS[nextWeekTier].label}
+                      </div>
                     </div>
                     <div>
-                      <div className={styles.coverageLabel}>Projected premium</div>
-                      <div className={styles.coverageValue}>{money(nextWeeklyPremium)}</div>
+                      <div className={styles.coverageLabel}>
+                        Projected premium
+                      </div>
+                      <div className={styles.coverageValue}>
+                        {money(nextWeeklyPremium)}
+                      </div>
                     </div>
                     <div>
                       <div className={styles.coverageLabel}>Coverage state</div>
-                      <div className={styles.coverageValue}>{coveredNextWeek ? "Will be covered" : "Not covered yet"}</div>
+                      <div className={styles.coverageValue}>
+                        {coveredNextWeek
+                          ? "Will be covered"
+                          : "Not covered yet"}
+                      </div>
                     </div>
                   </div>
 
@@ -638,7 +811,9 @@ export default function DashboardPage() {
                     ))}
                   </ul>
 
-                  {planMessage && <div className={styles.successText}>{planMessage}</div>}
+                  {planMessage && (
+                    <div className={styles.successText}>{planMessage}</div>
+                  )}
                 </section>
 
                 {/* Platforms */}
@@ -667,7 +842,8 @@ export default function DashboardPage() {
 
                 {!verified && (
                   <div className={styles.warningBox}>
-                    Your account is pending verification. Insurance remains inactive until verification completes.
+                    Your account is pending verification. Insurance remains
+                    inactive until verification completes.
                   </div>
                 )}
               </div>
@@ -678,27 +854,34 @@ export default function DashboardPage() {
               <div>
                 <h1 className={styles.profileTitle}>Claims History</h1>
                 <p className={`${styles.muted} ${styles.claimsIntro}`}>
-                  Claims are automatically generated during severe weather disruptions.
+                  Claims are automatically generated during severe weather
+                  disruptions.
                 </p>
                 {loadingClaims ? (
                   <div className={styles.muted}>Loading claims…</div>
                 ) : claims.length === 0 ? (
                   <div className={styles.emptyState}>
-                    No claims yet. Claims appear automatically when a disruption event is detected in your city.
+                    No claims yet. Claims appear automatically when a disruption
+                    event is detected in your city.
                   </div>
                 ) : (
                   <div className={styles.claimsList}>
                     {claims.map((c) => (
-                      <div key={String(c.id)} className={`${styles.panel} ${styles.claimPanel}`}>
+                      <div
+                        key={String(c.id)}
+                        className={`${styles.panel} ${styles.claimPanel}`}
+                      >
                         <div className={styles.planTopRow}>
-                          <h4 className={styles.claimHeading}>{String(c.claim_number ?? "–")}</h4>
+                          <h4 className={styles.claimHeading}>
+                            {String(c.claim_number ?? "–")}
+                          </h4>
                           <span
                             className={
                               c.payout_status === "paid"
                                 ? styles.badgeGreen
                                 : c.payout_status === "rejected"
-                                ? styles.badgeRed
-                                : styles.badgeAmber
+                                  ? styles.badgeRed
+                                  : styles.badgeAmber
                             }
                           >
                             {String(c.payout_status ?? "").toUpperCase()}
@@ -707,16 +890,35 @@ export default function DashboardPage() {
                         <div className={styles.claimBody}>
                           <ProfileRow
                             label="Disruption Event"
-                            value={String(c.trigger_type ?? "").replace(/_/g, " ")}
+                            value={String(c.trigger_type ?? "").replace(
+                              /_/g,
+                              " ",
+                            )}
                           />
-                          <ProfileRow label="Payout Amount" value={`₹${c.payout_amount ?? 0}`} />
-                          <ProfileRow label="City" value={String(c.city ?? "–")} />
+                          <ProfileRow
+                            label="Payout Amount"
+                            value={`₹${c.payout_amount ?? 0}`}
+                          />
+                          <ProfileRow
+                            label="City"
+                            value={String(c.city ?? "–")}
+                          />
                           <ProfileRow
                             label="Date Initiated"
-                            value={c.created_at ? new Date(String(c.created_at)).toLocaleDateString("en-IN") : "–"}
+                            value={
+                              c.created_at
+                                ? new Date(
+                                    String(c.created_at),
+                                  ).toLocaleDateString("en-IN")
+                                : "–"
+                            }
                           />
                           {c.payout_status === "paid" && (
-                            <ProfileRow label="Transaction ID" value={String(c.transaction_id ?? "–")} mono />
+                            <ProfileRow
+                              label="Transaction ID"
+                              value={String(c.transaction_id ?? "–")}
+                              mono
+                            />
                           )}
                         </div>
                       </div>
@@ -732,7 +934,10 @@ export default function DashboardPage() {
                 <div className={styles.tabHeader}>
                   <div>
                     <h1 className={styles.profileTitle}>Payments</h1>
-                    <p className={styles.muted}>Pay your weekly premium securely and view your payment history.</p>
+                    <p className={styles.muted}>
+                      Pay your weekly premium securely and view your payment
+                      history.
+                    </p>
                   </div>
                   {paidToday ? (
                     <div className={styles.paidBadge}>✓ Paid today</div>
@@ -751,10 +956,15 @@ export default function DashboardPage() {
                 {/* Pay banner */}
                 <div className={styles.payBanner}>
                   <div>
-                    <div className={styles.payBannerTitle}>This week&apos;s premium due</div>
-                    <div className={styles.payBannerAmount}>{money(currentWeeklyPremium)}</div>
+                    <div className={styles.payBannerTitle}>
+                      This week&apos;s premium due
+                    </div>
+                    <div className={styles.payBannerAmount}>
+                      {money(currentWeeklyPremium)}
+                    </div>
                     <div className={styles.bannerMeta}>
-                      {tierLabel} · AutoPay {user.autopay ? "enabled (−5%)" : "disabled"}
+                      {tierLabel} · AutoPay{" "}
+                      {user.autopay ? "enabled (−5%)" : "disabled"}
                     </div>
                   </div>
                   {paidToday ? (
@@ -773,10 +983,15 @@ export default function DashboardPage() {
 
                 {/* History */}
                 <section className={styles.panel}>
-                  <h3 className={`${styles.panelTitle} ${styles.panelTitleSpaced}`}>Payment History</h3>
+                  <h3
+                    className={`${styles.panelTitle} ${styles.panelTitleSpaced}`}
+                  >
+                    Payment History
+                  </h3>
                   {payments.length === 0 ? (
                     <div className={styles.emptyState}>
-                      No payments yet. Use the &ldquo;Pay Now&rdquo; button above to pay your weekly premium.
+                      No payments yet. Use the &ldquo;Pay Now&rdquo; button
+                      above to pay your weekly premium.
                     </div>
                   ) : (
                     <table className={styles.dataTable}>
@@ -793,8 +1008,12 @@ export default function DashboardPage() {
                       <tbody>
                         {payments.map((p) => (
                           <tr key={p.id}>
-                            <td><span className={styles.monoSmall}>{p.id}</span></td>
-                            <td className={styles.greenText}><strong>{money(p.amount)}</strong></td>
+                            <td>
+                              <span className={styles.monoSmall}>{p.id}</span>
+                            </td>
+                            <td className={styles.greenText}>
+                              <strong>{money(p.amount)}</strong>
+                            </td>
                             <td>{methodLabel(p.method)}</td>
                             <td>
                               <span
@@ -802,21 +1021,26 @@ export default function DashboardPage() {
                                   p.tier === "pro"
                                     ? styles.tier_pro
                                     : p.tier === "basic"
-                                    ? styles.tier_basic
-                                    : styles.tier_standard
+                                      ? styles.tier_basic
+                                      : styles.tier_standard
                                 }
                               >
                                 {p.tier}
                               </span>
                             </td>
                             <td>
-                              {new Date(p.timestamp).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
+                              {new Date(p.timestamp).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
                             </td>
-                            <td><span className={styles.badgeGreen}>Success</span></td>
+                            <td>
+                              <span className={styles.badgeGreen}>Success</span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -839,25 +1063,45 @@ export default function DashboardPage() {
                     <ProfileRow label="City" value={user.city || "–"} />
                     <ProfileRow label="Area" value={user.area || "–"} />
                     <ProfileRow label="Account UUID" value={user.id} mono />
-                    <ProfileRow label="Delivery Partner ID" value={user.delivery_id || "–"} mono />
+                    <ProfileRow
+                      label="Delivery Partner ID"
+                      value={user.delivery_id || "–"}
+                      mono
+                    />
                   </div>
                   <div className={styles.panel}>
                     <h3 className={styles.panelTitle}>Insurance details</h3>
                     <ProfileRow label="Current plan" value={tierLabel} />
-                    <ProfileRow label="Next week plan" value={PLAN_DETAILS[nextWeekTier].label} />
-                    <ProfileRow label="Current premium" value={money(currentWeeklyPremium)} />
-                    <ProfileRow label="Next week premium" value={money(nextWeeklyPremium)} />
-                    <ProfileRow label="Verification" value={verified ? "Verified" : "Pending"} />
-                    <ProfileRow label="AutoPay" value={user.autopay ? "Enabled" : "Disabled"} />
+                    <ProfileRow
+                      label="Next week plan"
+                      value={PLAN_DETAILS[nextWeekTier].label}
+                    />
+                    <ProfileRow
+                      label="Current premium"
+                      value={money(currentWeeklyPremium)}
+                    />
+                    <ProfileRow
+                      label="Next week premium"
+                      value={money(nextWeeklyPremium)}
+                    />
+                    <ProfileRow
+                      label="Verification"
+                      value={verified ? "Verified" : "Pending"}
+                    />
+                    <ProfileRow
+                      label="AutoPay"
+                      value={user.autopay ? "Enabled" : "Disabled"}
+                    />
                     <ProfileRow
                       label="Platforms"
-                      value={user.platforms.map((p) => PLATFORM_NAMES[p] || p).join(", ")}
+                      value={user.platforms
+                        .map((p) => PLATFORM_NAMES[p] || p)
+                        .join(", ")}
                     />
                   </div>
                 </div>
               </div>
             )}
-
           </div>
         </main>
       </div>
@@ -866,15 +1110,22 @@ export default function DashboardPage() {
       {showPayModal && (
         <div className={styles.modalOverlay} onClick={closePayModal}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-
             {paySuccess ? (
               /* ── Success screen ── */
               <div className={styles.paySuccessBox}>
                 <div className={styles.paySuccessIcon}>✅</div>
-                <div className={styles.paySuccessTitle}>Payment Successful!</div>
-                <div className={styles.paySuccessAmount}>{money(paySuccess.amount)}</div>
+                <div className={styles.paySuccessTitle}>
+                  Payment Successful!
+                </div>
+                <div className={styles.paySuccessAmount}>
+                  {money(paySuccess.amount)}
+                </div>
                 <div className={styles.paySuccessId}>{paySuccess.txId}</div>
-                <button type="button" className={`${styles.modalPayBtn} ${styles.modalDoneBtn}`} onClick={closePayModal}>
+                <button
+                  type="button"
+                  className={`${styles.modalPayBtn} ${styles.modalDoneBtn}`}
+                  onClick={closePayModal}
+                >
                   Done
                 </button>
               </div>
@@ -882,13 +1133,19 @@ export default function DashboardPage() {
               /* ── Payment form ── */
               <>
                 <h2 className={styles.modalTitle}>Pay Weekly Premium</h2>
-                <p className={styles.modalSub}>Mock payment — no real money is charged.</p>
+                <p className={styles.modalSub}>
+                  Mock payment — no real money is charged.
+                </p>
 
                 {/* Amount box */}
                 <div className={styles.modalAmountBox}>
                   <div className={styles.modalAmountLabel}>Amount Due</div>
-                  <div className={styles.modalAmount}>{money(currentWeeklyPremium)}</div>
-                  <div className={styles.modalTier}>{tierLabel} · {user.city}</div>
+                  <div className={styles.modalAmount}>
+                    {money(currentWeeklyPremium)}
+                  </div>
+                  <div className={styles.modalTier}>
+                    {tierLabel} · {user.city}
+                  </div>
                 </div>
 
                 {/* Method selector */}
@@ -899,8 +1156,15 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         key={m}
-                        className={payMethod === m ? styles.methodBtnSelected : styles.methodBtn}
-                        onClick={() => { setPayMethod(m); setPayError(""); }}
+                        className={
+                          payMethod === m
+                            ? styles.methodBtnSelected
+                            : styles.methodBtn
+                        }
+                        onClick={() => {
+                          setPayMethod(m);
+                          setPayError("");
+                        }}
                       >
                         {methodLabel(m)}
                       </button>
@@ -916,11 +1180,14 @@ export default function DashboardPage() {
                       className={styles.modalInput}
                       placeholder="yourname@paytm / @gpay / @upi"
                       value={payForm.upi}
-                      onChange={(e) => setPayForm((p) => ({ ...p, upi: e.target.value }))}
+                      onChange={(e) =>
+                        setPayForm((p) => ({ ...p, upi: e.target.value }))
+                      }
                       autoComplete="off"
                     />
                     <div className={styles.upiHint}>
-                      Supports Paytm, Google Pay, PhonePe, BHIM, and all UPI apps.
+                      Supports Paytm, Google Pay, PhonePe, BHIM, and all UPI
+                      apps.
                     </div>
                   </div>
                 )}
@@ -937,13 +1204,18 @@ export default function DashboardPage() {
                         maxLength={19}
                         autoComplete="cc-number"
                         onChange={(e) =>
-                          setPayForm((p) => ({ ...p, cardNumber: formatCardNumber(e.target.value) }))
+                          setPayForm((p) => ({
+                            ...p,
+                            cardNumber: formatCardNumber(e.target.value),
+                          }))
                         }
                       />
                     </div>
                     <div className={styles.cardGrid}>
                       <div className={styles.modalField}>
-                        <label className={styles.modalLabel}>Expiry (MM/YY)</label>
+                        <label className={styles.modalLabel}>
+                          Expiry (MM/YY)
+                        </label>
                         <input
                           className={styles.modalInput}
                           placeholder="09/27"
@@ -951,7 +1223,10 @@ export default function DashboardPage() {
                           maxLength={5}
                           autoComplete="cc-exp"
                           onChange={(e) =>
-                            setPayForm((p) => ({ ...p, expiry: formatExpiry(e.target.value) }))
+                            setPayForm((p) => ({
+                              ...p,
+                              expiry: formatExpiry(e.target.value),
+                            }))
                           }
                         />
                       </div>
@@ -965,25 +1240,34 @@ export default function DashboardPage() {
                           maxLength={4}
                           autoComplete="cc-csc"
                           onChange={(e) =>
-                            setPayForm((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, "") }))
+                            setPayForm((p) => ({
+                              ...p,
+                              cvv: e.target.value.replace(/\D/g, ""),
+                            }))
                           }
                         />
                       </div>
                     </div>
                     <div className={styles.modalField}>
-                      <label className={styles.modalLabel}>Cardholder Name</label>
+                      <label className={styles.modalLabel}>
+                        Cardholder Name
+                      </label>
                       <input
                         className={styles.modalInput}
                         placeholder="Name as on card"
                         value={payForm.name}
                         autoComplete="cc-name"
-                        onChange={(e) => setPayForm((p) => ({ ...p, name: e.target.value }))}
+                        onChange={(e) =>
+                          setPayForm((p) => ({ ...p, name: e.target.value }))
+                        }
                       />
                     </div>
                   </>
                 )}
 
-                {payError && <div className={styles.modalError}>{payError}</div>}
+                {payError && (
+                  <div className={styles.modalError}>{payError}</div>
+                )}
 
                 <div className={styles.modalActions}>
                   <button
@@ -1000,7 +1284,9 @@ export default function DashboardPage() {
                     onClick={handlePay}
                     disabled={payLoading}
                   >
-                    {payLoading ? "Processing…" : `Pay ${money(currentWeeklyPremium)}`}
+                    {payLoading
+                      ? "Processing…"
+                      : `Pay ${money(currentWeeklyPremium)}`}
                   </button>
                 </div>
 

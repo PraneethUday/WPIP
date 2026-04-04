@@ -74,7 +74,9 @@ export default function AdminPage() {
   const [updatingClaimId, setUpdatingClaimId] = useState<string | null>(null);
   const [claimNotice, setClaimNotice] = useState("");
   const [expandedClaim, setExpandedClaim] = useState<string | null>(null);
-  const [approveAmounts, setApproveAmounts] = useState<Record<string, string>>({});
+  const [approveAmounts, setApproveAmounts] = useState<Record<string, string>>(
+    {},
+  );
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -85,8 +87,10 @@ export default function AdminPage() {
   const fetchClaims = () => {
     setClaimsLoading(true);
     fetch("/api/claims/all")
-      .then(r => r.json())
-      .then(data => { if (data.claims) setClaims(data.claims); })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.claims) setClaims(data.claims);
+      })
       .catch(() => {})
       .finally(() => setClaimsLoading(false));
   };
@@ -103,15 +107,28 @@ export default function AdminPage() {
       const res = await fetch("/api/claims/update", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claimId, status, approved_amount: approvedAmount ?? null, admin_notes: notes ?? null }),
+        body: JSON.stringify({
+          claimId,
+          status,
+          approved_amount: approvedAmount ?? null,
+          admin_notes: notes ?? null,
+        }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) { setError(data.error || "Failed to update claim."); return; }
-      setClaims(prev => prev.map(c => c.id === claimId ? { ...c, ...data.claim } : c));
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to update claim.");
+        return;
+      }
+      setClaims((prev) =>
+        prev.map((c) => (c.id === claimId ? { ...c, ...data.claim } : c)),
+      );
       setClaimNotice(`Claim ${status === "paid" ? "marked as paid" : status}.`);
       setExpandedClaim(null);
-    } catch { setError("Failed to update claim."); }
-    finally { setUpdatingClaimId(null); }
+    } catch {
+      setError("Failed to update claim.");
+    } finally {
+      setUpdatingClaimId(null);
+    }
   };
 
   const fetchWorkers = () => {
@@ -139,9 +156,11 @@ export default function AdminPage() {
 
   const stats = {
     total: workers.length,
-    verified: workers.filter((w) => w.verification_status === "verified").length,
+    verified: workers.filter((w) => w.verification_status === "verified")
+      .length,
     pending: workers.filter((w) => w.verification_status === "pending").length,
-    rejected: workers.filter((w) => w.verification_status === "rejected").length,
+    rejected: workers.filter((w) => w.verification_status === "rejected")
+      .length,
     active: workers.filter((w) => w.is_active).length,
   };
 
@@ -176,10 +195,10 @@ export default function AdminPage() {
             verification_status:
               data.worker.verification_status ?? worker.verification_status,
             tier: data.worker.tier ?? worker.tier,
-            auto_verified:
-              data.worker.auto_verified ?? worker.auto_verified,
+            auto_verified: data.worker.auto_verified ?? worker.auto_verified,
             auto_verified_platforms:
-              data.worker.auto_verified_platforms ?? worker.auto_verified_platforms,
+              data.worker.auto_verified_platforms ??
+              worker.auto_verified_platforms,
           };
         }),
       );
@@ -308,36 +327,73 @@ export default function AdminPage() {
 
       <main style={{ flex: 1, padding: 32 }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, color: "#E1E1F2" }}>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              marginBottom: 4,
+              color: "#E1E1F2",
+            }}
+          >
             Admin Dashboard
           </h1>
           <p style={{ color: "#918FA1", fontSize: 14, marginBottom: 20 }}>
-            Manage registered delivery partners — approve, reject, change status and tier at any time
+            Manage registered delivery partners — approve, reject, change status
+            and tier at any time
           </p>
 
           {/* Tab nav */}
-          <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#1D1F2B", borderRadius: 10, padding: 4, width: "fit-content", border: "1px solid rgba(70,69,85,0.6)" }}>
-            {(["workers", "claims"] as const).map(t => (
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              marginBottom: 24,
+              background: "#1D1F2B",
+              borderRadius: 10,
+              padding: 4,
+              width: "fit-content",
+              border: "1px solid rgba(70,69,85,0.6)",
+            }}
+          >
+            {(["workers", "claims"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
                 style={{
-                  padding: "7px 20px", borderRadius: 7, border: "none", cursor: "pointer",
-                  fontSize: 13, fontWeight: 600,
+                  padding: "7px 20px",
+                  borderRadius: 7,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
                   background: tab === t ? "#6C63FF" : "transparent",
                   color: tab === t ? "#fff" : "#918FA1",
-                  boxShadow: tab === t ? "0 2px 8px rgba(108,99,255,0.4)" : "none",
+                  boxShadow:
+                    tab === t ? "0 2px 8px rgba(108,99,255,0.4)" : "none",
                   transition: "all 0.15s",
                 }}
               >
-                {t === "workers" ? "Workers" : `Claims${claims.length ? ` (${claims.filter(c => c.status === "pending" || c.status === "under_review").length})` : ""}`}
+                {t === "workers"
+                  ? "Workers"
+                  : `Claims${claims.length ? ` (${claims.filter((c) => c.status === "pending" || c.status === "under_review").length})` : ""}`}
               </button>
             ))}
           </div>
 
           {(notice || claimNotice) && (
-            <div style={{ marginBottom: 12, background: "#0A2E18", border: "1px solid rgba(34,197,94,0.3)", color: "#22C55E", fontSize: 13, fontWeight: 600, borderRadius: 8, padding: "8px 12px" }}>
+            <div
+              style={{
+                marginBottom: 12,
+                background: "#0A2E18",
+                border: "1px solid rgba(34,197,94,0.3)",
+                color: "#22C55E",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 8,
+                padding: "8px 12px",
+              }}
+            >
               {notice || claimNotice}
             </div>
           )}
@@ -359,315 +415,423 @@ export default function AdminPage() {
             </div>
           )}
 
-          {tab === "workers" && <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 16,
-              marginBottom: 28,
-            }}
-          >
-            <StatCard label="Total Workers" value={stats.total} color="#0f172a" />
-            <StatCard label="Verified" value={stats.verified} color="#16a34a" />
-            <StatCard label="Pending" value={stats.pending} color="#d97706" />
-            <StatCard label="Rejected" value={stats.rejected} color="#dc2626" />
-            <StatCard label="Active" value={stats.active} color="#4f46e5" />
-          </div>
-
-          <div
-            style={{
-              background: "#1D1F2B",
-              borderRadius: 12,
-              border: "1px solid rgba(70,69,85,0.6)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "16px 20px",
-                borderBottom: "1px solid rgba(70,69,85,0.6)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "#E1E1F2" }}>
-                Registered Workers
-              </h3>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  style={{
-                    height: 36, padding: "0 12px", fontSize: 13,
-                    border: "1px solid rgba(70,69,85,0.6)", borderRadius: 8,
-                    outline: "none", cursor: "pointer",
-                    background: "#323440", color: "#E1E1F2",
-                  }}
-                >
-                  <option value="all">All statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-                <input
-                  placeholder="Search name, email, city, or ID..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={{
-                    width: 280, height: 36, padding: "0 12px", fontSize: 13,
-                    border: "1px solid rgba(70,69,85,0.6)", borderRadius: 8,
-                    outline: "none", background: "#323440", color: "#E1E1F2",
-                  }}
+          {tab === "workers" && (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 16,
+                  marginBottom: 28,
+                }}
+              >
+                <StatCard
+                  label="Total Workers"
+                  value={stats.total}
+                  color="#0f172a"
                 />
+                <StatCard
+                  label="Verified"
+                  value={stats.verified}
+                  color="#16a34a"
+                />
+                <StatCard
+                  label="Pending"
+                  value={stats.pending}
+                  color="#d97706"
+                />
+                <StatCard
+                  label="Rejected"
+                  value={stats.rejected}
+                  color="#dc2626"
+                />
+                <StatCard label="Active" value={stats.active} color="#4f46e5" />
               </div>
-            </div>
 
-            {loading ? (
-              <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>
-                Loading workers...
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>
-                {workers.length === 0
-                  ? "No workers registered yet."
-                  : "No workers match your filters."}
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table
+              <div
+                style={{
+                  background: "#1D1F2B",
+                  borderRadius: 12,
+                  border: "1px solid rgba(70,69,85,0.6)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
                   style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 13,
+                    padding: "16px 20px",
+                    borderBottom: "1px solid rgba(70,69,85,0.6)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
                   }}
                 >
-                  <thead>
-                    <tr style={{ background: "#272935" }}>
-                      {[
-                        "Name",
-                        "Email",
-                        "City",
-                        "Delivery ID",
-                        "Platforms",
-                        "Tier",
-                        "Auto Check",
-                        "Status",
-                        "Actions",
-                        "Registered",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            padding: "10px 14px",
-                            textAlign: "left",
-                            fontWeight: 700,
-                            color: "#918FA1",
-                            borderBottom: "1px solid rgba(70,69,85,0.6)",
-                            fontSize: 11,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((w) => (
-                      <tr
-                        key={w.id}
-                        style={{ borderBottom: "1px solid rgba(70,69,85,0.4)" }}
-                      >
-                        <td
-                          style={{
-                            padding: "12px 14px",
-                            fontWeight: 600,
-                            color: "#E1E1F2",
-                          }}
-                        >
-                          {w.name}
-                        </td>
-                        <td style={{ padding: "12px 14px", color: "#918FA1", fontSize: 12 }}>
-                          {w.email}
-                        </td>
-                        <td style={{ padding: "12px 14px", color: "#C7C4D8" }}>
-                          {w.city}
-                        </td>
-                        <td style={{ padding: "12px 14px", color: "#918FA1", fontSize: 11, fontFamily: "monospace" }}>
-                          {w.delivery_id?.slice(0, 12)}...
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <div
+                  <h3
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      margin: 0,
+                      color: "#E1E1F2",
+                    }}
+                  >
+                    Registered Workers
+                  </h3>
+                  <div
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      style={{
+                        height: 36,
+                        padding: "0 12px",
+                        fontSize: 13,
+                        border: "1px solid rgba(70,69,85,0.6)",
+                        borderRadius: 8,
+                        outline: "none",
+                        cursor: "pointer",
+                        background: "#323440",
+                        color: "#E1E1F2",
+                      }}
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                    <input
+                      placeholder="Search name, email, city, or ID..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      style={{
+                        width: 280,
+                        height: 36,
+                        padding: "0 12px",
+                        fontSize: 13,
+                        border: "1px solid rgba(70,69,85,0.6)",
+                        borderRadius: 8,
+                        outline: "none",
+                        background: "#323440",
+                        color: "#E1E1F2",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {loading ? (
+                  <div
+                    style={{
+                      padding: 40,
+                      textAlign: "center",
+                      color: "#918FA1",
+                    }}
+                  >
+                    Loading workers...
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div
+                    style={{
+                      padding: 40,
+                      textAlign: "center",
+                      color: "#918FA1",
+                    }}
+                  >
+                    {workers.length === 0
+                      ? "No workers registered yet."
+                      : "No workers match your filters."}
+                  </div>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: 13,
+                      }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#272935" }}>
+                          {[
+                            "Name",
+                            "Email",
+                            "City",
+                            "Delivery ID",
+                            "Platforms",
+                            "Tier",
+                            "Auto Check",
+                            "Status",
+                            "Actions",
+                            "Registered",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              style={{
+                                padding: "10px 14px",
+                                textAlign: "left",
+                                fontWeight: 700,
+                                color: "#918FA1",
+                                borderBottom: "1px solid rgba(70,69,85,0.6)",
+                                fontSize: 11,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((w) => (
+                          <tr
+                            key={w.id}
                             style={{
-                              display: "flex",
-                              gap: 4,
-                              flexWrap: "wrap",
+                              borderBottom: "1px solid rgba(70,69,85,0.4)",
                             }}
                           >
-                            {w.platforms.map((p) => (
-                              <span
-                                key={p}
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                fontWeight: 600,
+                                color: "#E1E1F2",
+                              }}
+                            >
+                              {w.name}
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                color: "#918FA1",
+                                fontSize: 12,
+                              }}
+                            >
+                              {w.email}
+                            </td>
+                            <td
+                              style={{ padding: "12px 14px", color: "#C7C4D8" }}
+                            >
+                              {w.city}
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                color: "#918FA1",
+                                fontSize: 11,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {w.delivery_id?.slice(0, 12)}...
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div
                                 style={{
-                                  background: "#1D1B45",
-                                  color: "#8B84FF",
-                                  padding: "2px 8px",
-                                  borderRadius: 4,
-                                  fontSize: 10,
-                                  fontWeight: 700,
+                                  display: "flex",
+                                  gap: 4,
+                                  flexWrap: "wrap",
                                 }}
                               >
-                                {PLATFORM_NAMES[p] || p}
+                                {w.platforms.map((p) => (
+                                  <span
+                                    key={p}
+                                    style={{
+                                      background: "#1D1B45",
+                                      color: "#8B84FF",
+                                      padding: "2px 8px",
+                                      borderRadius: 4,
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {PLATFORM_NAMES[p] || p}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <select
+                                value={w.tier}
+                                onChange={(e) =>
+                                  updateWorker(w.id, undefined, e.target.value)
+                                }
+                                disabled={updatingId === w.id}
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  border: "1px solid rgba(70,69,85,0.6)",
+                                  cursor: "pointer",
+                                  background: "#323440",
+                                  color:
+                                    w.tier === "pro"
+                                      ? "#c084fc"
+                                      : w.tier === "standard"
+                                        ? "#6C63FF"
+                                        : "#22C55E",
+                                }}
+                              >
+                                {TIER_OPTIONS.map((t) => (
+                                  <option key={t} value={t}>
+                                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <span
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  background: w.auto_verified
+                                    ? "#f0fdf4"
+                                    : "#fef2f2",
+                                  color: w.auto_verified
+                                    ? "#16a34a"
+                                    : "#dc2626",
+                                }}
+                                title={
+                                  w.auto_verified_platforms?.length
+                                    ? `Matched: ${w.auto_verified_platforms.join(", ")}`
+                                    : "No platform match"
+                                }
+                              >
+                                {w.auto_verified ? "Matched" : "Not matched"}
                               </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <select
-                            value={w.tier}
-                            onChange={(e) =>
-                              updateWorker(w.id, undefined, e.target.value)
-                            }
-                            disabled={updatingId === w.id}
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: 6,
-                              fontSize: 12,
-                              fontWeight: 600,
-                              border: "1px solid rgba(70,69,85,0.6)",
-                              cursor: "pointer",
-                              background: "#323440",
-                              color:
-                                w.tier === "pro"
-                                  ? "#c084fc"
-                                  : w.tier === "standard"
-                                    ? "#6C63FF"
-                                    : "#22C55E",
-                            }}
-                          >
-                            {TIER_OPTIONS.map((t) => (
-                              <option key={t} value={t}>
-                                {t.charAt(0).toUpperCase() + t.slice(1)}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <span
-                            style={{
-                              padding: "3px 8px",
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              background: w.auto_verified
-                                ? "#f0fdf4"
-                                : "#fef2f2",
-                              color: w.auto_verified ? "#16a34a" : "#dc2626",
-                            }}
-                            title={
-                              w.auto_verified_platforms?.length
-                                ? `Matched: ${w.auto_verified_platforms.join(", ")}`
-                                : "No platform match"
-                            }
-                          >
-                            {w.auto_verified ? "Matched" : "Not matched"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <span
-                            style={{
-                              padding: "3px 8px",
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              background:
-                                w.verification_status === "verified"
-                                  ? "#f0fdf4"
-                                  : w.verification_status === "rejected"
-                                    ? "#fef2f2"
-                                    : "#fffbeb",
-                              color:
-                                w.verification_status === "verified"
-                                  ? "#16a34a"
-                                  : w.verification_status === "rejected"
-                                    ? "#dc2626"
-                                    : "#d97706",
-                            }}
-                          >
-                            {w.verification_status.charAt(0).toUpperCase() +
-                              w.verification_status.slice(1)}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                            {w.verification_status !== "verified" && (
-                              <ActionBtn
-                                label="Approve"
-                                bg="#f0fdf4"
-                                border="#86efac"
-                                color="#166534"
-                                disabled={updatingId === w.id}
-                                onClick={() => updateWorker(w.id, "approve")}
-                              />
-                            )}
-                            {w.verification_status !== "rejected" && (
-                              <ActionBtn
-                                label="Reject"
-                                bg="#fef2f2"
-                                border="#fecaca"
-                                color="#b91c1c"
-                                disabled={updatingId === w.id}
-                                onClick={() => updateWorker(w.id, "reject")}
-                              />
-                            )}
-                            {w.verification_status !== "pending" && (
-                              <ActionBtn
-                                label="Pending"
-                                bg="#fffbeb"
-                                border="#fde68a"
-                                color="#92400e"
-                                disabled={updatingId === w.id}
-                                onClick={() => updateWorker(w.id, "pending")}
-                              />
-                            )}
-                          </div>
-                        </td>
-                        <td
-                          style={{
-                            padding: "12px 14px",
-                            color: "#918FA1",
-                            fontSize: 12,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {new Date(w.created_at).toLocaleDateString("en-IN", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <span
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: 6,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  background:
+                                    w.verification_status === "verified"
+                                      ? "#f0fdf4"
+                                      : w.verification_status === "rejected"
+                                        ? "#fef2f2"
+                                        : "#fffbeb",
+                                  color:
+                                    w.verification_status === "verified"
+                                      ? "#16a34a"
+                                      : w.verification_status === "rejected"
+                                        ? "#dc2626"
+                                        : "#d97706",
+                                }}
+                              >
+                                {w.verification_status.charAt(0).toUpperCase() +
+                                  w.verification_status.slice(1)}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 4,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                {w.verification_status !== "verified" && (
+                                  <ActionBtn
+                                    label="Approve"
+                                    bg="#f0fdf4"
+                                    border="#86efac"
+                                    color="#166534"
+                                    disabled={updatingId === w.id}
+                                    onClick={() =>
+                                      updateWorker(w.id, "approve")
+                                    }
+                                  />
+                                )}
+                                {w.verification_status !== "rejected" && (
+                                  <ActionBtn
+                                    label="Reject"
+                                    bg="#fef2f2"
+                                    border="#fecaca"
+                                    color="#b91c1c"
+                                    disabled={updatingId === w.id}
+                                    onClick={() => updateWorker(w.id, "reject")}
+                                  />
+                                )}
+                                {w.verification_status !== "pending" && (
+                                  <ActionBtn
+                                    label="Pending"
+                                    bg="#fffbeb"
+                                    border="#fde68a"
+                                    color="#92400e"
+                                    disabled={updatingId === w.id}
+                                    onClick={() =>
+                                      updateWorker(w.id, "pending")
+                                    }
+                                  />
+                                )}
+                              </div>
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 14px",
+                                color: "#918FA1",
+                                fontSize: 12,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {new Date(w.created_at).toLocaleDateString(
+                                "en-IN",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          </>}
+            </>
+          )}
 
           {tab === "claims" && (
             <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: "#E1E1F2" }}>Insurance Claims</h3>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    margin: 0,
+                    color: "#E1E1F2",
+                  }}
+                >
+                  Insurance Claims
+                </h3>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <select
                     value={claimStatusFilter}
-                    onChange={e => setClaimStatusFilter(e.target.value)}
-                    style={{ height: 36, padding: "0 12px", fontSize: 13, border: "1px solid rgba(70,69,85,0.6)", borderRadius: 8, outline: "none", cursor: "pointer", background: "#323440", color: "#E1E1F2" }}
+                    onChange={(e) => setClaimStatusFilter(e.target.value)}
+                    style={{
+                      height: 36,
+                      padding: "0 12px",
+                      fontSize: 13,
+                      border: "1px solid rgba(70,69,85,0.6)",
+                      borderRadius: 8,
+                      outline: "none",
+                      cursor: "pointer",
+                      background: "#323440",
+                      color: "#E1E1F2",
+                    }}
                   >
                     <option value="all">All statuses</option>
                     <option value="pending">Pending</option>
@@ -676,97 +840,420 @@ export default function AdminPage() {
                     <option value="paid">Paid</option>
                     <option value="rejected">Rejected</option>
                   </select>
-                  <button type="button" onClick={fetchClaims} style={{ height: 36, padding: "0 14px", fontSize: 12, fontWeight: 600, background: "#1D1F2B", color: "#918FA1", border: "1px solid rgba(70,69,85,0.6)", borderRadius: 6, cursor: "pointer" }}>Refresh</button>
+                  <button
+                    type="button"
+                    onClick={fetchClaims}
+                    style={{
+                      height: 36,
+                      padding: "0 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      background: "#1D1F2B",
+                      color: "#918FA1",
+                      border: "1px solid rgba(70,69,85,0.6)",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Refresh
+                  </button>
                 </div>
               </div>
 
               {claimsLoading ? (
-                <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>Loading claims...</div>
+                <div
+                  style={{ padding: 40, textAlign: "center", color: "#918FA1" }}
+                >
+                  Loading claims...
+                </div>
               ) : (
-                <div style={{ background: "#1D1F2B", borderRadius: 12, border: "1px solid rgba(70,69,85,0.6)", overflow: "hidden" }}>
-                  {claims.filter(c => claimStatusFilter === "all" || c.status === claimStatusFilter).length === 0 ? (
-                    <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>No claims found.</div>
+                <div
+                  style={{
+                    background: "#1D1F2B",
+                    borderRadius: 12,
+                    border: "1px solid rgba(70,69,85,0.6)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {claims.filter(
+                    (c) =>
+                      claimStatusFilter === "all" ||
+                      c.status === claimStatusFilter,
+                  ).length === 0 ? (
+                    <div
+                      style={{
+                        padding: 40,
+                        textAlign: "center",
+                        color: "#918FA1",
+                      }}
+                    >
+                      No claims found.
+                    </div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: 13,
+                      }}
+                    >
                       <thead>
                         <tr style={{ background: "#272935" }}>
-                          {["Worker", "Type", "Date", "Claimed", "Approved", "Status", "Actions"].map(h => (
-                            <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontWeight: 700, color: "#918FA1", borderBottom: "1px solid rgba(70,69,85,0.6)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
+                          {[
+                            "Worker",
+                            "Type",
+                            "Date",
+                            "Claimed",
+                            "Approved",
+                            "Status",
+                            "Actions",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              style={{
+                                padding: "10px 14px",
+                                textAlign: "left",
+                                fontWeight: 700,
+                                color: "#918FA1",
+                                borderBottom: "1px solid rgba(70,69,85,0.6)",
+                                fontSize: 11,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {h}
+                            </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {claims
-                          .filter(c => claimStatusFilter === "all" || c.status === claimStatusFilter)
-                          .map(c => (
-                          <>
-                            <tr key={c.id} style={{ borderBottom: expandedClaim === c.id ? "none" : "1px solid rgba(70,69,85,0.4)" }}>
-                              <td style={{ padding: "12px 14px", fontWeight: 600, color: "#E1E1F2" }}>{c.worker_name}</td>
-                              <td style={{ padding: "12px 14px", color: "#C7C4D8" }}>{CLAIM_TYPE_LABELS[c.claim_type] || c.claim_type}</td>
-                              <td style={{ padding: "12px 14px", color: "#918FA1" }}>{c.incident_date}</td>
-                              <td style={{ padding: "12px 14px", fontWeight: 600, color: "#E1E1F2" }}>₹{c.claim_amount}</td>
-                              <td style={{ padding: "12px 14px", color: c.approved_amount ? "#22C55E" : "#918FA1", fontWeight: c.approved_amount ? 700 : 400 }}>
-                                {c.approved_amount ? `₹${c.approved_amount}` : "—"}
-                              </td>
-                              <td style={{ padding: "12px 14px" }}>
-                                <ClaimBadge status={c.status} />
-                              </td>
-                              <td style={{ padding: "12px 14px" }}>
-                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                                  <button type="button" onClick={() => setExpandedClaim(expandedClaim === c.id ? null : c.id)} style={{ border: "1px solid #d1d5db", background: "#f8fafc", color: "#374151", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                                    {expandedClaim === c.id ? "Close" : "Review"}
-                                  </button>
-                                  {c.status === "approved" && (
-                                    <ActionBtn label="Mark Paid" bg="#f5f3ff" border="#ddd6fe" color="#7c3aed" disabled={updatingClaimId === c.id} onClick={() => updateClaim(c.id, "paid")} />
-                                  )}
-                                  {c.status === "pending" && (
-                                    <ActionBtn label="Review" bg="#eff6ff" border="#bfdbfe" color="#2563eb" disabled={updatingClaimId === c.id} onClick={() => updateClaim(c.id, "under_review")} />
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                            {expandedClaim === c.id && (
-                              <tr key={`${c.id}-expand`} style={{ borderBottom: "1px solid rgba(70,69,85,0.4)" }}>
-                                <td colSpan={7} style={{ padding: "0 14px 16px", background: "#272935" }}>
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingTop: 12 }}>
-                                    <div>
-                                      <div style={{ fontSize: 11, fontWeight: 700, color: "#918FA1", textTransform: "uppercase", marginBottom: 6, letterSpacing: "0.05em" }}>Description</div>
-                                      <p style={{ fontSize: 13, color: "#C7C4D8", margin: 0, lineHeight: 1.5 }}>{c.description}</p>
-                                      {c.upi && <p style={{ fontSize: 12, color: "#918FA1", marginTop: 8 }}>UPI: <strong style={{ color: "#E1E1F2" }}>{c.upi}</strong></p>}
-                                      {c.razorpay_payout_id && <p style={{ fontSize: 11, fontFamily: "monospace", color: "#918FA1", marginTop: 4 }}>Payout ID: {c.razorpay_payout_id}</p>}
-                                    </div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                      <div>
-                                        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#918FA1", marginBottom: 4 }}>Approved amount (₹)</label>
-                                        <input
-                                          type="number"
-                                          placeholder={`Max ₹${c.claim_amount}`}
-                                          value={approveAmounts[c.id] ?? ""}
-                                          onChange={e => setApproveAmounts(prev => ({ ...prev, [c.id]: e.target.value }))}
-                                          style={{ width: "100%", height: 36, padding: "0 10px", fontSize: 13, border: "1px solid rgba(70,69,85,0.6)", borderRadius: 8, outline: "none", boxSizing: "border-box", background: "#323440", color: "#E1E1F2" }}
-                                        />
-                                      </div>
-                                      <div>
-                                        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#918FA1", marginBottom: 4 }}>Admin notes</label>
-                                        <input
-                                          type="text"
-                                          placeholder="Optional note for worker"
-                                          value={adminNotes[c.id] ?? ""}
-                                          onChange={e => setAdminNotes(prev => ({ ...prev, [c.id]: e.target.value }))}
-                                          style={{ width: "100%", height: 36, padding: "0 10px", fontSize: 13, border: "1px solid rgba(70,69,85,0.6)", borderRadius: 8, outline: "none", boxSizing: "border-box", background: "#323440", color: "#E1E1F2" }}
-                                        />
-                                      </div>
-                                      <div style={{ display: "flex", gap: 6 }}>
-                                        <ActionBtn label="Approve" bg="#f0fdf4" border="#86efac" color="#166534" disabled={updatingClaimId === c.id} onClick={() => updateClaim(c.id, "approved", approveAmounts[c.id] ? parseFloat(approveAmounts[c.id]) : c.claim_amount, adminNotes[c.id])} />
-                                        <ActionBtn label="Reject" bg="#fef2f2" border="#fecaca" color="#b91c1c" disabled={updatingClaimId === c.id} onClick={() => updateClaim(c.id, "rejected", undefined, adminNotes[c.id])} />
-                                      </div>
-                                    </div>
+                          .filter(
+                            (c) =>
+                              claimStatusFilter === "all" ||
+                              c.status === claimStatusFilter,
+                          )
+                          .map((c) => (
+                            <>
+                              <tr
+                                key={c.id}
+                                style={{
+                                  borderBottom:
+                                    expandedClaim === c.id
+                                      ? "none"
+                                      : "1px solid rgba(70,69,85,0.4)",
+                                }}
+                              >
+                                <td
+                                  style={{
+                                    padding: "12px 14px",
+                                    fontWeight: 600,
+                                    color: "#E1E1F2",
+                                  }}
+                                >
+                                  {c.worker_name}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "12px 14px",
+                                    color: "#C7C4D8",
+                                  }}
+                                >
+                                  {CLAIM_TYPE_LABELS[c.claim_type] ||
+                                    c.claim_type}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "12px 14px",
+                                    color: "#918FA1",
+                                  }}
+                                >
+                                  {c.incident_date}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "12px 14px",
+                                    fontWeight: 600,
+                                    color: "#E1E1F2",
+                                  }}
+                                >
+                                  ₹{c.claim_amount}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "12px 14px",
+                                    color: c.approved_amount
+                                      ? "#22C55E"
+                                      : "#918FA1",
+                                    fontWeight: c.approved_amount ? 700 : 400,
+                                  }}
+                                >
+                                  {c.approved_amount
+                                    ? `₹${c.approved_amount}`
+                                    : "—"}
+                                </td>
+                                <td style={{ padding: "12px 14px" }}>
+                                  <ClaimBadge status={c.status} />
+                                </td>
+                                <td style={{ padding: "12px 14px" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 4,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedClaim(
+                                          expandedClaim === c.id ? null : c.id,
+                                        )
+                                      }
+                                      style={{
+                                        border: "1px solid #d1d5db",
+                                        background: "#f8fafc",
+                                        color: "#374151",
+                                        borderRadius: 6,
+                                        padding: "4px 8px",
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      {expandedClaim === c.id
+                                        ? "Close"
+                                        : "Review"}
+                                    </button>
+                                    {c.status === "approved" && (
+                                      <ActionBtn
+                                        label="Mark Paid"
+                                        bg="#f5f3ff"
+                                        border="#ddd6fe"
+                                        color="#7c3aed"
+                                        disabled={updatingClaimId === c.id}
+                                        onClick={() =>
+                                          updateClaim(c.id, "paid")
+                                        }
+                                      />
+                                    )}
+                                    {c.status === "pending" && (
+                                      <ActionBtn
+                                        label="Review"
+                                        bg="#eff6ff"
+                                        border="#bfdbfe"
+                                        color="#2563eb"
+                                        disabled={updatingClaimId === c.id}
+                                        onClick={() =>
+                                          updateClaim(c.id, "under_review")
+                                        }
+                                      />
+                                    )}
                                   </div>
                                 </td>
                               </tr>
-                            )}
-                          </>
-                        ))}
+                              {expandedClaim === c.id && (
+                                <tr
+                                  key={`${c.id}-expand`}
+                                  style={{
+                                    borderBottom:
+                                      "1px solid rgba(70,69,85,0.4)",
+                                  }}
+                                >
+                                  <td
+                                    colSpan={7}
+                                    style={{
+                                      padding: "0 14px 16px",
+                                      background: "#272935",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 1fr",
+                                        gap: 16,
+                                        paddingTop: 12,
+                                      }}
+                                    >
+                                      <div>
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            color: "#918FA1",
+                                            textTransform: "uppercase",
+                                            marginBottom: 6,
+                                            letterSpacing: "0.05em",
+                                          }}
+                                        >
+                                          Description
+                                        </div>
+                                        <p
+                                          style={{
+                                            fontSize: 13,
+                                            color: "#C7C4D8",
+                                            margin: 0,
+                                            lineHeight: 1.5,
+                                          }}
+                                        >
+                                          {c.description}
+                                        </p>
+                                        {c.upi && (
+                                          <p
+                                            style={{
+                                              fontSize: 12,
+                                              color: "#918FA1",
+                                              marginTop: 8,
+                                            }}
+                                          >
+                                            UPI:{" "}
+                                            <strong
+                                              style={{ color: "#E1E1F2" }}
+                                            >
+                                              {c.upi}
+                                            </strong>
+                                          </p>
+                                        )}
+                                        {c.razorpay_payout_id && (
+                                          <p
+                                            style={{
+                                              fontSize: 11,
+                                              fontFamily: "monospace",
+                                              color: "#918FA1",
+                                              marginTop: 4,
+                                            }}
+                                          >
+                                            Payout ID: {c.razorpay_payout_id}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          gap: 10,
+                                        }}
+                                      >
+                                        <div>
+                                          <label
+                                            style={{
+                                              display: "block",
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              color: "#918FA1",
+                                              marginBottom: 4,
+                                            }}
+                                          >
+                                            Approved amount (₹)
+                                          </label>
+                                          <input
+                                            type="number"
+                                            placeholder={`Max ₹${c.claim_amount}`}
+                                            value={approveAmounts[c.id] ?? ""}
+                                            onChange={(e) =>
+                                              setApproveAmounts((prev) => ({
+                                                ...prev,
+                                                [c.id]: e.target.value,
+                                              }))
+                                            }
+                                            style={{
+                                              width: "100%",
+                                              height: 36,
+                                              padding: "0 10px",
+                                              fontSize: 13,
+                                              border:
+                                                "1px solid rgba(70,69,85,0.6)",
+                                              borderRadius: 8,
+                                              outline: "none",
+                                              boxSizing: "border-box",
+                                              background: "#323440",
+                                              color: "#E1E1F2",
+                                            }}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label
+                                            style={{
+                                              display: "block",
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              color: "#918FA1",
+                                              marginBottom: 4,
+                                            }}
+                                          >
+                                            Admin notes
+                                          </label>
+                                          <input
+                                            type="text"
+                                            placeholder="Optional note for worker"
+                                            value={adminNotes[c.id] ?? ""}
+                                            onChange={(e) =>
+                                              setAdminNotes((prev) => ({
+                                                ...prev,
+                                                [c.id]: e.target.value,
+                                              }))
+                                            }
+                                            style={{
+                                              width: "100%",
+                                              height: 36,
+                                              padding: "0 10px",
+                                              fontSize: 13,
+                                              border:
+                                                "1px solid rgba(70,69,85,0.6)",
+                                              borderRadius: 8,
+                                              outline: "none",
+                                              boxSizing: "border-box",
+                                              background: "#323440",
+                                              color: "#E1E1F2",
+                                            }}
+                                          />
+                                        </div>
+                                        <div
+                                          style={{ display: "flex", gap: 6 }}
+                                        >
+                                          <ActionBtn
+                                            label="Approve"
+                                            bg="#f0fdf4"
+                                            border="#86efac"
+                                            color="#166534"
+                                            disabled={updatingClaimId === c.id}
+                                            onClick={() =>
+                                              updateClaim(
+                                                c.id,
+                                                "approved",
+                                                approveAmounts[c.id]
+                                                  ? parseFloat(
+                                                      approveAmounts[c.id],
+                                                    )
+                                                  : c.claim_amount,
+                                                adminNotes[c.id],
+                                              )
+                                            }
+                                          />
+                                          <ActionBtn
+                                            label="Reject"
+                                            bg="#fef2f2"
+                                            border="#fecaca"
+                                            color="#b91c1c"
+                                            disabled={updatingClaimId === c.id}
+                                            onClick={() =>
+                                              updateClaim(
+                                                c.id,
+                                                "rejected",
+                                                undefined,
+                                                adminNotes[c.id],
+                                              )
+                                            }
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          ))}
                       </tbody>
                     </table>
                   )}
@@ -782,18 +1269,50 @@ export default function AdminPage() {
 
 function ClaimBadge({ status }: { status: string }) {
   const styles: Record<string, React.CSSProperties> = {
-    pending:      { background: "#2A1A0A", color: "#FF8C42", border: "1px solid rgba(255,140,66,0.3)" },
-    under_review: { background: "#0a1a3a", color: "#3B82F6", border: "1px solid rgba(59,130,246,0.3)" },
-    approved:     { background: "#0A2E18", color: "#22C55E", border: "1px solid rgba(34,197,94,0.3)" },
-    rejected:     { background: "#2E0A0A", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" },
-    paid:         { background: "#1D1B45", color: "#6C63FF", border: "1px solid rgba(108,99,255,0.3)" },
+    pending: {
+      background: "#2A1A0A",
+      color: "#FF8C42",
+      border: "1px solid rgba(255,140,66,0.3)",
+    },
+    under_review: {
+      background: "#0a1a3a",
+      color: "#3B82F6",
+      border: "1px solid rgba(59,130,246,0.3)",
+    },
+    approved: {
+      background: "#0A2E18",
+      color: "#22C55E",
+      border: "1px solid rgba(34,197,94,0.3)",
+    },
+    rejected: {
+      background: "#2E0A0A",
+      color: "#EF4444",
+      border: "1px solid rgba(239,68,68,0.3)",
+    },
+    paid: {
+      background: "#1D1B45",
+      color: "#6C63FF",
+      border: "1px solid rgba(108,99,255,0.3)",
+    },
   };
   const labels: Record<string, string> = {
-    pending: "Pending", under_review: "Under Review", approved: "Approved", rejected: "Rejected", paid: "Paid",
+    pending: "Pending",
+    under_review: "Under Review",
+    approved: "Approved",
+    rejected: "Rejected",
+    paid: "Paid",
   };
   const s = styles[status] || styles.pending;
   return (
-    <span style={{ ...s, padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+    <span
+      style={{
+        ...s,
+        padding: "3px 8px",
+        borderRadius: 6,
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
       {labels[status] || status}
     </span>
   );
