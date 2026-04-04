@@ -3,9 +3,12 @@ import {
   View, Text, StyleSheet, SafeAreaView,
   ScrollView, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
 const ALL_PLATFORMS = [
   { id: 'swiggy', name: 'Swiggy' },
@@ -71,7 +74,12 @@ const Field = ({ label, placeholder, value, onChangeText, keyboardType, secureTe
 );
 
 const SignUpScreen = ({ navigation }) => {
+  const { register } = useAuth();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
   const [form, setForm] = useState({
     platforms: [],
     name: '', age: '', phone: '', email: '', password: '', confirmPassword: '',
@@ -89,12 +97,102 @@ const SignUpScreen = ({ navigation }) => {
       : [...p.platforms, id],
   }));
 
-  const nextStep = () => setStep(s => Math.min(s + 1, 4));
-  const prevStep = () => setStep(s => Math.max(s - 1, 1));
+  const validateStep = () => {
+    if (step === 1 && form.platforms.length === 0) {
+      setError('Select at least one delivery platform.');
+      return false;
+    }
 
-  const handleSubmit = () => {
-    console.log('Registering', form);
-    navigation.navigate('Home');
+    if (step === 2) {
+      if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.city || !form.deliveryId.trim()) {
+        setError('Complete all required personal details before continuing.');
+        return false;
+      }
+      if (!form.password || form.password.length < 6) {
+        setError('Password must be at least 6 characters.');
+        return false;
+      }
+      if (form.password !== form.confirmPassword) {
+        setError('Passwords do not match.');
+        return false;
+      }
+    }
+
+    if (step === 3 && (!form.consent || !form.gpsConsent)) {
+      setError('Please accept required consent toggles to continue.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const nextStep = () => {
+    if (!validateStep()) return;
+    setError('');
+    setStep(s => Math.min(s + 1, 4));
+  };
+
+  const prevStep = () => {
+    setError('');
+    setStep(s => Math.max(s - 1, 1));
+  };
+
+  const handleVerifyId = async () => {
+    if (!form.deliveryId.trim() || form.platforms.length === 0) {
+      setError('Enter Delivery Partner ID and choose at least one platform first.');
+      return;
+    }
+
+    setVerifying(true);
+    setVerifyResult(null);
+    setError('');
+
+    try {
+      const result = await api.verifyDeliveryId(form.deliveryId.trim(), form.platforms);
+      setVerifyResult(result);
+      if (!result.verified) {
+        setError('ID not found in selected platform databases. You can still continue for manual admin verification.');
+      }
+    } catch (err) {
+      setError(err.message || 'Verification service unavailable. You can still register.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep()) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await register({
+        name: form.name.trim(),
+        age: form.age,
+        phone: form.phone.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+        city: form.city,
+        area: form.area.trim(),
+        deliveryId: form.deliveryId.trim(),
+        platforms: form.platforms,
+        pan: form.pan.trim(),
+        aadhaar: form.aadhaar.trim(),
+        upi: form.upi.trim(),
+        bank: form.bank.trim(),
+        consent: form.consent,
+        gpsConsent: form.gpsConsent,
+        autopay: form.autopay,
+        tier: form.tier,
+      });
+
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -112,6 +210,12 @@ const SignUpScreen = ({ navigation }) => {
           </View>
 
           <StepIndicator current={step} />
+
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
 
           {/* ── STEP 1: Platform ── */}
           {step === 1 && (
@@ -194,6 +298,35 @@ const SignUpScreen = ({ navigation }) => {
 
               <Field label="Delivery Area / Zone" placeholder="e.g. Koramangala" value={form.area} onChangeText={v => update('area', v)} />
               <Field label="Primary Delivery Partner ID" placeholder="Your ID from the platform app" value={form.deliveryId} onChangeText={v => update('deliveryId', v)} hint="Used to verify your worker status on the selected platforms." />
+
+              <View style={styles.verifyRow}>
+                <TouchableOpacity
+                  style={[styles.verifyBtn, (verifying || !form.deliveryId.trim()) && { opacity: 0.6 }]}
+                  onPress={handleVerifyId}
+                  disabled={verifying || !form.deliveryId.trim()}
+                >
+                  {verifying ? (
+                    <ActivityIndicator color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.verifyBtnText}>Verify ID</Text>
+                  )}
+                </TouchableOpacity>
+
+                {verifyResult?.verified && (
+                  <View style={styles.verifySuccessPill}>
+                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                    <Text style={styles.verifySuccessText}>Verified</Text>
+                  </View>
+                )}
+              </View>
+
+              {verifyResult?.verified && verifyResult?.matched_platforms?.length > 0 && (
+                <View style={styles.verifyInfoCard}>
+                  <Text style={styles.verifyInfoText}>
+                    Matched on: {verifyResult.matched_platforms.join(', ')}
+                  </Text>
+                </View>
+              )}
 
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.ghostBtn} onPress={prevStep}><Text style={styles.ghostBtnText}>← Back</Text></TouchableOpacity>
@@ -306,7 +439,9 @@ const SignUpScreen = ({ navigation }) => {
 
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.ghostBtn} onPress={prevStep}><Text style={styles.ghostBtnText}>← Back</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.ctaBtnSmall} onPress={handleSubmit}><Text style={styles.ctaBtnText}>Create Account</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.ctaBtnSmall, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
+                  {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.ctaBtnText}>Create Account</Text>}
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -327,6 +462,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding, paddingBottom: SIZES.base },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.surfaceHigh, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: SIZES.h3, fontFamily: FONTS.bold, color: COLORS.white },
+
+  errorBox: { marginHorizontal: SIZES.padding, marginBottom: SIZES.base, backgroundColor: COLORS.errorContainer, borderWidth: 1, borderColor: COLORS.error + '40', borderRadius: SIZES.radius, paddingHorizontal: 12, paddingVertical: 10 },
+  errorText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
 
   // Stepper
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SIZES.padding, paddingVertical: SIZES.padding, gap: 4 },
@@ -363,6 +501,14 @@ const styles = StyleSheet.create({
   cityPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.surfaceHighest, marginRight: 8, borderWidth: 1, borderColor: COLORS.border },
   cityPillSelected: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.primary },
   cityPillText: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted },
+
+  verifyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SIZES.base },
+  verifyBtn: { height: 40, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.surfaceHighest, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center' },
+  verifyBtnText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+  verifySuccessPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.successContainer, borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.success + '30', paddingHorizontal: 10, paddingVertical: 6 },
+  verifySuccessText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.success },
+  verifyInfoCard: { backgroundColor: COLORS.successContainer, borderRadius: SIZES.radius, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.success + '30', marginBottom: SIZES.padding * 0.75 },
+  verifyInfoText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.success },
 
   // Secure note
   secureNote: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primaryContainer, paddingHorizontal: 12, paddingVertical: 8, borderRadius: SIZES.radius, marginBottom: SIZES.padding },

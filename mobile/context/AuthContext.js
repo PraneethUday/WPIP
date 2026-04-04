@@ -9,6 +9,20 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const clearSession = async () => {
+    setToken(null);
+    setUser(null);
+    await AsyncStorage.removeItem('gg_token');
+    await AsyncStorage.removeItem('gg_user');
+  };
+
+  const saveSession = async (newToken, newUser) => {
+    setToken(newToken);
+    setUser(newUser);
+    await AsyncStorage.setItem('gg_token', newToken);
+    await AsyncStorage.setItem('gg_user', JSON.stringify(newUser));
+  };
+
   // Restore session on mount
   useEffect(() => {
     (async () => {
@@ -38,20 +52,6 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const saveSession = async (newToken, newUser) => {
-    setToken(newToken);
-    setUser(newUser);
-    await AsyncStorage.setItem('gg_token', newToken);
-    await AsyncStorage.setItem('gg_user', JSON.stringify(newUser));
-  };
-
-  const clearSession = async () => {
-    setToken(null);
-    setUser(null);
-    await AsyncStorage.removeItem('gg_token');
-    await AsyncStorage.removeItem('gg_user');
-  };
-
   const login = async (email, password) => {
     const data = await api.login(email, password);
     await saveSession(data.token, data.user);
@@ -61,6 +61,17 @@ export function AuthProvider({ children }) {
   const register = async (formData) => {
     const data = await api.register(formData);
     await saveSession(data.token, data.user);
+
+    // Register response may be partial; sync full profile for downstream screens.
+    try {
+      const me = await api.getMe(data.token);
+      if (me.user) {
+        await saveSession(data.token, me.user);
+      }
+    } catch {
+      // keep partial user if /me temporarily fails
+    }
+
     return data;
   };
 

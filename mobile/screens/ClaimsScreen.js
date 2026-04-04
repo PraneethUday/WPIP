@@ -1,17 +1,50 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
-  ScrollView, TouchableOpacity,
+  ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
-const CLAIMS = [
-  { id: 'CLM-4821', type: 'Heavy Rain', icon: 'rainy', date: 'Mar 28, 2026', zone: 'Chennai South', hours: 4, amount: 175, status: 'paid', time: '9 min 32 sec' },
-  { id: 'CLM-4755', type: 'AQI Alert', icon: 'cloud', date: 'Mar 15, 2026', zone: 'Chennai Central', hours: 6, amount: 263, status: 'paid', time: '11 min' },
-  { id: 'CLM-4690', type: 'Curfew', icon: 'ban', date: 'Mar 2, 2026', zone: 'Chennai North', hours: 3, amount: 131, status: 'paid', time: '7 min 44 sec' },
-  { id: 'CLM-4610', type: 'Heavy Rain', icon: 'rainy', date: 'Feb 21, 2026', zone: 'Chennai South', hours: 5, amount: 219, status: 'rejected', reason: 'Active deliveries detected during window' },
-];
+const TRIGGER_ICONS = {
+  heavy_rain: 'rainy',
+  severe_aqi: 'cloud',
+  flood: 'water',
+  curfew: 'ban',
+  extreme_heat: 'thermometer',
+};
+
+function money(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+  return `₹${Math.round(value)}`;
+}
+
+function mapClaimStatus(status) {
+  if (status === 'paid') return 'paid';
+  if (status === 'rejected') return 'rejected';
+  return 'under-review';
+}
+
+function formatDate(value) {
+  if (!value) return 'Unknown date';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Unknown date';
+  return d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function prettyTrigger(type) {
+  if (!type) return 'Disruption';
+  return type
+    .split('_')
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(' ');
+}
 
 const STATUS = {
   paid: { bg: '#0A2E18', color: COLORS.success, label: 'Paid', icon: 'checkmark-circle' },
@@ -22,10 +55,92 @@ const STATUS = {
 const FILTERS = ['all', 'paid', 'under-review', 'rejected'];
 
 export default function ClaimsScreen({ navigation }) {
+  const { user, token } = useAuth();
   const [filter, setFilter] = useState('all');
-  const filtered = filter === 'all' ? CLAIMS : CLAIMS.filter(c => c.status === filter);
-  const totalPaid = CLAIMS.filter(c => c.status === 'paid').reduce((a, c) => a + c.amount, 0);
-  const paidCount = CLAIMS.filter(c => c.status === 'paid').length;
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [claims, setClaims] = useState([]);
+  const [triggerStatus, setTriggerStatus] = useState({});
+
+  const loadClaims = useCallback(async (isRefresh = false) => {
+    if (!user?.delivery_id) {
+      setLoading(false);
+      setClaims([]);
+      setError('Delivery ID missing for this account.');
+      return;
+    }
+
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError('');
+
+    try {
+      const [claimRes, triggerRes] = await Promise.allSettled([
+        api.getWorkerClaims(token, user.delivery_id),
+        api.getTriggerStatus(),
+      ]);
+
+      if (claimRes.status === 'fulfilled') {
+        setClaims(claimRes.value?.data || []);
+      } else {
+        setClaims([]);
+      }
+
+      if (triggerRes.status === 'fulfilled') {
+        setTriggerStatus(triggerRes.value || {});
+      }
+
+      if (claimRes.status === 'rejected') {
+        setError('Unable to fetch claims right now.');
+      }
+    } catch {
+      setError('Unable to fetch claims right now.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [token, user?.delivery_id]);
+
+  useEffect(() => {
+    loadClaims(false);
+  }, [loadClaims]);
+
+  const normalizedClaims = useMemo(() => {
+    return claims.map((claim) => ({
+      ...claim,
+      _status: mapClaimStatus(claim.payout_status),
+      _icon: TRIGGER_ICONS[claim.trigger_type] || 'document-text',
+    }));
+  }, [claims]);
+
+  const filtered = filter === 'all'
+    ? normalizedClaims
+    : normalizedClaims.filter(c => c._status === filter);
+
+  const totalPaid = normalizedClaims
+    .filter(c => c._status === 'paid')
+    .reduce((a, c) => a + (Number(c.payout_amount) || 0), 0);
+  const paidCount = normalizedClaims.filter(c => c._status === 'paid').length;
+  const rejectedCount = normalizedClaims.filter(c => c._status === 'rejected').length;
+
+  const cityLive = user?.city ? triggerStatus?.[user.city] : null;
+  const liveTriggers = cityLive?.triggers_fired || [];
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+          <Text style={styles.loaderText}>Loading claims...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -35,26 +150,42 @@ export default function ClaimsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={20} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Claims</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => loadClaims(true)} style={styles.refreshBtn} disabled={refreshing}>
+          {refreshing ? <ActivityIndicator color={COLORS.white} size="small" /> : <Ionicons name="refresh" size={18} color={COLORS.white} />}
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+
+        {!!error && (
+          <View style={styles.errorCard}>
+            <Ionicons name="warning-outline" size={16} color={COLORS.error} />
+            <Text style={styles.errorCardText}>{error}</Text>
+          </View>
+        )}
 
         {/* Live Disruption Alert */}
         <View style={styles.liveAlert}>
           <View style={styles.liveAlertTop}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveAlertTitle}>DISRUPTION DETECTED</Text>
-            <View style={styles.liveBadge}><Text style={styles.liveBadgeText}>LIVE</Text></View>
+            <Text style={styles.liveAlertTitle}>{liveTriggers.length > 0 ? 'DISRUPTION DETECTED' : 'NO LIVE DISRUPTION'}</Text>
+            <View style={styles.liveBadge}><Text style={styles.liveBadgeText}>{liveTriggers.length > 0 ? 'LIVE' : 'CLEAR'}</Text></View>
           </View>
-          <Text style={styles.liveAlertSub}>Heavy rainfall in Chennai — 68mm/24h (Red Alert IMD)</Text>
-          <Text style={styles.liveAlertSub}>Auto-claim initiated for your policy</Text>
+
+          {liveTriggers.length > 0 ? (
+            <>
+              <Text style={styles.liveAlertSub}>{liveTriggers[0].description}</Text>
+              <Text style={styles.liveAlertSub}>Auto-claims are being evaluated for your policy in {user?.city || 'your city'}.</Text>
+            </>
+          ) : (
+            <Text style={styles.liveAlertSub}>No active trigger events in {user?.city || 'your city'} right now.</Text>
+          )}
 
           {/* Progress steps */}
           <View style={styles.claimSteps}>
-            {['Detected', 'Validated', 'Processing...', 'Payout'].map((s, i) => {
-              const done = i < 2;
-              const active = i === 2;
+            {['Detected', 'Validated', 'Processing', 'Payout'].map((s, i) => {
+              const done = liveTriggers.length === 0 ? i < 4 : i < 2;
+              const active = liveTriggers.length > 0 && i === 2;
               return (
                 <React.Fragment key={s}>
                   <View style={styles.claimStep}>
@@ -69,14 +200,16 @@ export default function ClaimsScreen({ navigation }) {
             })}
           </View>
 
-          <View style={styles.progressBar}><View style={[styles.progressFill, { width: '60%' }]} /></View>
-          <Text style={styles.estPayout}>Est. payout: <Text style={{ color: COLORS.success, fontFamily: FONTS.bold }}>₹175</Text> in ~8 minutes</Text>
+          <View style={styles.progressBar}><View style={[styles.progressFill, { width: liveTriggers.length > 0 ? '60%' : '100%' }]} /></View>
+          <Text style={styles.estPayout}>
+            Est. payout: <Text style={{ color: COLORS.success, fontFamily: FONTS.bold }}>{money(totalPaid / Math.max(1, paidCount || 1))}</Text>
+          </Text>
         </View>
 
         {/* Summary banner */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{CLAIMS.length}</Text>
+            <Text style={styles.summaryValue}>{normalizedClaims.length}</Text>
             <Text style={styles.summaryLabel}>Total</Text>
           </View>
           <View style={styles.summaryDivider} />
@@ -91,7 +224,7 @@ export default function ClaimsScreen({ navigation }) {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: COLORS.error }]}>{CLAIMS.length - paidCount}</Text>
+            <Text style={[styles.summaryValue, { color: COLORS.error }]}>{rejectedCount}</Text>
             <Text style={styles.summaryLabel}>Rejected</Text>
           </View>
         </View>
@@ -119,17 +252,23 @@ export default function ClaimsScreen({ navigation }) {
 
         {/* Claims list */}
         <View style={styles.claimsList}>
+          {filtered.length === 0 && (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No claims found for this filter.</Text>
+            </View>
+          )}
+
           {filtered.map(claim => {
-            const sc = STATUS[claim.status] || STATUS.paid;
+            const sc = STATUS[claim._status] || STATUS['under-review'];
             return (
-              <View key={claim.id} style={styles.claimCard}>
+              <View key={claim.id || claim.claim_number} style={styles.claimCard}>
                 <View style={styles.claimTop}>
                   <View style={[styles.claimIconWrap, { backgroundColor: sc.bg }]}>
-                    <Ionicons name={claim.icon} size={20} color={sc.color} />
+                    <Ionicons name={claim._icon} size={20} color={sc.color} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.claimType}>{claim.type}</Text>
-                    <Text style={styles.claimDate}>{claim.date} · {claim.zone}</Text>
+                    <Text style={styles.claimType}>{prettyTrigger(claim.trigger_type)}</Text>
+                    <Text style={styles.claimDate}>{formatDate(claim.created_at)} · {claim.city || user?.city || 'Unknown'}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
                     <Text style={[styles.statusText, { color: sc.color }]}>{sc.label}</Text>
@@ -139,30 +278,32 @@ export default function ClaimsScreen({ navigation }) {
                 <View style={styles.claimBottom}>
                   <View style={styles.claimDetail}>
                     <Text style={styles.detailLabel}>Disrupted</Text>
-                    <Text style={styles.detailValue}>{claim.hours} hrs</Text>
+                    <Text style={styles.detailValue}>{claim.disrupted_hours || 0} hrs</Text>
                   </View>
                   <View style={styles.claimDetail}>
                     <Text style={styles.detailLabel}>Claim ID</Text>
-                    <Text style={styles.detailValue}>{claim.id}</Text>
+                    <Text style={styles.detailValue}>{claim.claim_number || claim.id}</Text>
                   </View>
                   <View style={styles.claimDetail}>
                     <Text style={styles.detailLabel}>Payout</Text>
-                    <Text style={[styles.detailValue, { color: claim.status === 'paid' ? COLORS.success : COLORS.error }]}>
-                      {claim.status === 'rejected' ? '—' : `₹${claim.amount}`}
+                    <Text style={[styles.detailValue, { color: claim._status === 'paid' ? COLORS.success : COLORS.error }]}> 
+                      {claim._status === 'rejected' ? '—' : money(Number(claim.payout_amount))}
                     </Text>
                   </View>
                 </View>
 
-                {claim.status === 'paid' && (
+                {claim._status === 'paid' && (
                   <View style={styles.claimFooter}>
                     <Ionicons name="flash" size={12} color={COLORS.success} />
-                    <Text style={styles.claimFooterText}>UPI credited in {claim.time}</Text>
+                    <Text style={styles.claimFooterText}>UPI transaction: {claim.transaction_id || 'Pending sync'}</Text>
                   </View>
                 )}
-                {claim.status === 'rejected' && (
+                {claim._status === 'rejected' && (
                   <View style={styles.claimFooterRejected}>
                     <Ionicons name="alert-circle" size={12} color={COLORS.error} />
-                    <Text style={styles.claimFooterRejectedText}>Reason: {claim.reason}</Text>
+                    <Text style={styles.claimFooterRejectedText}>
+                      Reason: {Array.isArray(claim.fraud_flags) && claim.fraud_flags.length > 0 ? claim.fraud_flags.join(', ') : 'Failed automated checks'}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -177,10 +318,15 @@ export default function ClaimsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loaderText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
   header: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SIZES.padding, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.surfaceHigh, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: SIZES.h3, fontFamily: FONTS.bold, color: COLORS.white },
+  refreshBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.surfaceHigh, justifyContent: 'center', alignItems: 'center' },
+  errorCard: { margin: SIZES.padding, marginBottom: 0, backgroundColor: COLORS.errorContainer, borderWidth: 1, borderColor: COLORS.error + '40', borderRadius: SIZES.radius, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorCardText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error, flex: 1 },
 
   // Live Alert
   liveAlert: { margin: SIZES.padding, borderRadius: SIZES.radius * 1.5, backgroundColor: COLORS.amberContainer, borderWidth: 1, borderColor: COLORS.amber + '50', padding: SIZES.padding },
@@ -219,6 +365,8 @@ const styles = StyleSheet.create({
 
   // Claims list
   claimsList: { paddingHorizontal: SIZES.padding, paddingBottom: SIZES.padding * 2 },
+  emptyCard: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border, padding: SIZES.padding, marginBottom: SIZES.base },
+  emptyText: { color: COLORS.textMuted, fontSize: SIZES.small, fontFamily: FONTS.medium },
   claimCard: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.2, borderWidth: 1, borderColor: COLORS.border, marginBottom: 12, overflow: 'hidden' },
   claimTop: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: SIZES.padding * 0.85, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   claimIconWrap: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },

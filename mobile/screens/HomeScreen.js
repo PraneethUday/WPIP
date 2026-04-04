@@ -1,16 +1,56 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
-  ScrollView, TouchableOpacity, Platform,
+  ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import * as api from '../lib/api';
 
-const RECENT_ACTIVITY = [
-  { icon: 'refresh-circle', color: COLORS.primary, title: 'Policy renewed', sub: '3 days ago · ₹72 deducted', },
-  { icon: 'shield-checkmark', color: COLORS.success, title: 'No disruptions this week', sub: 'All clear in Chennai South', },
-  { icon: 'star', color: COLORS.amber, title: 'Loyalty milestone: 8 weeks!', sub: 'Discount now 8% — keep it up', },
-];
+const TRIGGER_ICONS = {
+  heavy_rain: 'rainy',
+  severe_aqi: 'cloud',
+  flood: 'water',
+  extreme_heat: 'thermometer',
+  curfew: 'ban',
+};
+
+function money(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+  return `₹${Math.round(value)}`;
+}
+
+function titleCaseTier(tier) {
+  if (!tier) return 'Standard';
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function riskLabel(risk) {
+  if (typeof risk !== 'number') return 'UNKNOWN';
+  if (risk < 0.15) return 'LOW RISK';
+  if (risk < 0.4) return 'MOD RISK';
+  if (risk < 0.7) return 'HIGH RISK';
+  return 'SEVERE';
+}
+
+function formatDate(value) {
+  if (!value) return 'Unknown date';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Unknown date';
+  return d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function getStatusTone(status) {
+  if (status === 'paid') return { color: COLORS.success, label: 'Paid' };
+  if (status === 'approved' || status === 'pending') return { color: COLORS.amber, label: 'Processing' };
+  if (status === 'rejected') return { color: COLORS.error, label: 'Rejected' };
+  return { color: COLORS.info, label: 'Initiated' };
+}
 
 const QuickAction = ({ icon, label, onPress, color = COLORS.primary }) => (
   <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.75}>
@@ -22,6 +62,110 @@ const QuickAction = ({ icon, label, onPress, color = COLORS.primary }) => (
 );
 
 const HomeScreen = ({ navigation }) => {
+  const { user, token, refreshUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [premium, setPremium] = useState(null);
+  const [claims, setClaims] = useState([]);
+  const [triggerStatus, setTriggerStatus] = useState({});
+
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (!user) return;
+
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    setError('');
+
+    try {
+      await refreshUser();
+
+      const [premiumRes, claimsRes, triggersRes] = await Promise.allSettled([
+        user.delivery_id ? api.predictPremium(user.delivery_id, user.city, user.tier || 'standard') : Promise.resolve(null),
+        api.getWorkerClaims(token, user.delivery_id),
+        api.getTriggerStatus(),
+      ]);
+
+      if (premiumRes.status === 'fulfilled') {
+        setPremium(premiumRes.value);
+      }
+
+      if (claimsRes.status === 'fulfilled') {
+        setClaims(claimsRes.value?.data || []);
+      } else {
+        setClaims([]);
+      }
+
+      if (triggersRes.status === 'fulfilled') {
+        setTriggerStatus(triggersRes.value || {});
+      }
+
+      if (premiumRes.status === 'rejected' && claimsRes.status === 'rejected') {
+        setError('Unable to load live dashboard data right now.');
+      }
+    } catch {
+      setError('Unable to load live dashboard data right now.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [refreshUser, token, user]);
+
+  useEffect(() => {
+    loadDashboard(false);
+  }, [loadDashboard]);
+
+  const cityData = useMemo(() => {
+    if (!user?.city) return null;
+    return triggerStatus?.[user.city] || null;
+  }, [triggerStatus, user?.city]);
+
+  const weather = cityData?.weather || premium?.weather || null;
+  const activeTriggers = cityData?.triggers_fired || [];
+
+  const currentPremium = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
+  const coverageActive = user?.verification_status === 'verified' && !!premium;
+  const paidClaims = claims.filter((c) => c.payout_status === 'paid');
+  const totalPaid = paidClaims.reduce((sum, claim) => sum + (Number(claim.payout_amount) || 0), 0);
+
+  const recentActivity = useMemo(() => {
+    const claimItems = claims.slice(0, 3).map((claim) => {
+      const tone = getStatusTone(claim.payout_status);
+      return {
+        icon: TRIGGER_ICONS[claim.trigger_type] || 'document-text',
+        color: tone.color,
+        title: `${tone.label} · ${claim.claim_number || 'Claim'}`,
+        sub: `${formatDate(claim.created_at)} · ${money(Number(claim.payout_amount))}`,
+      };
+    });
+
+    if (claimItems.length > 0) return claimItems;
+
+    return [
+      {
+        icon: 'shield-checkmark',
+        color: COLORS.success,
+        title: 'No claims yet',
+        sub: 'Your claims will appear automatically during disruptions.',
+      },
+    ];
+  }, [claims]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+          <Text style={styles.loaderText}>Loading your GigGuard dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -30,15 +174,34 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.topBar}>
           <View>
             <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.userName}>Arjun Kumar 👋</Text>
+            <Text style={styles.userName}>{user?.name || 'GigGuard User'}</Text>
             <View style={styles.platformBadge}>
-              <Text style={styles.platformBadgeText}>Swiggy + Amazon Flex</Text>
+              <Text style={styles.platformBadgeText}>
+                {(user?.platforms || []).length > 0
+                  ? user.platforms.join(' + ')
+                  : 'No platform linked'}
+              </Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notifBtn}>
-            <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => loadDashboard(true)}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator color={COLORS.white} size="small" />
+            ) : (
+              <Ionicons name="refresh" size={20} color={COLORS.white} />
+            )}
           </TouchableOpacity>
         </View>
+
+        {!!error && (
+          <View style={styles.errorCard}>
+            <Ionicons name="warning-outline" size={16} color={COLORS.error} />
+            <Text style={styles.errorCardText}>{error}</Text>
+          </View>
+        )}
 
         {/* Active Shield Card */}
         <View style={styles.shieldCard}>
@@ -48,21 +211,21 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.shieldCardLabel}>THIS WEEK'S COVERAGE</Text>
             <View style={styles.activeBadge}>
               <View style={styles.activePulse} />
-              <Text style={styles.activeBadgeText}>ACTIVE</Text>
+              <Text style={styles.activeBadgeText}>{coverageActive ? 'ACTIVE' : 'INACTIVE'}</Text>
             </View>
           </View>
 
-          <Text style={styles.payoutAmount}>₹1,200</Text>
+          <Text style={styles.payoutAmount}>{money(premium?.max_payout)}</Text>
           <Text style={styles.payoutLabel}>Maximum weekly payout</Text>
 
           <View style={styles.shieldCardMeta}>
-            <Text style={styles.metaText}>Week 8 of 12</Text>
+            <Text style={styles.metaText}>{titleCaseTier(user?.tier)} Plan</Text>
             <View style={styles.metaDot} />
-            <Text style={[styles.metaText, { color: COLORS.success }]}>Loyalty: 8% off</Text>
+            <Text style={[styles.metaText, { color: COLORS.success }]}>Premium: {money(currentPremium)}</Text>
           </View>
 
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: '67%' }]} />
+            <View style={[styles.progressFill, { width: coverageActive ? '100%' : '35%' }]} />
           </View>
         </View>
 
@@ -70,36 +233,54 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.weatherCard}>
           <View style={styles.weatherLeft}>
             <View style={styles.weatherIconWrap}>
-              <Ionicons name="rainy" size={22} color={COLORS.amber} />
+              <Ionicons name={activeTriggers.length > 0 ? 'warning' : 'partly-sunny'} size={22} color={COLORS.amber} />
             </View>
-            <View>
-              <Text style={styles.weatherCity}>Chennai</Text>
-              <Text style={styles.weatherSub}>Rainfall: 12mm · AQI: 142 · 32°C</Text>
+            <View style={styles.weatherTextWrap}>
+              <Text style={styles.weatherCity}>{user?.city || 'Unknown'}</Text>
+              <Text style={styles.weatherSub} numberOfLines={2}>
+                Rain: {weather?.rain_1h ?? 0}mm/h · AQI: {weather?.aqi_index ?? 'NA'} · Temp: {weather?.temperature ?? 'NA'}°C
+              </Text>
             </View>
           </View>
           <View style={styles.riskBadge}>
-            <Text style={styles.riskBadgeText}>MOD RISK</Text>
+            <Text style={styles.riskBadgeText}>{riskLabel(premium?.weather_risk)}</Text>
           </View>
         </View>
+
+        {activeTriggers.length > 0 && (
+          <View style={styles.alertCard}>
+            <View style={styles.alertCardTop}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.amber} />
+              <Text style={styles.alertTitle}>Active Disruption Alerts</Text>
+            </View>
+            {activeTriggers.map((trigger) => (
+              <Text key={trigger.trigger_id} style={styles.alertText}>
+                • {trigger.description}
+              </Text>
+            ))}
+          </View>
+        )}
 
         {/* Premium Card */}
         <View style={styles.premiumCard}>
           <View style={styles.premiumCardTop}>
             <View>
-              <Text style={styles.premiumAmount}>₹72 <Text style={styles.premiumPer}>/week</Text></Text>
-              <Text style={styles.premiumSub}>AutoPay active · next deduction Monday</Text>
+              <Text style={styles.premiumAmount}>{money(currentPremium)} <Text style={styles.premiumPer}>/week</Text></Text>
+              <Text style={styles.premiumSub}>
+                {user?.autopay ? 'AutoPay active' : 'AutoPay disabled'} · history days: {premium?.history_days ?? 0}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.payNowBtn}>
-              <Text style={styles.payNowText}>Pay Now</Text>
+            <TouchableOpacity style={styles.payNowBtn} onPress={() => navigation.navigate('Policy')}>
+              <Text style={styles.payNowText}>View Plan</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.premiumBreakdown}>
             {[
-              ['Base', '₹70'],
-              ['Weather', '+4%'],
-              ['Loyalty', '−8%'],
-              ['AutoPay', '−5%'],
+              ['Base', money(premium?.raw_prediction)],
+              ['Weather Risk', typeof premium?.weather_risk === 'number' ? `${Math.round(premium.weather_risk * 100)}%` : '—'],
+              ['City Risk', typeof premium?.city_risk === 'number' ? premium.city_risk.toFixed(2) : '—'],
+              ['AutoPay', user?.autopay ? '−5%' : 'Off'],
             ].map(([k, v]) => (
               <View key={k} style={styles.breakdownItem}>
                 <Text style={styles.breakdownKey}>{k}</Text>
@@ -114,15 +295,15 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.quickActionsRow}>
           <QuickAction icon="shield-outline" label="My Policy" onPress={() => navigation.navigate('Policy')} color={COLORS.primary} />
           <QuickAction icon="document-text-outline" label="Claims" onPress={() => navigation.navigate('Claims')} color={COLORS.amber} />
-          <QuickAction icon="bar-chart-outline" label="Platform Data" color={COLORS.success} />
-          <QuickAction icon="time-outline" label="History" color={COLORS.info} />
+          <QuickAction icon="person-outline" label="Profile" onPress={() => navigation.navigate('Profile')} color={COLORS.success} />
+          <QuickAction icon="refresh" label="Refresh" onPress={() => loadDashboard(true)} color={COLORS.info} />
         </View>
 
         {/* Recent Activity */}
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <View style={styles.activityCard}>
-          {RECENT_ACTIVITY.map((item, i) => (
-            <View key={i} style={[styles.activityRow, i < RECENT_ACTIVITY.length - 1 && styles.activityBorder]}>
+          {recentActivity.map((item, i) => (
+            <View key={`${item.title}-${i}`} style={[styles.activityRow, i < recentActivity.length - 1 && styles.activityBorder]}>
               <View style={[styles.activityIcon, { backgroundColor: item.color + '18' }]}>
                 <Ionicons name={item.icon} size={18} color={item.color} />
               </View>
@@ -163,6 +344,8 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
   scroll: { paddingBottom: 100 },
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loaderText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding, paddingBottom: SIZES.padding * 0.5 },
   greeting: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
@@ -170,6 +353,8 @@ const styles = StyleSheet.create({
   platformBadge: { backgroundColor: COLORS.primaryContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: SIZES.radiusFull, alignSelf: 'flex-start', marginTop: 6 },
   platformBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.primaryDim },
   notifBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.surfaceHigh, justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+  errorCard: { marginHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75, backgroundColor: COLORS.errorContainer, borderWidth: 1, borderColor: COLORS.error + '40', borderRadius: SIZES.radius, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorCardText: { color: COLORS.error, fontSize: SIZES.small, fontFamily: FONTS.medium, flex: 1 },
 
   // Shield card
   shieldCard: { marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.5, backgroundColor: COLORS.primary, padding: SIZES.padding, marginBottom: SIZES.padding, overflow: 'hidden', ...SHADOWS.button },
@@ -189,16 +374,22 @@ const styles = StyleSheet.create({
 
   // Weather
   weatherCard: { marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2, backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border },
-  weatherLeft: { flexDirection: 'row', alignItems: 'center', gap: SIZES.padding * 0.6 },
+  weatherLeft: { flexDirection: 'row', alignItems: 'center', gap: SIZES.padding * 0.6, flex: 1, marginRight: SIZES.base },
+  weatherTextWrap: { flex: 1, flexShrink: 1 },
   weatherIconWrap: { width: 42, height: 42, borderRadius: 12, backgroundColor: COLORS.amberContainer, justifyContent: 'center', alignItems: 'center' },
   weatherCity: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.white },
   weatherSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 2 },
   riskBadge: { backgroundColor: COLORS.amberContainer, paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.amber + '40' },
   riskBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.amber, letterSpacing: 0.5 },
 
+  alertCard: { marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2, backgroundColor: COLORS.amberContainer, borderWidth: 1, borderColor: COLORS.amber + '40', padding: SIZES.padding * 0.8, marginBottom: SIZES.padding },
+  alertCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  alertTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber },
+  alertText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.amberDim, marginTop: 2 },
+
   // Premium
   premiumCard: { marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2, backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding, marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border },
-  premiumCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.padding },
+  premiumCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SIZES.padding },
   premiumAmount: { fontSize: 26, fontFamily: FONTS.bold, color: COLORS.white },
   premiumPer: { fontSize: SIZES.body, fontFamily: FONTS.medium, color: COLORS.textMuted },
   premiumSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 4 },

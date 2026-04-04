@@ -1,19 +1,37 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
-  KeyboardAvoidingView, TouchableOpacity, TextInput, Platform,
+  KeyboardAvoidingView, TouchableOpacity, TextInput, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = () => {
-    console.log('Login with:', email, password);
-    navigation.navigate('Home');
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await login(email.trim(), password);
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,6 +55,12 @@ const LoginScreen = ({ navigation }) => {
 
           {/* Card */}
           <View style={styles.card}>
+            {!!error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
             <Text style={styles.fieldLabel}>Email Address</Text>
             <TextInput
               style={styles.fieldInput}
@@ -57,19 +81,27 @@ const LoginScreen = ({ navigation }) => {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPwd}
+                autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPwd(v => !v)} style={styles.eyeBtn}>
                 <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={18} color={COLORS.textFaint} />
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.forgotRow}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} activeOpacity={0.85}>
-              <Text style={styles.loginBtnText}>Sign In</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            <TouchableOpacity
+              style={[styles.loginBtn, loading && { opacity: 0.7 }]}
+              onPress={handleLogin}
+              activeOpacity={0.85}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Text style={styles.loginBtnText}>Sign In</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -96,14 +128,14 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.5, padding: SIZES.padding, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.card },
 
+  errorBox: { backgroundColor: COLORS.errorContainer, borderRadius: SIZES.radius, paddingHorizontal: 12, paddingVertical: 10, marginBottom: SIZES.base, borderWidth: 1, borderColor: COLORS.error + '40' },
+  errorText: { color: COLORS.error, fontSize: SIZES.small, fontFamily: FONTS.medium },
+
   fieldLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted, marginBottom: 6, marginTop: SIZES.padding * 0.5 },
   fieldInput: { height: 48, backgroundColor: COLORS.surfaceHighest, borderRadius: SIZES.radius, paddingHorizontal: 14, fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.white, borderWidth: 1, borderColor: COLORS.border },
 
   passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceHighest, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border, height: 48, paddingLeft: 14 },
   eyeBtn: { paddingHorizontal: 14 },
-
-  forgotRow: { alignSelf: 'flex-end', marginTop: SIZES.base, marginBottom: SIZES.padding },
-  forgotText: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.primaryDim },
 
   loginBtn: { height: 52, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.primary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, ...SHADOWS.button },
   loginBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: '#fff' },

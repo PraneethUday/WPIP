@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
-  ScrollView, TouchableOpacity, Switch,
+  ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
-const PLATFORMS = [
-  { name: 'Zomato', id: 'ZOM-4829134', earnings: '₹1,600/wk avg', verified: true },
-  { name: 'Amazon Flex', id: 'AMZ-7821039', earnings: '₹1,200/wk avg', verified: true },
-];
+function labelTier(tier) {
+  if (tier === 'basic') return 'Basic Shield';
+  if (tier === 'pro') return 'Pro Protect';
+  return 'Standard Guard';
+}
 
 const Row = ({ label, value, icon, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.row} activeOpacity={onPress ? 0.7 : 1}>
@@ -27,9 +29,29 @@ const Row = ({ label, value, icon, onPress }) => (
 );
 
 export default function ProfileScreen({ navigation }) {
-  const [autopay, setAutopay] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [gpsConsent, setGpsConsent] = useState(true);
+  const { user, logout, refreshUser } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const initials = useMemo(() => {
+    if (!user?.name) return 'GG';
+    const parts = user.name.trim().split(' ').filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+  }, [user?.name]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigation.reset({ index: 0, routes: [{ name: 'Landing' }] });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,108 +70,74 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.avatarSection}>
           <View style={styles.avatarGlow} />
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>RK</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <Text style={styles.name}>Ravi Kumar</Text>
-          <Text style={styles.zone}>Chennai South · 8 weeks active</Text>
+          <Text style={styles.name}>{user?.name || 'GigGuard User'}</Text>
+          <Text style={styles.zone}>{user?.city || 'Unknown City'} · {labelTier(user?.tier)}</Text>
           <View style={styles.protectedBadge}>
             <Ionicons name="shield-checkmark" size={14} color={COLORS.success} />
-            <Text style={styles.protectedText}>Income Protected</Text>
+            <Text style={styles.protectedText}>
+              {user?.verification_status === 'verified' ? 'Income Protected' : 'Verification Pending'}
+            </Text>
           </View>
         </View>
 
         {/* Personal Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
-          <Row icon="person-outline" label="Full Name" value="Ravi Kumar" />
-          <Row icon="call-outline" label="Phone" value="+91 98765 43210" />
-          <Row icon="mail-outline" label="Email" value="ravi@gmail.com" />
-          <Row icon="calendar-outline" label="Age" value="28" />
-          <Row icon="location-outline" label="Service Zone" value="Chennai South" />
-          <Row icon="card-outline" label="PAN Card" value="ABCDE1234F" />
-          <Row icon="finger-print-outline" label="Aadhaar" value="XXXX XXXX 4567" />
+          <Row icon="person-outline" label="Full Name" value={user?.name || '—'} />
+          <Row icon="call-outline" label="Phone" value={user?.phone || '—'} />
+          <Row icon="mail-outline" label="Email" value={user?.email || '—'} />
+          <Row icon="location-outline" label="City" value={user?.city || '—'} />
+          <Row icon="map-outline" label="Area / Zone" value={user?.area || '—'} />
+          <Row icon="card-outline" label="Delivery Partner ID" value={user?.delivery_id || '—'} />
         </View>
 
         {/* Connected Platforms */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Connected Platforms</Text>
-          {PLATFORMS.map(p => (
-            <View key={p.name} style={styles.platformCard}>
+          {(user?.platforms || []).length === 0 && (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No platforms linked yet.</Text>
+            </View>
+          )}
+
+          {(user?.platforms || []).map((platform) => (
+            <View key={platform} style={styles.platformCard}>
               <View style={styles.platformLeft}>
                 <View style={styles.platformIconWrap}>
-                  <Text style={styles.platformInitial}>{p.name[0]}</Text>
+                  <Text style={styles.platformInitial}>{platform[0]?.toUpperCase() || 'P'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.platformName}>{p.name}</Text>
-                  <Text style={styles.platformId}>{p.id}</Text>
-                  <Text style={styles.platformEarnings}>{p.earnings}</Text>
+                  <Text style={styles.platformName}>{platform}</Text>
+                  <Text style={styles.platformId}>Delivery ID: {user?.delivery_id || '—'}</Text>
                 </View>
               </View>
-              {p.verified && (
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>Verified ✓</Text>
-                </View>
-              )}
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>
+                  {user?.verification_status === 'verified' ? 'Verified ✓' : 'Pending'}
+                </Text>
+              </View>
             </View>
           ))}
-          <TouchableOpacity style={styles.addPlatformBtn}>
-            <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.addPlatformText}>Add Another Platform</Text>
-          </TouchableOpacity>
         </View>
 
-        {/* Payment Settings */}
+        {/* Coverage Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Settings</Text>
-          <Row icon="wallet-outline" label="UPI ID" value="ravi@upi" />
-          <Row icon="business-outline" label="Bank Account" value="SBI ••••4321" />
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleLeft}>
-              <View style={styles.rowIcon}>
-                <Ionicons name="repeat-outline" size={16} color={COLORS.primary} />
-              </View>
-              <View>
-                <Text style={styles.toggleLabel}>AutoPay</Text>
-                <Text style={styles.toggleSub}>5% discount applied</Text>
-              </View>
-            </View>
-            <Switch value={autopay} onValueChange={setAutopay} trackColor={{ true: COLORS.primary }} thumbColor={COLORS.white} />
-          </View>
+          <Text style={styles.sectionTitle}>Coverage Settings</Text>
+          <Row icon="shield-outline" label="Current Plan" value={labelTier(user?.tier)} />
+          <Row icon="repeat-outline" label="AutoPay" value={user?.autopay ? 'Enabled (5% discount)' : 'Disabled'} />
+          <Row icon="checkmark-done-outline" label="Verification" value={user?.verification_status || 'pending'} />
+          <Row icon="wallet-outline" label="UPI ID" value={user?.upi || '—'} />
         </View>
 
-        {/* Notifications & Consent */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications & Privacy</Text>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleLeft}>
-              <View style={styles.rowIcon}>
-                <Ionicons name="notifications-outline" size={16} color={COLORS.primary} />
-              </View>
-              <View>
-                <Text style={styles.toggleLabel}>Claim Notifications</Text>
-                <Text style={styles.toggleSub}>Alerts when a claim is processed</Text>
-              </View>
-            </View>
-            <Switch value={notifications} onValueChange={setNotifications} trackColor={{ true: COLORS.primary }} thumbColor={COLORS.white} />
-          </View>
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleLeft}>
-              <View style={styles.rowIcon}>
-                <Ionicons name="location-outline" size={16} color={COLORS.primary} />
-              </View>
-              <View>
-                <Text style={styles.toggleLabel}>GPS Validation Consent</Text>
-                <Text style={styles.toggleSub}>Required for claim fraud prevention</Text>
-              </View>
-            </View>
-            <Switch value={gpsConsent} onValueChange={setGpsConsent} trackColor={{ true: COLORS.primary }} thumbColor={COLORS.white} />
-          </View>
-        </View>
+        <TouchableOpacity style={styles.refreshProfileBtn} onPress={handleRefresh} disabled={refreshing}>
+          {refreshing ? <ActivityIndicator color={COLORS.white} size="small" /> : <Ionicons name="refresh" size={18} color={COLORS.white} />}
+          <Text style={styles.refreshProfileText}>Refresh Profile</Text>
+        </TouchableOpacity>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.navigate('Landing')}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color={COLORS.error} />
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
@@ -197,17 +185,14 @@ const styles = StyleSheet.create({
   platformInitial: { fontSize: 18, fontFamily: FONTS.bold, color: COLORS.primary },
   platformName: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
   platformId: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, marginTop: 1 },
-  platformEarnings: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.primary, marginTop: 1 },
   verifiedBadge: { backgroundColor: COLORS.successContainer, paddingHorizontal: 10, paddingVertical: 4, borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.success + '30' },
   verifiedText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.success },
-  addPlatformBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: SIZES.padding * 0.85, borderTopWidth: 1, borderTopColor: COLORS.border },
-  addPlatformText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.primary },
+  emptyCard: { padding: SIZES.padding * 0.8 },
+  emptyText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
   // Toggles
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SIZES.padding * 0.75, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  toggleLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white },
-  toggleSub: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, marginTop: 2 },
+  refreshProfileBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: SIZES.padding, marginTop: SIZES.padding * 1.2, height: 48, borderRadius: SIZES.radius, backgroundColor: COLORS.primary, ...SHADOWS.button },
+  refreshProfileText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white },
 
   // Logout
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, margin: SIZES.padding, marginTop: SIZES.padding * 1.5, height: 52, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.error + '40', backgroundColor: COLORS.errorContainer },

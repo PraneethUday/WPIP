@@ -15,11 +15,12 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from db import fetch_workers, fetch_worker_history, supabase
+from auth_utils import verify_password, hash_password, create_token, verify_token
 from scheduler import tick, run_retrain, INTERVAL_SECONDS
 from ml.weather import fetch_weather, fetch_all_cities
 from ml.premium_model import (
@@ -131,6 +132,282 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+PLATFORM_TABLE = {
+    "swiggy": "swiggy_workers",
+    "zomato": "zomato_workers",
+    "amazon": "amazon_flex_workers",
+    "blinkit": "blinkit_workers",
+    "zepto": "zepto_workers",
+    "meesho": "meesho_workers",
+    "porter": "porter_workers",
+    "dunzo": "dunzo_workers",
+}
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    name: str
+    age: int | None = None
+    phone: str
+    email: str
+    password: str
+    city: str
+    area: str | None = None
+    deliveryId: str
+    platforms: list[str] = []
+    pan: str | None = None
+    aadhaar: str | None = None
+    upi: str | None = None
+    bank: str | None = None
+    consent: bool = False
+    gpsConsent: bool = False
+    autopay: bool = False
+    tier: str = "standard"
+
+
+class VerifyIdRequest(BaseModel):
+    deliveryId: str
+    platforms: list[str]
+
+
+def _extract_bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    if not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization[7:].strip()
+    return token or None
+
+
+def _safe_user(user_row: dict) -> dict:
+    allowed_fields = [
+        "id",
+        "name",
+        "email",
+        "phone",
+        "platforms",
+        "tier",
+        "verification_status",
+        "city",
+        "area",
+        "delivery_id",
+        "autopay",
+        "upi",
+        "is_active",
+    ]
+    return {k: user_row.get(k) for k in allowed_fields if k in user_row}
+
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest):
+    email = (req.email or "").strip().lower()
+    password = req.password or ""
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+
+    try:
+        resp = (
+            supabase.table("registered_workers")
+            .select("id, name, email, phone, platforms, tier, verification_status, city, area, delivery_id, autopay, upi, is_active, password_hash")
+            .eq("email", email)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("Auth login query failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+    users = resp.data or []
+    if not users:
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    user = users[0]
+    if not verify_password(password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    token = create_token(user["id"])
+    user.pop("password_hash", None)
+
+    return {"token": token, "user": _safe_user(user)}
+
+
+@app.post("/api/auth/register")
+def auth_register(req: RegisterRequest):
+    email = (req.email or "").strip().lower()
+    phone = (req.phone or "").strip()
+    delivery_id = (req.deliveryId or "").strip()
+    name = (req.name or "").strip()
+
+    if not name or not email or not phone or not req.password or not req.platforms or not delivery_id:
+        raise HTTPException(status_code=400, detail="Missing required fields.")
+
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    try:
+        email_exists = (
+            supabase.table("registered_workers")
+            .select("id")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+        )
+        if email_exists.data:
+            raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+        phone_exists = (
+            supabase.table("registered_workers")
+            .select("id")
+            .eq("phone", phone)
+            .limit(1)
+            .execute()
+        )
+        if phone_exists.data:
+            raise HTTPException(status_code=409, detail="An account with this phone already exists.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Auth register duplicate check failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
+
+    matched_platforms: list[str] = []
+    for platform in req.platforms:
+        table = PLATFORM_TABLE.get(platform)
+        if not table:
+            continue
+        try:
+            check = (
+                supabase.table(table)
+                .select("worker_id")
+                .eq("worker_id", delivery_id)
+                .limit(1)
+                .execute()
+            )
+            if check.data:
+                matched_platforms.append(platform)
+        except Exception:
+            continue
+
+    password_hash = hash_password(req.password)
+    payload = {
+        "name": name,
+        "age": req.age,
+        "phone": phone,
+        "email": email,
+        "password_hash": password_hash,
+        "city": req.city,
+        "area": req.area,
+        "delivery_id": delivery_id,
+        "platforms": req.platforms,
+        "pan": req.pan,
+        "aadhaar": req.aadhaar,
+        "upi": req.upi,
+        "bank": req.bank,
+        "consent": bool(req.consent),
+        "gps_consent": bool(req.gpsConsent),
+        "autopay": bool(req.autopay),
+        "tier": req.tier or "standard",
+        "verification_status": "pending",
+    }
+
+    try:
+        insert_resp = (
+            supabase.table("registered_workers")
+            .insert(payload)
+            .select("id, name, email, phone, platforms, tier, verification_status, city, area, delivery_id, autopay, upi, is_active")
+            .single()
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("Auth register insert failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
+
+    new_user = insert_resp.data or {}
+    if not new_user:
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
+
+    token = create_token(new_user["id"])
+    return {
+        "token": token,
+        "user": _safe_user(new_user),
+        "verified": False,
+        "auto_verified": len(matched_platforms) > 0,
+        "auto_verified_platforms": matched_platforms,
+    }
+
+
+@app.get("/api/auth/me")
+def auth_me(authorization: str | None = Header(default=None)):
+    token = _extract_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    user_id = verify_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        resp = (
+            supabase.table("registered_workers")
+            .select("id, name, email, phone, platforms, tier, verification_status, city, area, delivery_id, autopay, upi, is_active")
+            .eq("id", user_id)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("Auth me query failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+    users = resp.data or []
+    if not users:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"user": _safe_user(users[0])}
+
+
+@app.post("/api/verify-id")
+def verify_delivery_id(req: VerifyIdRequest):
+    delivery_id = (req.deliveryId or "").strip()
+    platforms = req.platforms or []
+
+    if not delivery_id or not platforms:
+        raise HTTPException(
+            status_code=400,
+            detail="Delivery ID and at least one platform are required.",
+        )
+
+    matched_platforms: list[str] = []
+    for platform in platforms:
+        table = PLATFORM_TABLE.get(platform)
+        if not table:
+            continue
+        try:
+            check = (
+                supabase.table(table)
+                .select("worker_id")
+                .eq("worker_id", delivery_id)
+                .limit(1)
+                .execute()
+            )
+            if check.data:
+                matched_platforms.append(platform)
+        except Exception:
+            continue
+
+    return {
+        "verified": len(matched_platforms) > 0,
+        "matched_platforms": matched_platforms,
+        "checked_platforms": platforms,
+    }
 
 
 # ---------------------------------------------------------------------------
