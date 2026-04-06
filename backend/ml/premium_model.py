@@ -321,6 +321,11 @@ def predict_premium(
     X = pd.DataFrame([features], columns=FEATURE_COLS)
     raw_pred = float(model.predict(X)[0])
 
+    # Scale prediction by tier rate ratio (model trains on standard tier targets)
+    standard_rate = TIER_CONFIG["standard"]["rate"]
+    tier_rate = cfg["rate"]
+    raw_pred = raw_pred * (tier_rate / standard_rate)
+
     # Clamp to tier bounds only at serving time
     premium = clamp_premium(raw_pred, tier)
 
