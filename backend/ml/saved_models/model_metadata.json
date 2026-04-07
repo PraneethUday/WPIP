@@ -1,7 +1,7 @@
 {
-  "rmse": 14.0244,
+  "rmse": 14.0358,
   "n_samples": 200,
-  "trained_at": "2026-04-06",
+  "trained_at": "2026-04-07",
   "features": [
     "avg_earnings_7d",
     "avg_deliveries_7d",
