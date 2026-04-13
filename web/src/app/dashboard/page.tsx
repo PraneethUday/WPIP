@@ -3,6 +3,29 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
+// ─── Platform logos ───────────────────────────────────────────────────────────
+
+function SwiggyIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="-7.3 3.6 2520.1 3702.8"
+      width={size}
+      height={size}
+      xmlns="http://www.w3.org/2000/svg"
+      className={styles.platformSvgIcon}
+    >
+      <path
+        d="m1255.2 3706.3c-2.4-1.7-5-4-7.8-6.3-44.6-55.3-320.5-400.9-601.6-844.2-84.4-141.2-139.1-251.4-128.5-279.9 27.5-74.1 517.6-114.7 668.5-47.5 45.9 20.4 44.7 47.3 44.7 63.1 0 67.8-3.3 249.8-3.3 249.8 0 37.6 30.5 68.1 68.2 68 37.7 0 68.1-30.7 68-68.4l-.7-453.3h-.1c0-39.4-43-49.2-51-50.8-78.8-.5-238.7-.9-410.5-.9-379 0-463.8 15.6-528-26.6-139.5-91.2-367.6-706-372.9-1052-7.5-488 281.5-910.5 688.7-1119.8 170-85.6 362-133.9 565-133.9 644.4 0 1175.2 486.4 1245.8 1112.3 0 .5 0 1.2.1 1.7 13 151.3-820.9 183.4-985.8 139.4-25.3-6.7-31.7-32.7-31.7-43.8-.1-115-.9-438.8-.9-438.8-.1-37.7-30.7-68.1-68.4-68.1-37.6 0-68.1 30.7-68.1 68.4l1.5 596.4c1.2 37.6 32.7 47.7 41.4 49.5 93.8 0 313.1-.1 517.4-.1 276.1 0 392.1 32 469.3 90.7 51.3 39.1 71.1 114 53.8 211.4-154.9 866-1135.9 1939.1-1172.8 1983.8z"
+        fill="#fc8019"
+      />
+    </svg>
+  );
+}
+
+const PLATFORM_LOGOS: Partial<Record<string, React.ReactNode>> = {
+  swiggy: <SwiggyIcon size={14} />,
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type User = {
@@ -256,6 +279,27 @@ export default function DashboardPage() {
   const [planMessage, setPlanMessage] = useState("");
   const [claims, setClaims] = useState<Record<string, unknown>[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(false);
+
+  // theme
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    // Read from the DOM attribute (already set by the anti-flash script before
+    // React hydrates) so state matches CSS on the very first render.
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "light") setTheme("light");
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("gg_theme", next);
+    if (next === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  };
 
   // payment
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -533,6 +577,31 @@ export default function DashboardPage() {
             </div>
             <span className={styles.userName}>{user.name}</span>
           </div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`${styles.themeBtn} ${theme === "light" ? styles.themeBtnLight : ""}`}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4"/>
+                <line x1="12" y1="2" x2="12" y2="5"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/>
+                <line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/>
+                <line x1="2" y1="12" x2="5" y2="12"/>
+                <line x1="19" y1="12" x2="22" y2="12"/>
+                <line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/>
+                <line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
           <button type="button" onClick={logout} className={styles.logoutBtn}>
             Logout
           </button>
@@ -826,12 +895,13 @@ export default function DashboardPage() {
                         symbol: p.slice(0, 2).toUpperCase(),
                         iconClass: "platformIconDefault",
                       };
+                      const logo = PLATFORM_LOGOS[p];
                       return (
                         <span key={p} className={styles.platformChip}>
                           <span
                             className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
                           >
-                            {meta.symbol}
+                            {logo ?? meta.symbol}
                           </span>
                           {meta.name}
                         </span>

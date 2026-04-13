@@ -26,6 +26,12 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        {/* Apply saved theme before first paint to avoid flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('gg_theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();`,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>
