@@ -106,9 +106,9 @@ const PLAN_DETAILS: Record<
   },
   standard: {
     label: "Standard Guard",
-    tag: "Balanced weekly protection",
+    tag: "Balanced Coverage",
     includes: ["Income loss support", "Weather disruption support"],
-  },
+  },  
   pro: {
     label: "Pro Protect",
     tag: "Highest payout priority",
@@ -260,6 +260,15 @@ function ProfileRow({
       </strong>
     </div>
   );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -567,16 +576,25 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.brandBlock}>
-          <div className={styles.brandLogo}>WP</div>
-          <span className={styles.brandText}>WPIP</span>
+          <div className={styles.brandLogo}>GG</div>
+          <span className={styles.brandText}>GigGuard</span>
         </div>
+
+        {/* Center nav tabs */}
+        <nav className={styles.headerNavTabs}>
+          {NAV.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
         <div className={styles.headerActions}>
-          <div className={styles.userBadge}>
-            <div className={styles.userInitial}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <span className={styles.userName}>{user.name}</span>
-          </div>
           <button
             type="button"
             onClick={toggleTheme}
@@ -622,6 +640,12 @@ export default function DashboardPage() {
             )}
             {theme === "dark" ? "Light" : "Dark"}
           </button>
+          <div className={styles.userBadge}>
+            <div className={styles.userInitial}>
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <span className={styles.userName}>{user.name}</span>
+          </div>
           <button type="button" onClick={logout} className={styles.logoutBtn}>
             Logout
           </button>
@@ -629,107 +653,98 @@ export default function DashboardPage() {
       </header>
 
       <div className={styles.layout}>
-        {/* ── Sidebar ── */}
+        {/* ── Left Sidebar — Worker Info ── */}
         <aside className={styles.sidebar}>
-          {NAV.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`${styles.navBtn} ${tab === item.id ? styles.navBtnActive : ""}`}
-            >
-              {item.label}
-            </button>
-          ))}
+          <div className={styles.workerCard}>
+            <div className={styles.workerAvatar}>
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className={styles.workerName}>{user.name}</div>
+            <div className={styles.workerRole}>{tierLabel}</div>
+            <div className={styles.workerCity}>{user.city || "–"}</div>
+          </div>
+
+          <div className={styles.sidebarStatGrid}>
+            <div className={styles.sidebarStat}>
+              <div className={styles.sidebarStatLabel}>Premium</div>
+              <div className={styles.sidebarStatValue}>
+                {money(currentWeeklyPremium)}
+              </div>
+            </div>
+            <div className={styles.sidebarStat}>
+              <div className={styles.sidebarStatLabel}>Max Payout</div>
+              <div className={styles.sidebarStatValue}>
+                {money(currentPremium?.max_payout)}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.sidebarStatus}>
+            <StatusPill
+              label="Coverage"
+              ok={coveredNow}
+              okText="Active"
+              badText="Inactive"
+            />
+            <StatusPill
+              label="Verification"
+              ok={verified}
+              okText="Verified"
+              badText="Pending"
+            />
+          </div>
+
+          <div className={styles.sidebarCta}>
+            <div className={styles.sidebarCtaEyebrow}>NEXT WEEK</div>
+            <div className={styles.sidebarCtaTitle}>Plan your coverage</div>
+            <div className={styles.sidebarCtaText}>{nextWindow.label}</div>
+          </div>
         </aside>
 
         <main className={styles.main}>
-          <div className={styles.content}>
+          <div>
             {/* ══ HOME TAB ══ */}
             {tab === "home" && (
-              <div>
-                <div className={styles.hero}>
-                  <h1 className={styles.heroTitle}>
-                    Coverage dashboard for {user.name}
-                  </h1>
-                  <p className={styles.heroSub}>
-                    Live insurance status, next-week plan, and weather-adjusted
-                    premium insights.
-                  </p>
-                  <div className={styles.heroStatusRow}>
-                    <StatusPill
-                      label="Now"
-                      ok={coveredNow}
-                      okText="Covered"
-                      badText="Not covered"
+              <div className={styles.homeGrid}>
+                <div className={styles.homeMain}>
+                  {/* Greeting */}
+                  <div className={styles.pageGreeting}>
+                    <h1 className={styles.greetTitle}>
+                      Good {greeting()}, {user.name.split(" ")[0]}.
+                    </h1>
+                    <p className={styles.greetSub}>
+                      {coveredNow
+                        ? "Your coverage is active this week"
+                        : "Coverage is not active this week"}{" "}
+                      · {user.city}
+                    </p>
+                  </div>
+
+                  <div className={styles.grid4}>
+                    <MetricCard
+                      label="Current plan"
+                      value={tierLabel}
+                      tone="blue"
                     />
-                    <StatusPill
-                      label="Next week"
-                      ok={coveredNextWeek}
-                      okText="Planned"
-                      badText="Not scheduled"
+                    <MetricCard
+                      label="Weekly premium"
+                      value={money(currentWeeklyPremium)}
+                      tone="green"
                     />
-                    <StatusPill
-                      label="Verification"
-                      ok={verified}
-                      okText="Verified"
-                      badText="Pending"
+                    <MetricCard
+                      label="Max payout"
+                      value={money(currentPremium?.max_payout)}
+                      tone="amber"
+                    />
+                    <MetricCard
+                      label="City"
+                      value={user.city || "–"}
+                      tone="ink"
                     />
                   </div>
-                </div>
 
-                <div className={styles.grid4}>
-                  <MetricCard
-                    label="Current plan"
-                    value={tierLabel}
-                    tone="blue"
-                  />
-                  <MetricCard
-                    label="Weekly premium"
-                    value={money(currentWeeklyPremium)}
-                    tone="green"
-                  />
-                  <MetricCard
-                    label="Max payout"
-                    value={money(currentPremium?.max_payout)}
-                    tone="amber"
-                  />
-                  <MetricCard
-                    label="City"
-                    value={user.city || "–"}
-                    tone="ink"
-                  />
-                </div>
-
-                {/* Pay Banner */}
-                <div className={styles.payBanner}>
-                  <div>
-                    <div className={styles.payBannerTitle}>
-                      This week&apos;s premium due
-                    </div>
-                    <div className={styles.payBannerAmount}>
-                      {money(currentWeeklyPremium)}
-                    </div>
-                    <div className={styles.bannerMeta}>
-                      {tierLabel} · {user.city}
-                    </div>
-                  </div>
-                  {paidToday ? (
-                    <div className={styles.payBannerPaid}>✓ Paid today</div>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.payBannerBtn}
-                      onClick={openPayModal}
-                      disabled={!currentPremium}
-                    >
-                      Pay Now →
-                    </button>
-                  )}
-                </div>
-
-                {/* Coverage this week */}
-                <section className={styles.panel}>
+                  {/* Coverage this week */}
+                  <section className={styles.panel}>
                   <div className={styles.panelHead}>
                     <h3 className={styles.panelTitle}>Coverage this week</h3>
                     <p className={styles.panelSub}>
@@ -936,6 +951,85 @@ export default function DashboardPage() {
                     inactive until verification completes.
                   </div>
                 )}
+                </div>
+
+                {/* ── Right aside ── */}
+                <aside className={styles.homeAside}>
+                  <div className={styles.asideCard}>
+                    <div className={styles.asideCardLabel}>UPCOMING PREMIUM</div>
+                    <div className={styles.asideCardAmount}>
+                      {money(currentWeeklyPremium)}
+                    </div>
+                    <div className={styles.asideCardMeta}>
+                      {tierLabel} · per week
+                    </div>
+                    <div className={styles.asideCardMeta}>{user.city}</div>
+                    {paidToday ? (
+                      <div className={styles.asidePaidBadge}>✓ Paid today</div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.asidePayBtn}
+                        onClick={openPayModal}
+                        disabled={!currentPremium}
+                      >
+                        Pay Premium →
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={styles.asideCard}>
+                    <div className={styles.asideCardLabel}>QUICK ACTIONS</div>
+                    <ul className={styles.quickActions}>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("payments")}
+                        >
+                          Pay This Week&apos;s Premium
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("claims")}
+                        >
+                          View Claims History
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("profile")}
+                        >
+                          Update Profile
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {currentPremium?.weather && (
+                    <div
+                      className={`${styles.asideCard} ${styles.asideRiskCard}`}
+                    >
+                      <div className={styles.asideCardLabel}>
+                        WEATHER & RISK
+                      </div>
+                      <div className={styles.riskBadge}>
+                        {riskLabel(currentPremium.weather_risk)} Risk
+                      </div>
+                      <div className={styles.riskDetails}>
+                        <span>{currentPremium.weather.weather_main}</span>
+                        <span>{currentPremium.weather.temperature}°C</span>
+                        <span>AQI {currentPremium.weather.aqi_index}</span>
+                        <span>Humidity {currentPremium.weather.humidity}%</span>
+                      </div>
+                    </div>
+                  )}
+                </aside>
               </div>
             )}
 
