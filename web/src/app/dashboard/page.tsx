@@ -121,10 +121,22 @@ const PLAN_DETAILS: Record<
 };
 
 const NAV = [
-  { id: "home", label: "Dashboard" },
-  { id: "claims", label: "Claims History" },
-  { id: "payments", label: "Payments" },
-  { id: "profile", label: "Profile" },
+  {
+    id: "home", label: "Dashboard",
+    icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>,
+  },
+  {
+    id: "claims", label: "Claims",
+    icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2h7l3 3v9H3V2z"/><path d="M10 2v3h3"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="5" y1="11" x2="9" y2="11"/></svg>,
+  },
+  {
+    id: "payments", label: "Payments",
+    icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="14" height="9" rx="2"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="4" y1="11.5" x2="6" y2="11.5"/></svg>,
+  },
+  {
+    id: "profile", label: "Profile",
+    icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5.5" r="3"/><path d="M1.5 14.5c0-3.59 2.91-6.5 6.5-6.5s6.5 2.91 6.5 6.5"/></svg>,
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -159,6 +171,14 @@ function getNextWeekWindow(): { label: string } {
 function money(value: number | undefined | null): string {
   if (typeof value !== "number" || Number.isNaN(value)) return "–";
   return `₹${Math.round(value)}`;
+}
+
+function greeting(name: string): string {
+  const h = new Date().getHours();
+  const first = name.split(" ")[0];
+  if (h < 12) return `Good morning, ${first}`;
+  if (h < 17) return `Good afternoon, ${first}`;
+  return `Good evening, ${first}`;
 }
 
 function riskLabel(risk: number): string {
@@ -638,6 +658,7 @@ export default function DashboardPage() {
               onClick={() => setTab(item.id)}
               className={`${styles.navBtn} ${tab === item.id ? styles.navBtnActive : ""}`}
             >
+              <span className={styles.navIcon}>{item.icon}</span>
               {item.label}
             </button>
           ))}
@@ -648,29 +669,29 @@ export default function DashboardPage() {
             {/* ══ HOME TAB ══ */}
             {tab === "home" && (
               <div>
-                <div className={styles.hero}>
-                  <h1 className={styles.heroTitle}>
-                    Coverage dashboard for {user.name}
-                  </h1>
-                  <p className={styles.heroSub}>
-                    Live insurance status, next-week plan, and weather-adjusted
-                    premium insights.
-                  </p>
+                <div className={styles.pageHeader}>
+                  <div>
+                    <h1 className={styles.pageTitle}>{greeting(user.name)}</h1>
+                    <p className={styles.pageSub}>
+                      {tierLabel}&nbsp;&middot;&nbsp;{user.city}&nbsp;&middot;&nbsp;
+                      {verified ? "Verified account" : "Pending verification"}
+                    </p>
+                  </div>
                   <div className={styles.heroStatusRow}>
                     <StatusPill
-                      label="Now"
+                      label="Coverage"
                       ok={coveredNow}
-                      okText="Covered"
-                      badText="Not covered"
+                      okText="Active"
+                      badText="Inactive"
                     />
                     <StatusPill
                       label="Next week"
                       ok={coveredNextWeek}
                       okText="Planned"
-                      badText="Not scheduled"
+                      badText="Not set"
                     />
                     <StatusPill
-                      label="Verification"
+                      label="Account"
                       ok={verified}
                       okText="Verified"
                       badText="Pending"

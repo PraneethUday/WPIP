@@ -3,66 +3,70 @@
   ============================================================ */
 
 :root {
-  --bg:               #0C0E18;
-  --surface:          #11131E;
-  --card:             #1D1F2B;
-  --elevated:         #272935;
-  --input:            #323440;
-  --primary:          #6C63FF;
-  --primary-dim:      #8B84FF;
-  --primary-container:#1D1B45;
-  --amber:            #FF8C42;
-  --amber-container:  #2A1A0A;
-  --success:          #22C55E;
-  --success-container:#0A2E18;
-  --error:            #EF4444;
-  --error-container:  #2E0A0A;
-  --info:             #3B82F6;
-  --white:            #E1E1F2;
-  --muted:            #C7C4D8;
-  --faint:            #918FA1;
-  --border:           rgba(70,69,85,0.6);
-  --border-active:    rgba(108,99,255,0.5);
-  --radius:           12px;
+  --bg:               #07090F;
+  --surface:          #0C0E18;
+  --card:             #111420;
+  --elevated:         #181B28;
+  --input:            #1F2232;
+  --primary:          #7C74F5;
+  --primary-dim:      #A29EFF;
+  --primary-container:#14124A;
+  --amber:            #F59E0B;
+  --amber-container:  #1E1404;
+  --success:          #10B981;
+  --success-container:#041810;
+  --error:            #F87171;
+  --error-container:  #1E0808;
+  --info:             #60A5FA;
+  --white:            #ECEEFF;
+  --muted:            #9496B0;
+  --faint:            #555768;
+  --border:           rgba(255,255,255,0.07);
+  --border-active:    rgba(124,116,245,0.55);
+  --radius:           10px;
   --radius-full:      999px;
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   /* component-specific tokens */
-  --header-bg:        rgba(12,14,24,0.85);
-  --tier-pro-bg:      #1e0a3c;
-  --tier-pro-color:   #c084fc;
-  --badge-blue-bg:    #0a1a3a;
-  --badge-purple-bg:  #1e0a3c;
-  --badge-purple-color: #c084fc;
+  --header-bg:        rgba(7,9,15,0.90);
+  --tier-pro-bg:      #1A0840;
+  --tier-pro-color:   #B48EFF;
+  --badge-blue-bg:    #061535;
+  --badge-purple-bg:  #1A0840;
+  --badge-purple-color: #B48EFF;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md:        0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
 }
 
 [data-theme="light"] {
-  --bg:               #F0EFF8;
+  --bg:               #F5F6FA;
   --surface:          #FFFFFF;
-  --card:             #F7F6FF;
-  --elevated:         #EDECF8;
-  --input:            #E5E3F5;
+  --card:             #FAFAFE;
+  --elevated:         #F0EFF8;
+  --input:            #E8E6F5;
   --primary:          #6C63FF;
-  --primary-dim:      #5951CC;
-  --primary-container:#E8E6FF;
-  --amber:            #C45E00;
-  --amber-container:  #FFF1E0;
-  --success:          #15803D;
-  --success-container:#DCFCE7;
+  --primary-dim:      #5348D4;
+  --primary-container:#ECEAFF;
+  --amber:            #B45309;
+  --amber-container:  #FEF3C7;
+  --success:          #047857;
+  --success-container:#D1FAE5;
   --error:            #B91C1C;
   --error-container:  #FEE2E2;
   --info:             #1D4ED8;
-  --white:            #1A1826;
-  --muted:            #3B3950;
-  --faint:            #6B6882;
-  --border:           rgba(140,138,165,0.35);
+  --white:            #111320;
+  --muted:            #3C3E58;
+  --faint:            #6B6D88;
+  --border:           rgba(0,0,0,0.08);
   --border-active:    rgba(108,99,255,0.5);
   /* component-specific tokens */
-  --header-bg:        rgba(240,239,248,0.92);
+  --header-bg:        rgba(255,255,255,0.92);
   --tier-pro-bg:      #EDE9FF;
-  --tier-pro-color:   #7C3AED;
+  --tier-pro-color:   #6D28D9;
   --badge-blue-bg:    #DBEAFE;
   --badge-purple-bg:  #EDE9FF;
-  --badge-purple-color: #7C3AED;
+  --badge-purple-color: #6D28D9;
+  --shadow-sm:        0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md:        0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
 }
 
 *, *::before, *::after {
