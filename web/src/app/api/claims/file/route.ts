@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 
-const BACKEND = process.env.BACKEND_URL || "http://localhost:8000";
+const BACKEND = process.env.BACKEND_URL;
 
 function getToken(req: NextRequest): string | null {
   const h = req.headers.get("authorization") || "";
