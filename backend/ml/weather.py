@@ -99,7 +99,7 @@ def fetch_weather(city: str) -> dict:
 
         # Derived risk flags
         is_heavy_rain = rain_1h > 20.0 or rain_3h > 64.5
-        is_extreme_heat = temp > 28.0
+        is_extreme_heat = temp > 39.5  # fuzzy entry point (T-02)
         is_severe_aqi = aqi_raw >= 4  # Poor or Very Poor
         is_flood_risk = rain_3h > 100.0
 
