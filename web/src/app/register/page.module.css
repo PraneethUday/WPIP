@@ -1,0 +1,538 @@
+/* ── Register Page ─────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 32px 24px 56px;
+  font-family: var(--font);
+}
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.logoMark {
+  width: 44px;
+  height: 44px;
+  background: #0D2B22;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #5CD4BE;
+  margin-bottom: 14px;
+  letter-spacing: 0.3px;
+}
+.title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--white);
+  margin: 0;
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--faint);
+  margin: 5px 0 0;
+}
+
+/* ── Stepper ─────────────────────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 32px;
+  flex-wrap: nowrap;
+}
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.stepCircle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--elevated);
+  color: var(--faint);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.stepCircleActive {
+  background: #0D2B22;
+  color: #5CD4BE;
+}
+.stepCircleDone {
+  background: var(--primary);
+  color: #fff;
+}
+.stepLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.stepLabelActive {
+  font-weight: 700;
+  color: var(--white);
+}
+.stepConnector {
+  width: 24px;
+  height: 2px;
+  background: var(--elevated);
+  border-radius: 1px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.stepConnectorDone {
+  background: var(--primary);
+}
+
+/* ── Error ───────────────────────────────────────────────── */
+.errorBox {
+  background: var(--error-container);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--error);
+}
+
+/* ── Card ────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 1px 4px rgba(0, 20, 10, 0.1);
+  border: 1px solid var(--border);
+}
+.stepTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--white);
+  margin: 0 0 4px;
+}
+.stepDesc {
+  font-size: 13px;
+  color: var(--faint);
+  margin: 0 0 22px;
+}
+
+/* ── Platform grid ───────────────────────────────────────── */
+.platformGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.platformCard {
+  padding: 13px 10px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  transition: all 0.15s;
+}
+.platformCardSelected {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.platformSymbol {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 7px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  border: 1px solid transparent;
+}
+.platformName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.platformNameSelected {
+  color: var(--primary);
+}
+.platformSelectedBadge {
+  font-size: 10px;
+  color: var(--primary);
+  margin-top: 3px;
+  font-weight: 600;
+}
+.selectionSuccess {
+  background: var(--success-container);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 9px 13px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--success);
+  font-weight: 500;
+}
+
+/* ── Form grid ───────────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.fullSpan {
+  grid-column: 1 / -1;
+}
+.fieldLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.fieldHint {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 5px;
+}
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--input);
+  color: var(--white);
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.12);
+}
+.select {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--input);
+  color: var(--white);
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+.select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.12);
+}
+.verifyRow {
+  display: flex;
+  gap: 8px;
+}
+.verifyInput {
+  flex: 1;
+}
+.verifyBtn {
+  height: 44px;
+  padding: 0 18px;
+  background: #0D2B22;
+  color: #5CD4BE;
+  border: 1px solid rgba(92, 212, 190, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.verifyBtn:hover:not(:disabled) {
+  background: #163D2E;
+}
+.verifyBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.verifyOk {
+  background: var(--success-container);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 9px 13px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--success);
+  font-weight: 500;
+}
+.verifyFail {
+  background: var(--error-container);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 9px 13px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--error);
+  font-weight: 500;
+}
+
+/* ── Consent ─────────────────────────────────────────────── */
+.consentSection {
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+.consentHeading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.consentItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.consentCheckbox {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.consentText {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Platform symbol colors ──────────────────────────────── */
+.symZomato  { background: #3b1d25; color: #fb7185; border-color: #be123c; }
+.symSwiggy  { background: #2b2a57; color: #8b84ff; border-color: #4c46b6; }
+.symAmazon  { background: #302512; color: #f59e0b; border-color: #d97706; }
+.symBlinkit { background: #2f2a12; color: #facc15; border-color: #ca8a04; }
+.symZepto   { background: #201a3d; color: #a78bfa; border-color: #7c3aed; }
+.symMeesho  { background: #2f1437; color: #e879f9; border-color: #c026d3; }
+.symPorter  { background: #162f2b; color: #34d399; border-color: #0f766e; }
+.symDunzo   { background: #15293d; color: #60a5fa; border-color: #2563eb; }
+.symDefault { background: var(--elevated); color: var(--muted); border-color: var(--border); }
+
+.platformCardSelected .platformSymbol {
+  border-color: var(--primary);
+}
+
+/* logo container — transparent bg, just centres the SVG/image */
+.platformLogoWrap {
+  width: 48px;
+  height: 32px;
+  margin: 0 auto 7px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+}
+
+/* ── Coverage tier cards ─────────────────────────────────── */
+.tierGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.tierCard {
+  padding: 20px 14px;
+  cursor: pointer;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: var(--card);
+  transition: all 0.15s;
+  position: relative;
+}
+.tierCardSelected {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.recommendedBadge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+.tierName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.tierNameSelected {
+  color: var(--primary);
+}
+.tierPrice {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--white);
+}
+.tierPriceSelected {
+  color: var(--primary);
+}
+.tierUnit {
+  font-size: 11px;
+  color: var(--faint);
+  margin-bottom: 7px;
+}
+.tierPayout {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* ── Summary box ─────────────────────────────────────────── */
+.summaryBox {
+  background: var(--elevated);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+.summaryHeading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.summaryRow:last-child {
+  border-bottom: 0;
+}
+.summaryKey {
+  color: var(--faint);
+}
+.summaryVal {
+  font-weight: 600;
+  color: var(--white);
+}
+
+/* ── Action buttons ──────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.btnPrimary {
+  flex: 2;
+  height: 44px;
+  background: #0D2B22;
+  color: #5CD4BE;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btnPrimary:hover:not(:disabled) {
+  background: #163D2E;
+}
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btnOutline {
+  flex: 1;
+  height: 44px;
+  background: var(--elevated);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.btnOutline:hover {
+  background: var(--input);
+}
+.btnFull {
+  width: 100%;
+  flex: unset;
+}
+
+/* ── Footer link ─────────────────────────────────────────── */
+.footerText {
+  text-align: center;
+  font-size: 14px;
+  color: var(--faint);
+  margin-top: 24px;
+}
+.footerLink {
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .platformGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .tierGrid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .fullSpan {
+    grid-column: unset;
+  }
+  .stepper {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+  .stepConnector {
+    display: none;
+  }
+}

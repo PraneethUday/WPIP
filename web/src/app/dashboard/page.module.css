@@ -37,7 +37,7 @@
   font-size: 14px;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(13, 158, 136, 0.35);
 }
 
 .brandText {
@@ -85,9 +85,9 @@
   padding: 7px 12px;
   border-radius: 999px;
   /* explicit colors — never tied to CSS theme variables */
-  border: 1.5px solid rgba(108, 99, 255, 0.4);
-  background: rgba(108, 99, 255, 0.14);
-  color: #8b84ff;
+  border: 1.5px solid rgba(13, 158, 136, 0.4);
+  background: rgba(13, 158, 136, 0.12);
+  color: #12B8A0;
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -109,10 +109,10 @@
   flex-shrink: 0;
 }
 .themeBtn:hover {
-  background: #6c63ff;
-  border-color: #6c63ff;
+  background: #0D9E88;
+  border-color: #0D9E88;
   color: #fff;
-  box-shadow: 0 4px 14px rgba(108, 99, 255, 0.45);
+  box-shadow: 0 4px 14px rgba(13, 158, 136, 0.4);
   transform: translateY(-1px);
 }
 .themeBtn:active {
@@ -120,7 +120,7 @@
   box-shadow: none;
 }
 .themeBtn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.35);
+  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.3);
 }
 /* light-mode button state — explicit amber, not CSS vars */
 .themeBtnLight {
@@ -242,7 +242,7 @@
   display: grid;
   place-items: center;
   margin: 0 auto 10px;
-  box-shadow: 0 4px 14px rgba(108, 99, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(13, 158, 136, 0.3);
 }
 .workerName {
   font-size: 14px;
@@ -371,7 +371,7 @@
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(108, 99, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(13, 158, 136, 0.25);
   transition: opacity 0.14s;
 }
 .asidePayBtn:hover {
@@ -473,7 +473,7 @@
   margin-bottom: 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(13, 158, 136, 0.35);
 }
 .hero::before {
   content: "";
@@ -701,7 +701,7 @@
 .planBtn {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(13, 158, 136, 0.3);
 }
 .planBtnSelected {
   background: var(--success-container);
@@ -728,7 +728,7 @@
   gap: 8px;
   background: var(--primary-container);
   color: var(--primary-dim);
-  border: 1px solid rgba(108, 99, 255, 0.3);
+  border: 1px solid rgba(13, 158, 136, 0.25);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 12px;
@@ -866,7 +866,7 @@
   padding: 20px 24px;
   margin-bottom: 24px;
   color: #fff;
-  box-shadow: 0 8px 28px rgba(108, 99, 255, 0.4);
+  box-shadow: 0 8px 28px rgba(13, 158, 136, 0.35);
 }
 .payBannerTitle {
   font-size: 11px;
@@ -924,7 +924,7 @@
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(13, 158, 136, 0.3);
 }
 .primaryBtn:hover {
   opacity: 0.9;
@@ -1264,7 +1264,7 @@
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(108, 99, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(13, 158, 136, 0.35);
 }
 .modalPayBtn:disabled,
 .modalCancelBtn:disabled {
