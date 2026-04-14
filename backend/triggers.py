@@ -226,6 +226,15 @@ def _auto_create_claims(
             # Cross-platform inactivity check
             cross_clear = check_cross_platform_activity(worker_id, event_date)
 
+            # If the worker was actively delivering during the disruption,
+            # they did not lose income — skip claim entirely (no payout warranted)
+            if not cross_clear:
+                logger.info(
+                    "[triggers] Worker %s had activity during disruption in %s — claim skipped.",
+                    worker_id, city,
+                )
+                continue
+
             # GPS verification
             gps_res = validate_gps_proximity(worker_id, city)
             gps_verified = gps_res["verified"]
