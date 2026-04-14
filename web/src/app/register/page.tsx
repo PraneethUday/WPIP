@@ -467,11 +467,17 @@ export default function RegisterPage() {
           {step === 4 && (
             <div>
               <h2 className={styles.stepTitle}>Choose your coverage</h2>
+              <div className={styles.dynamicNotice}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Premiums are dynamically adjusted every week based on your city&apos;s weather, AQI, and disruption risk.
+              </div>
               <div className={styles.tierGrid}>
                 {[
-                  { id: "basic",    tier: "Basic",    price: "20–40",  payout: "500" },
-                  { id: "standard", tier: "Standard", price: "40–80",  payout: "1,200", recommended: true },
-                  { id: "pro",      tier: "Pro",      price: "80–130", payout: "2,500" },
+                  { id: "basic",    tier: "Basic",    base: 30,  payout: "500" },
+                  { id: "standard", tier: "Standard", base: 60,  payout: "1,200", recommended: true },
+                  { id: "pro",      tier: "Pro",      base: 105, payout: "2,500" },
                 ].map((t) => {
                   const sel = form.tier === t.id;
                   return (
@@ -487,9 +493,10 @@ export default function RegisterPage() {
                         {t.tier}
                       </div>
                       <div className={`${styles.tierPrice} ${sel ? styles.tierPriceSelected : ""}`}>
-                        ₹{t.price}
+                        ₹{t.base}
                       </div>
-                      <div className={styles.tierUnit}>per week</div>
+                      <div className={styles.tierUnit}>base / week</div>
+                      <div className={styles.tierAdjusted}>adjusted weekly</div>
                       <div className={styles.tierPayout}>
                         Max payout: ₹{t.payout}
                       </div>
@@ -502,7 +509,7 @@ export default function RegisterPage() {
                 <p className={styles.summaryHeading}>Summary</p>
                 {[
                   ["Platforms", form.platforms.map((id) => platformLabel(id)).join(", ") || "–"],
-                  ["Weekly Premium (est.)", `₹${weeklyPremium}`],
+                  ["Base Weekly Premium", `₹${weeklyPremium} (adjusted dynamically)`],
                   ["Max Weekly Payout", `₹${maxPayout}`],
                   ["AutoPay", form.autopay ? "Enabled (5% discount)" : "Disabled"],
                 ].map(([k, v]) => (
