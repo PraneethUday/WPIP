@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
-import { addPayment } from "@/lib/payment-store";
+import { createServerClient } from "@/lib/supabase";
 
 function getToken(req: NextRequest): string | null {
   const h = req.headers.get("authorization") || "";
@@ -49,14 +49,24 @@ export async function POST(req: NextRequest) {
       tier: tier || "standard",
       worker_id: workerId,
       status: "success",
-      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    // Persist server-side so both web and mobile can retrieve it via /history
-    addPayment(record);
+    // Persist to Supabase worker_payments table
+    const supabase = createServerClient();
+    const { error } = await supabase.from("worker_payments").insert(record);
+
+    if (error) {
+      console.error("[payment/pay] Supabase insert error:", error.message);
+      return NextResponse.json(
+        { error: "Failed to record payment. Please try again." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       ...record,
+      timestamp: record.created_at,
       message: "Payment processed successfully.",
     });
   } catch {
