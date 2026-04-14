@@ -29,6 +29,7 @@ from claims import (
 )
 from gps import validate_gps_proximity
 from ml.fraud_model import build_fraud_features, compute_fraud_score
+from fuzzy import compute_trigger_severity
 
 logger = logging.getLogger(__name__)
 
@@ -99,24 +100,32 @@ async def poll_triggers() -> dict:
         for rule in TRIGGER_RULES:
             try:
                 if rule["check"](weather):
+                    # Compute fuzzy severity (0.0–1.0) for this trigger + weather
+                    severity_label, severity_score = compute_trigger_severity(
+                        rule["trigger_id"], weather
+                    )
+
                     logger.warning(
-                        "[triggers] 🚨 %s FIRED in %s — %s",
+                        "[triggers] 🚨 %s FIRED in %s — %s (severity=%.2f)",
                         rule["trigger_id"],
                         city,
                         rule["description"],
+                        severity_score,
                     )
 
                     # Upsert disruption event (idempotent per trigger+city+date)
                     # Run in thread to avoid blocking the async event loop
                     event_id = await asyncio.to_thread(
-                        _upsert_disruption_event, city, weather, rule, today
+                        _upsert_disruption_event,
+                        city, weather, rule, today, severity_label, severity_score,
                     )
 
                     if event_id:
                         # Auto-create claims for all workers in this city
                         # Run in thread — this makes many synchronous Supabase calls
                         await asyncio.to_thread(
-                            _auto_create_claims, event_id, city, rule, today
+                            _auto_create_claims,
+                            event_id, city, rule, today, severity_score,
                         )
                         fired.append(rule["trigger_id"])
 
@@ -142,16 +151,20 @@ async def poll_triggers() -> dict:
 # ---------------------------------------------------------------------------
 
 def _upsert_disruption_event(
-    city: str, weather: dict, rule: dict, event_date: str
+    city: str,
+    weather: dict,
+    rule: dict,
+    event_date: str,
+    severity_label: str = "severe",
+    severity_score: float = 1.0,
 ) -> str | None:
     """Insert a disruption event row. Returns the event UUID, or None on duplicate."""
-    severity = rule["severity"](weather)
-
     payload = {
         "trigger_id": rule["trigger_id"],
         "trigger_type": rule["trigger_type"],
         "city": city,
-        "severity": severity,
+        "severity": severity_label,
+        "severity_score": severity_score,
         "description": rule["description"],
         "temperature": weather.get("temperature"),
         "rain_1h": weather.get("rain_1h"),
@@ -186,7 +199,11 @@ def _upsert_disruption_event(
 # ---------------------------------------------------------------------------
 
 def _auto_create_claims(
-    event_id: str, city: str, rule: dict, event_date: str
+    event_id: str,
+    city: str,
+    rule: dict,
+    event_date: str,
+    severity_score: float = 1.0,
 ) -> int:
     """Create claims for all workers in the disrupted city.
 
@@ -209,14 +226,23 @@ def _auto_create_claims(
             # Cross-platform inactivity check
             cross_clear = check_cross_platform_activity(worker_id, event_date)
 
+            # If the worker was actively delivering during the disruption,
+            # they did not lose income — skip claim entirely (no payout warranted)
+            if not cross_clear:
+                logger.info(
+                    "[triggers] Worker %s had activity during disruption in %s — claim skipped.",
+                    worker_id, city,
+                )
+                continue
+
             # GPS verification
             gps_res = validate_gps_proximity(worker_id, city)
             gps_verified = gps_res["verified"]
 
-            # Compute payout
+            # Compute payout scaled by fuzzy severity multiplier
             daily_wage = get_worker_daily_wage(worker_id, days=7)
             disrupted_hours = 6.0  # default assumption
-            payout = compute_payout(daily_wage, disrupted_hours)
+            payout = compute_payout(daily_wage, disrupted_hours, severity_score)
 
             # ML Fraud scoring
             fraud_features = build_fraud_features(
@@ -247,6 +273,7 @@ def _auto_create_claims(
                 "payout_amount": payout,
                 "daily_wage_est": daily_wage,
                 "disrupted_hours": disrupted_hours,
+                "fuzzy_payout_multiplier": severity_score,
                 "payout_status": payout_status,
                 "fraud_score": fraud_score,
                 "fraud_flags": fraud_flags,
@@ -368,11 +395,16 @@ def get_trigger_status() -> dict:
         triggered = []
         for rule in TRIGGER_RULES:
             if rule["check"](weather):
+                severity_label, severity_score = compute_trigger_severity(
+                    rule["trigger_id"], weather
+                )
                 triggered.append({
                     "trigger_id": rule["trigger_id"],
                     "trigger_type": rule["trigger_type"],
                     "description": rule["description"],
-                    "severity": rule["severity"](weather),
+                    "severity": severity_label,
+                    "severity_score": severity_score,
+                    "payout_multiplier_pct": round(severity_score * 100, 1),
                 })
 
         results[city] = {

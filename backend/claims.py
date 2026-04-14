@@ -42,19 +42,26 @@ def get_worker_daily_wage(worker_id: str, days: int = 7) -> float:
     return round(total_earnings / len(active_days), 2)
 
 
-def compute_payout(daily_wage: float, disrupted_hours: float = 6.0) -> float:
-    """Compute the claim payout amount.
+def compute_payout(
+    daily_wage: float,
+    disrupted_hours: float = 6.0,
+    severity: float = 1.0,
+) -> float:
+    """Compute the claim payout amount with fuzzy severity scaling.
 
-    Formula:  payout = (daily_wage / active_hours_per_day) × disrupted_hours
+    Formula:  payout = (daily_wage / active_hours_per_day) × disrupted_hours × severity
     We assume an 8-hour active day as the baseline.
-    Payout is capped at 50% of daily wage (per GigGuard policy).
+    Both the raw payout and the 50% policy cap are scaled by the fuzzy severity
+    score, so a 0.6 severity event yields ~60% of the maximum possible payout.
     """
     if daily_wage <= 0:
         return 0.0
+    if severity <= 0.0:
+        return 0.0
 
     hourly_rate = daily_wage / 8.0
-    raw_payout = hourly_rate * disrupted_hours
-    max_payout = daily_wage * 0.50  # 50% of daily wage cap
+    raw_payout = hourly_rate * disrupted_hours * severity
+    max_payout = daily_wage * 0.50 * severity  # 50% cap, scaled by severity
     return round(min(raw_payout, max_payout), 2)
 
 
