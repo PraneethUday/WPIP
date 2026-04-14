@@ -3,66 +3,66 @@
   ============================================================ */
 
 :root {
-  --bg:               #0C0E18;
-  --surface:          #11131E;
-  --card:             #1D1F2B;
-  --elevated:         #272935;
-  --input:            #323440;
-  --primary:          #6C63FF;
-  --primary-dim:      #8B84FF;
-  --primary-container:#1D1B45;
-  --amber:            #FF8C42;
-  --amber-container:  #2A1A0A;
+  --bg:               #080E0C;
+  --surface:          #0D1512;
+  --card:             #152019;
+  --elevated:         #1C2E26;
+  --input:            #233A30;
+  --primary:          #0D9E88;
+  --primary-dim:      #12B8A0;
+  --primary-container:#0A2826;
+  --amber:            #E8933A;
+  --amber-container:  #261509;
   --success:          #22C55E;
   --success-container:#0A2E18;
   --error:            #EF4444;
   --error-container:  #2E0A0A;
   --info:             #3B82F6;
-  --white:            #E1E1F2;
-  --muted:            #C7C4D8;
-  --faint:            #918FA1;
-  --border:           rgba(70,69,85,0.6);
-  --border-active:    rgba(108,99,255,0.5);
+  --white:            #DCE8E4;
+  --muted:            #B8CECA;
+  --faint:            #7A9E98;
+  --border:           rgba(50,75,68,0.65);
+  --border-active:    rgba(13,158,136,0.5);
   --radius:           12px;
   --radius-full:      999px;
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   /* component-specific tokens */
-  --header-bg:        rgba(12,14,24,0.85);
-  --tier-pro-bg:      #1e0a3c;
-  --tier-pro-color:   #c084fc;
+  --header-bg:        rgba(10,14,12,0.88);
+  --tier-pro-bg:      #0b2a23;
+  --tier-pro-color:   #5CD4BE;
   --badge-blue-bg:    #0a1a3a;
-  --badge-purple-bg:  #1e0a3c;
-  --badge-purple-color: #c084fc;
+  --badge-purple-bg:  #0b2a23;
+  --badge-purple-color: #5CD4BE;
 }
 
 [data-theme="light"] {
-  --bg:               #F0EFF8;
+  --bg:               #EDF2EF;
   --surface:          #FFFFFF;
-  --card:             #F7F6FF;
-  --elevated:         #EDECF8;
-  --input:            #E5E3F5;
-  --primary:          #6C63FF;
-  --primary-dim:      #5951CC;
-  --primary-container:#E8E6FF;
-  --amber:            #C45E00;
-  --amber-container:  #FFF1E0;
+  --card:             #F5FAF8;
+  --elevated:         #EBF3EF;
+  --input:            #E0EDEA;
+  --primary:          #0A7A68;
+  --primary-dim:      #0D9E88;
+  --primary-container:#D8F0EB;
+  --amber:            #B55B00;
+  --amber-container:  #FFF0E0;
   --success:          #15803D;
   --success-container:#DCFCE7;
   --error:            #B91C1C;
   --error-container:  #FEE2E2;
   --info:             #1D4ED8;
-  --white:            #1A1826;
-  --muted:            #3B3950;
-  --faint:            #6B6882;
-  --border:           rgba(140,138,165,0.35);
-  --border-active:    rgba(108,99,255,0.5);
+  --white:            #0D1F1A;
+  --muted:            #2C4A3E;
+  --faint:            #557468;
+  --border:           rgba(100,140,128,0.3);
+  --border-active:    rgba(13,158,136,0.5);
   /* component-specific tokens */
-  --header-bg:        rgba(240,239,248,0.92);
-  --tier-pro-bg:      #EDE9FF;
-  --tier-pro-color:   #7C3AED;
+  --header-bg:        rgba(237,242,239,0.94);
+  --tier-pro-bg:      #D8F0EB;
+  --tier-pro-color:   #0A7A68;
   --badge-blue-bg:    #DBEAFE;
-  --badge-purple-bg:  #EDE9FF;
-  --badge-purple-color: #7C3AED;
+  --badge-purple-bg:  #D8F0EB;
+  --badge-purple-color: #0A7A68;
 }
 
 *, *::before, *::after {

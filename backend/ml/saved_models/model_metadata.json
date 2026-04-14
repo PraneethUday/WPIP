@@ -1,7 +1,7 @@
 {
-  "rmse": 9.0566,
+  "rmse": 4.3505,
   "n_samples": 200,
-  "trained_at": "2026-04-12",
+  "trained_at": "2026-04-14",
   "features": [
     "avg_earnings_7d",
     "avg_deliveries_7d",
@@ -26,10 +26,5 @@
     "is_severe_aqi",
     "weather_risk",
     "city_risk"
-  ],
-  "tier_config": {
-    "basic":    {"rate": 0.008, "min": 40, "max": 80,  "max_payout": 500},
-    "standard": {"rate": 0.012, "min": 60, "max": 100, "max_payout": 1200},
-    "pro":      {"rate": 0.016, "min": 80, "max": 120, "max_payout": 2500}
-  }
+  ]
 }
