@@ -12,18 +12,26 @@ const BACKEND_URL = (BACKEND_API_URL || `http://${fallbackHost}:8000`).replace(
   "",
 );
 
-async function request(url, options = {}) {
+async function request(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response;
   try {
     response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         ...(options.headers || {}),
       },
     });
-  } catch {
-    throw new Error(`Network request failed. Could not reach ${url}`);
+  } catch (err) {
+    const msg = err?.name === "AbortError"
+      ? `Request timed out. Could not reach ${url}`
+      : `Network request failed. Could not reach ${url}`;
+    throw new Error(msg);
+  } finally {
+    clearTimeout(timer);
   }
 
   const raw = await response.text();

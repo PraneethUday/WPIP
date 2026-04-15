@@ -129,9 +129,11 @@ async def poll_triggers() -> dict:
 
     for city in MONITORED_CITIES:
         # --- Gather all data sources concurrently ---
+        # curfew_task is wrapped in wait_for so a slow NLP run (model loading,
+        # large RSS feed) can't stall the entire polling loop indefinitely.
         weather_task = asyncio.to_thread(fetch_weather, city)
         traffic_task = fetch_traffic_tti(city)
-        curfew_task = evaluate_curfew_risk(city)
+        curfew_task = asyncio.wait_for(evaluate_curfew_risk(city), timeout=60.0)
 
         weather, traffic, curfew = await asyncio.gather(
             weather_task, traffic_task, curfew_task,

@@ -1,48 +1,100 @@
-// Worker Protection Insurance Platoform (WPIP) Design System — Dark Navy / Indigo / Amber
-// ui branch — new design
+// GigGuard Design System
+// Brand: Ruby Red (#A51C30) · Prussian Blue (#04052E) · Ivory (#FFFDFB)
+// Two variants: dark (Prussian Blue base) and light (Ivory base)
 
-export const COLORS = {
-  // Core palette
-  primary: "#6C63FF", // Indigo-Violet (CTAs, active states)
-  primaryDim: "#8B84FF", // Lighter indigo for highlights
-  primaryContainer: "#1D1B45", // Dark indigo background for cards
+export const DARK_COLORS = {
+  // Brand primaries
+  primary: "#A51C30",           // Ruby Red — CTAs, active states, shields
+  primaryDim: "#C73A52",        // Lighter ruby for highlights
+  primaryContainer: "#2D080F",  // Deep ruby bg for chips/cards
 
-  amber: "#FF8C42", // Electric Amber (alerts, urgency, highlights)
-  amberDim: "#FFB380", // Soft amber
-  amberContainer: "#2A1A0A", // Dark amber card bg
+  // Accent
+  amber: "#C9A84C",             // Gold — alerts, urgency, warnings
+  amberDim: "#E0C070",
+  amberContainer: "#2A1E08",
 
-  success: "#22C55E", // Active/paid/green states
-  successContainer: "#0A2E18", // Dark green card bg
-  error: "#EF4444", // Rejected/danger
-  errorContainer: "#2E0A0A", // Dark red card bg
-  info: "#3B82F6", // Info banners
+  // Semantic
+  success: "#22C55E",
+  successContainer: "#0A2E18",
+  error: "#EF4444",
+  errorContainer: "#2E0A0A",
+  info: "#3B82F6",
 
-  // Surfaces (dark layered system)
-  background: "#0C0E18", // Deepest base (surface_container_lowest)
-  surface: "#11131E", // Main page background
-  surfaceLow: "#191B26", // Section backgrounds
-  surfaceContainer: "#1D1F2B", // Card backgrounds
-  surfaceHigh: "#272935", // Elevated cards
-  surfaceHighest: "#323440", // Interactive / input backgrounds
+  // Surfaces — Prussian Blue layered system
+  background: "#020416",        // Deepest base
+  surface: "#04052E",           // Prussian Blue — main bg
+  surfaceLow: "#060833",
+  surfaceContainer: "#0A0E42",  // Card backgrounds
+  surfaceHigh: "#0F144E",       // Elevated cards
+  surfaceHighest: "#151A5C",    // Inputs / interactive
 
   // Text
-  white: "#E1E1F2", // Primary text (on dark)
-  textMuted: "#C7C4D8", // Secondary text
-  textFaint: "#918FA1", // Placeholder / disabled text
+  white: "#FFFDFB",             // Ivory — primary text
+  textMuted: "#D4D0E8",         // Secondary text
+  textFaint: "#8885A8",         // Placeholder / disabled
 
-  // Borders (ghost borders — low opacity)
-  border: "rgba(70, 69, 85, 0.6)", // Default border
-  borderActive: "rgba(108, 99, 255, 0.5)", // Focus / active border
+  // Borders
+  border: "rgba(255, 253, 251, 0.1)",
+  borderActive: "rgba(165, 28, 48, 0.6)",
 
-  // Legacy aliases (keeps old references from breaking during transition)
-  secondary: "#1D1F2B",
-  accent: "#FF8C42",
-  text: "#C7C4D8",
-  gray: "#464555",
-  lightGray: "#191B26",
+  // Legacy aliases
+  secondary: "#0A0E42",
+  accent: "#C9A84C",
+  text: "#D4D0E8",
+  gray: "#2A2B4E",
+  lightGray: "#060833",
 };
 
+export const LIGHT_COLORS = {
+  // Brand primaries
+  primary: "#A51C30",           // Ruby Red
+  primaryDim: "#C73A52",
+  primaryContainer: "#FFE8EB",  // Soft ruby bg
+
+  // Accent
+  amber: "#9A6B00",             // Deep gold for light mode
+  amberDim: "#7A5400",
+  amberContainer: "#FFF3D6",
+
+  // Semantic
+  success: "#16A34A",
+  successContainer: "#DCFCE7",
+  error: "#DC2626",
+  errorContainer: "#FEE2E2",
+  info: "#2563EB",
+
+  // Surfaces — Ivory layered system
+  background: "#FFFDFB",        // Ivory
+  surface: "#FAF8F5",
+  surfaceLow: "#F5F2EE",
+  surfaceContainer: "#EDE9E4",  // Card backgrounds
+  surfaceHigh: "#E5E0D9",
+  surfaceHighest: "#D9D3CB",    // Inputs
+
+  // Text
+  white: "#04052E",             // Prussian Blue — primary text on light
+  textMuted: "#2A2B4E",
+  textFaint: "#6B6C8A",
+
+  // Borders
+  border: "rgba(4, 5, 46, 0.12)",
+  borderActive: "rgba(165, 28, 48, 0.4)",
+
+  // Legacy aliases
+  secondary: "#EDE9E4",
+  accent: "#9A6B00",
+  text: "#2A2B4E",
+  gray: "#8885A8",
+  lightGray: "#F5F2EE",
+};
+
+// Default export: dark theme (backward compatibility)
+export const COLORS = DARK_COLORS;
+
 export const FONTS = {
+  display: "EBGaramond_700Bold",
+  displayMedium: "EBGaramond_500Medium",
+  displayRegular: "EBGaramond_400Regular",
   bold: "Inter_700Bold",
   semiBold: "Inter_600SemiBold",
   medium: "Inter_500Medium",
@@ -65,21 +117,21 @@ export const SIZES = {
 };
 
 export const GRADIENTS = {
-  primary: ["#6C63FF", "#8B84FF"],
-  amber: ["#FF8C42", "#FFB380"],
-  surface: ["#1D1F2B", "#272935"],
+  primary: ["#A51C30", "#C73A52"],
+  amber: ["#C9A84C", "#E0C070"],
+  surface: ["#0A0E42", "#0F144E"],
 };
 
 export const SHADOWS = {
   card: {
-    shadowColor: "#6C63FF",
+    shadowColor: "#A51C30",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 4,
   },
   button: {
-    shadowColor: "#6C63FF",
+    shadowColor: "#A51C30",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 16,

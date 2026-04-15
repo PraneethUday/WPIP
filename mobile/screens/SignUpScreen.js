@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, FONTS, SIZES, SHADOWS } from "../constants/theme";
+import { SIZES, SHADOWS } from "../constants/theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../lib/api";
 
@@ -29,98 +30,23 @@ const ALL_PLATFORMS = [
 ];
 
 const CITIES = [
-  "Chennai",
-  "Delhi",
-  "Mumbai",
-  "Bangalore",
-  "Hyderabad",
-  "Pune",
-  "Kolkata",
-  "Ahmedabad",
+  "Chennai", "Delhi", "Mumbai", "Bangalore",
+  "Hyderabad", "Pune", "Kolkata", "Ahmedabad",
 ];
 
 const TIERS = [
   { id: "basic", name: "Basic Shield", price: "₹20–40/wk", payout: "₹500" },
-  {
-    id: "standard",
-    name: "Standard Guard",
-    price: "₹40–80/wk",
-    payout: "₹1,200",
-    recommended: true,
-  },
+  { id: "standard", name: "Standard Guard", price: "₹40–80/wk", payout: "₹1,200", recommended: true },
   { id: "pro", name: "Pro Protect", price: "₹80–130/wk", payout: "₹2,500" },
 ];
 
 const STEPS = ["Platform", "Personal", "Documents", "Coverage"];
 
-const StepIndicator = ({ current }) => (
-  <View style={styles.stepper}>
-    {STEPS.map((s, i) => {
-      const done = i + 1 < current;
-      const active = i + 1 === current;
-      return (
-        <React.Fragment key={s}>
-          <View style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                done && styles.stepDone,
-                active && styles.stepActive,
-              ]}
-            >
-              {done ? (
-                <Ionicons name="checkmark" size={12} color="#fff" />
-              ) : (
-                <Text style={[styles.stepNum, active && { color: "#fff" }]}>
-                  {i + 1}
-                </Text>
-              )}
-            </View>
-            <Text style={[styles.stepLabel, active && { color: COLORS.white }]}>
-              {s}
-            </Text>
-          </View>
-          {i < STEPS.length - 1 && (
-            <View
-              style={[
-                styles.stepLine,
-                done && { backgroundColor: COLORS.primary },
-              ]}
-            />
-          )}
-        </React.Fragment>
-      );
-    })}
-  </View>
-);
-
-const Field = ({
-  label,
-  placeholder,
-  value,
-  onChangeText,
-  keyboardType,
-  secureTextEntry,
-  hint,
-}) => (
-  <View style={styles.fieldWrap}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <TextInput
-      style={styles.fieldInput}
-      placeholder={placeholder}
-      placeholderTextColor={COLORS.textFaint}
-      value={value}
-      onChangeText={onChangeText}
-      keyboardType={keyboardType || "default"}
-      secureTextEntry={secureTextEntry}
-      autoCapitalize="none"
-    />
-    {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
-  </View>
-);
-
 const SignUpScreen = ({ navigation }) => {
   const { register } = useAuth();
+  const { COLORS, FONTS } = useTheme();
+  const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -128,22 +54,11 @@ const SignUpScreen = ({ navigation }) => {
   const [verifyResult, setVerifyResult] = useState(null);
   const [form, setForm] = useState({
     platforms: [],
-    name: "",
-    age: "",
-    phone: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    city: "",
-    area: "",
-    deliveryId: "",
-    pan: "",
-    aadhaar: "",
-    upi: "",
-    bank: "",
-    consent: false,
-    gpsConsent: false,
-    autopay: false,
+    name: "", age: "", phone: "", email: "",
+    password: "", confirmPassword: "",
+    city: "", area: "", deliveryId: "",
+    pan: "", aadhaar: "", upi: "", bank: "",
+    consent: false, gpsConsent: false, autopay: false,
     tier: "standard",
   });
 
@@ -161,15 +76,8 @@ const SignUpScreen = ({ navigation }) => {
       setError("Select at least one delivery platform.");
       return false;
     }
-
     if (step === 2) {
-      if (
-        !form.name.trim() ||
-        !form.email.trim() ||
-        !form.phone.trim() ||
-        !form.city ||
-        !form.deliveryId.trim()
-      ) {
+      if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.city || !form.deliveryId.trim()) {
         setError("Complete all required personal details before continuing.");
         return false;
       }
@@ -182,12 +90,10 @@ const SignUpScreen = ({ navigation }) => {
         return false;
       }
     }
-
     if (step === 3 && (!form.consent || !form.gpsConsent)) {
       setError("Please accept required consent toggles to continue.");
       return false;
     }
-
     return true;
   };
 
@@ -196,40 +102,24 @@ const SignUpScreen = ({ navigation }) => {
     setError("");
     setStep((s) => Math.min(s + 1, 4));
   };
-
-  const prevStep = () => {
-    setError("");
-    setStep((s) => Math.max(s - 1, 1));
-  };
+  const prevStep = () => { setError(""); setStep((s) => Math.max(s - 1, 1)); };
 
   const handleVerifyId = async () => {
     if (!form.deliveryId.trim() || form.platforms.length === 0) {
-      setError(
-        "Enter Delivery Partner ID and choose at least one platform first.",
-      );
+      setError("Enter Delivery Partner ID and choose at least one platform first.");
       return;
     }
-
     setVerifying(true);
     setVerifyResult(null);
     setError("");
-
     try {
-      const result = await api.verifyDeliveryId(
-        form.deliveryId.trim(),
-        form.platforms,
-      );
+      const result = await api.verifyDeliveryId(form.deliveryId.trim(), form.platforms);
       setVerifyResult(result);
       if (!result.verified) {
-        setError(
-          "ID not found in selected platform databases. You can still continue for manual admin verification.",
-        );
+        setError("ID not found in selected platform databases. You can still continue for manual admin verification.");
       }
     } catch (err) {
-      setError(
-        err.message ||
-          "Verification service unavailable. You can still register.",
-      );
+      setError(err.message || "Verification service unavailable. You can still register.");
     } finally {
       setVerifying(false);
     }
@@ -237,10 +127,8 @@ const SignUpScreen = ({ navigation }) => {
 
   const handleSubmit = async () => {
     if (!validateStep()) return;
-
     setLoading(true);
     setError("");
-
     try {
       await register({
         name: form.name.trim(),
@@ -261,7 +149,6 @@ const SignUpScreen = ({ navigation }) => {
         autopay: form.autopay,
         tier: form.tier,
       });
-
       navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (err) {
       setError(err.message || "Registration failed. Please try again.");
@@ -270,16 +157,30 @@ const SignUpScreen = ({ navigation }) => {
     }
   };
 
+  const Field = ({ label, placeholder, value, onChangeText, keyboardType, secureTextEntry, hint }) => (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={styles.fieldInput}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textFaint}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType || "default"}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize="none"
+      />
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
-        >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -292,7 +193,30 @@ const SignUpScreen = ({ navigation }) => {
             <View style={{ width: 40 }} />
           </View>
 
-          <StepIndicator current={step} />
+          {/* Step Indicator */}
+          <View style={styles.stepper}>
+            {STEPS.map((s, i) => {
+              const done = i + 1 < step;
+              const active = i + 1 === step;
+              return (
+                <React.Fragment key={s}>
+                  <View style={styles.stepItem}>
+                    <View style={[styles.stepCircle, done && styles.stepDone, active && styles.stepActive]}>
+                      {done ? (
+                        <Ionicons name="checkmark" size={12} color="#fff" />
+                      ) : (
+                        <Text style={[styles.stepNum, active && { color: "#fff" }]}>{i + 1}</Text>
+                      )}
+                    </View>
+                    <Text style={[styles.stepLabel, active && { color: COLORS.white }]}>{s}</Text>
+                  </View>
+                  {i < STEPS.length - 1 && (
+                    <View style={[styles.stepLine, done && { backgroundColor: COLORS.primary }]} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </View>
 
           {!!error && (
             <View style={styles.errorBox}>
@@ -300,62 +224,37 @@ const SignUpScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* ── STEP 1: Platform ── */}
+          {/* STEP 1: Platform */}
           {step === 1 && (
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>Choose your platforms</Text>
-              <Text style={styles.stepSub}>
-                Select all delivery platforms you work with.
-              </Text>
-
+              <Text style={styles.stepSub}>Select all delivery platforms you work with.</Text>
               <View style={styles.platformGrid}>
                 {ALL_PLATFORMS.map((p) => {
                   const sel = form.platforms.includes(p.id);
                   return (
                     <TouchableOpacity
                       key={p.id}
-                      style={[
-                        styles.platformCard,
-                        sel && styles.platformCardSelected,
-                      ]}
+                      style={[styles.platformCard, sel && styles.platformCardSelected]}
                       onPress={() => togglePlatform(p.id)}
                       activeOpacity={0.75}
                     >
-                      <Text
-                        style={[
-                          styles.platformCardName,
-                          sel && { color: COLORS.primary },
-                        ]}
-                      >
-                        {p.name}
-                      </Text>
-                      {sel && (
-                        <Text style={styles.platformSelected}>Selected ✓</Text>
-                      )}
+                      <Text style={[styles.platformCardName, sel && { color: COLORS.primary }]}>{p.name}</Text>
+                      {sel && <Text style={styles.platformSelected}>Selected ✓</Text>}
                     </TouchableOpacity>
                   );
                 })}
               </View>
-
               {form.platforms.length > 0 && (
                 <View style={styles.selectionBadge}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={COLORS.success}
-                  />
+                  <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
                   <Text style={styles.selectionBadgeText}>
-                    {form.platforms.length} platform
-                    {form.platforms.length > 1 ? "s" : ""} selected
+                    {form.platforms.length} platform{form.platforms.length > 1 ? "s" : ""} selected
                   </Text>
                 </View>
               )}
-
               <TouchableOpacity
-                style={[
-                  styles.ctaBtn,
-                  form.platforms.length === 0 && { opacity: 0.4 },
-                ]}
+                style={[styles.ctaBtn, form.platforms.length === 0 && { opacity: 0.4 }]}
                 onPress={nextStep}
                 disabled={form.platforms.length === 0}
               >
@@ -364,97 +263,41 @@ const SignUpScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* ── STEP 2: Personal Info ── */}
+          {/* STEP 2: Personal */}
           {step === 2 && (
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>Personal information</Text>
-
-              <Field
-                label="Full Name"
-                placeholder="Your full name"
-                value={form.name}
-                onChangeText={(v) => update("name", v)}
-              />
-              <View style={styles.row}>
+              <Field label="Full Name" placeholder="Your full name" value={form.name} onChangeText={(v) => update("name", v)} />
+              <View style={styles.rowFields}>
                 <View style={{ flex: 1, marginRight: 10 }}>
-                  <Field
-                    label="Age"
-                    placeholder="25"
-                    value={form.age}
-                    onChangeText={(v) => update("age", v)}
-                    keyboardType="numeric"
-                  />
+                  <Field label="Age" placeholder="25" value={form.age} onChangeText={(v) => update("age", v)} keyboardType="numeric" />
                 </View>
                 <View style={{ flex: 2 }}>
-                  <Field
-                    label="Phone"
-                    placeholder="+91 98765 43210"
-                    value={form.phone}
-                    onChangeText={(v) => update("phone", v)}
-                    keyboardType="phone-pad"
-                  />
+                  <Field label="Phone" placeholder="+91 98765 43210" value={form.phone} onChangeText={(v) => update("phone", v)} keyboardType="phone-pad" />
                 </View>
               </View>
-              <Field
-                label="Email Address"
-                placeholder="you@example.com"
-                value={form.email}
-                onChangeText={(v) => update("email", v)}
-              />
-              <View style={styles.row}>
+              <Field label="Email Address" placeholder="you@example.com" value={form.email} onChangeText={(v) => update("email", v)} />
+              <View style={styles.rowFields}>
                 <View style={{ flex: 1, marginRight: 10 }}>
-                  <Field
-                    label="Password"
-                    placeholder="Min. 6 chars"
-                    value={form.password}
-                    onChangeText={(v) => update("password", v)}
-                    secureTextEntry
-                  />
+                  <Field label="Password" placeholder="Min. 6 chars" value={form.password} onChangeText={(v) => update("password", v)} secureTextEntry />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Field
-                    label="Confirm Password"
-                    placeholder="Re-enter"
-                    value={form.confirmPassword}
-                    onChangeText={(v) => update("confirmPassword", v)}
-                    secureTextEntry
-                  />
+                  <Field label="Confirm Password" placeholder="Re-enter" value={form.confirmPassword} onChangeText={(v) => update("confirmPassword", v)} secureTextEntry />
                 </View>
               </View>
-
               <Text style={styles.fieldLabel}>City</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginBottom: SIZES.padding }}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SIZES.padding }}>
                 {CITIES.map((c) => (
                   <TouchableOpacity
                     key={c}
-                    style={[
-                      styles.cityPill,
-                      form.city === c && styles.cityPillSelected,
-                    ]}
+                    style={[styles.cityPill, form.city === c && styles.cityPillSelected]}
                     onPress={() => update("city", c)}
                   >
-                    <Text
-                      style={[
-                        styles.cityPillText,
-                        form.city === c && { color: COLORS.primary },
-                      ]}
-                    >
-                      {c}
-                    </Text>
+                    <Text style={[styles.cityPillText, form.city === c && { color: COLORS.primary }]}>{c}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-
-              <Field
-                label="Delivery Area / Zone"
-                placeholder="e.g. Koramangala"
-                value={form.area}
-                onChangeText={(v) => update("area", v)}
-              />
+              <Field label="Delivery Area / Zone" placeholder="e.g. Koramangala" value={form.area} onChangeText={(v) => update("area", v)} />
               <Field
                 label="Primary Delivery Partner ID"
                 placeholder="Your ID from the platform app"
@@ -462,13 +305,9 @@ const SignUpScreen = ({ navigation }) => {
                 onChangeText={(v) => update("deliveryId", v)}
                 hint="Used to verify your worker status on the selected platforms."
               />
-
               <View style={styles.verifyRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.verifyBtn,
-                    (verifying || !form.deliveryId.trim()) && { opacity: 0.6 },
-                  ]}
+                  style={[styles.verifyBtn, (verifying || !form.deliveryId.trim()) && { opacity: 0.6 }]}
                   onPress={handleVerifyId}
                   disabled={verifying || !form.deliveryId.trim()}
                 >
@@ -478,28 +317,18 @@ const SignUpScreen = ({ navigation }) => {
                     <Text style={styles.verifyBtnText}>Verify ID</Text>
                   )}
                 </TouchableOpacity>
-
                 {verifyResult?.verified && (
                   <View style={styles.verifySuccessPill}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={14}
-                      color={COLORS.success}
-                    />
+                    <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
                     <Text style={styles.verifySuccessText}>Verified</Text>
                   </View>
                 )}
               </View>
-
-              {verifyResult?.verified &&
-                verifyResult?.matched_platforms?.length > 0 && (
-                  <View style={styles.verifyInfoCard}>
-                    <Text style={styles.verifyInfoText}>
-                      Matched on: {verifyResult.matched_platforms.join(", ")}
-                    </Text>
-                  </View>
-                )}
-
+              {verifyResult?.verified && verifyResult?.matched_platforms?.length > 0 && (
+                <View style={styles.verifyInfoCard}>
+                  <Text style={styles.verifyInfoText}>Matched on: {verifyResult.matched_platforms.join(", ")}</Text>
+                </View>
+              )}
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.ghostBtn} onPress={prevStep}>
                   <Text style={styles.ghostBtnText}>← Back</Text>
@@ -511,82 +340,36 @@ const SignUpScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* ── STEP 3: Documents ── */}
+          {/* STEP 3: Documents */}
           {step === 3 && (
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>Identity & Payment</Text>
-
-              <View style={styles.row}>
+              <View style={styles.rowFields}>
                 <View style={{ flex: 1, marginRight: 10 }}>
-                  <Field
-                    label="PAN Card"
-                    placeholder="ABCDE1234F"
-                    value={form.pan}
-                    onChangeText={(v) => update("pan", v.toUpperCase())}
-                  />
+                  <Field label="PAN Card" placeholder="ABCDE1234F" value={form.pan} onChangeText={(v) => update("pan", v.toUpperCase())} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Field
-                    label="Aadhaar Number"
-                    placeholder="1234 5678 9012"
-                    value={form.aadhaar}
-                    onChangeText={(v) => update("aadhaar", v)}
-                    keyboardType="numeric"
-                  />
+                  <Field label="Aadhaar Number" placeholder="1234 5678 9012" value={form.aadhaar} onChangeText={(v) => update("aadhaar", v)} keyboardType="numeric" />
                 </View>
               </View>
-
               <View style={styles.secureNote}>
                 <Ionicons name="lock-closed" size={14} color={COLORS.primary} />
-                <Text style={styles.secureNoteText}>
-                  Your documents are encrypted and secure
-                </Text>
+                <Text style={styles.secureNoteText}>Your documents are encrypted and secure</Text>
               </View>
-
-              <Field
-                label="UPI ID (for payouts)"
-                placeholder="yourname@upi"
-                value={form.upi}
-                onChangeText={(v) => update("upi", v)}
-              />
-              <Field
-                label="Bank Account (optional)"
-                placeholder="IFSC + Account Number"
-                value={form.bank}
-                onChangeText={(v) => update("bank", v)}
-              />
-
-              {/* Consent section */}
+              <Field label="UPI ID (for payouts)" placeholder="yourname@upi" value={form.upi} onChangeText={(v) => update("upi", v)} />
+              <Field label="Bank Account (optional)" placeholder="IFSC + Account Number" value={form.bank} onChangeText={(v) => update("bank", v)} />
               <View style={styles.consentCard}>
-                <Text style={styles.consentTitle}>
-                  Consent & Authorisations
-                </Text>
+                <Text style={styles.consentTitle}>Consent & Authorisations</Text>
                 {[
-                  {
-                    key: "consent",
-                    label:
-                      "I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims.",
-                  },
-                  {
-                    key: "gpsConsent",
-                    label:
-                      "I authorise GPS location validation during disruption events for fraud prevention.",
-                  },
-                  {
-                    key: "autopay",
-                    label:
-                      "Enable AutoPay — auto-deduct weekly premium from platform payout.",
-                    tag: "5% discount",
-                  },
+                  { key: "consent", label: "I authorise GigGuard to monitor weather and disruption data in my delivery zone for insurance claims." },
+                  { key: "gpsConsent", label: "I authorise GPS location validation during disruption events for fraud prevention." },
+                  { key: "autopay", label: "Enable AutoPay — auto-deduct weekly premium from platform payout.", tag: "5% discount" },
                 ].map((item) => (
                   <View key={item.key} style={styles.consentRow}>
                     <Switch
                       value={!!form[item.key]}
                       onValueChange={(v) => update(item.key, v)}
-                      trackColor={{
-                        true: COLORS.primary,
-                        false: COLORS.surfaceHighest,
-                      }}
+                      trackColor={{ true: COLORS.primary, false: COLORS.surfaceHighest }}
                       thumbColor={COLORS.white}
                     />
                     <Text style={styles.consentLabel}>{item.label}</Text>
@@ -598,7 +381,6 @@ const SignUpScreen = ({ navigation }) => {
                   </View>
                 ))}
               </View>
-
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.ghostBtn} onPress={prevStep}>
                   <Text style={styles.ghostBtnText}>← Back</Text>
@@ -610,11 +392,10 @@ const SignUpScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* ── STEP 4: Coverage ── */}
+          {/* STEP 4: Coverage */}
           {step === 4 && (
             <View style={styles.stepContent}>
               <Text style={styles.stepHeading}>Choose your coverage</Text>
-
               {TIERS.map((t) => {
                 const sel = form.tier === t.id;
                 return (
@@ -631,57 +412,23 @@ const SignUpScreen = ({ navigation }) => {
                     )}
                     <View style={styles.tierCardInner}>
                       <View>
-                        <Text
-                          style={[
-                            styles.tierName,
-                            sel && { color: COLORS.primary },
-                          ]}
-                        >
-                          {t.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.tierPrice,
-                            sel && { color: COLORS.primary },
-                          ]}
-                        >
-                          {t.price}
-                        </Text>
-                        <Text style={styles.tierPayout}>
-                          Max payout: {t.payout}
-                        </Text>
+                        <Text style={[styles.tierName, sel && { color: COLORS.primary }]}>{t.name}</Text>
+                        <Text style={[styles.tierPrice, sel && { color: COLORS.primary }]}>{t.price}</Text>
+                        <Text style={styles.tierPayout}>Max payout: {t.payout}</Text>
                       </View>
-                      <View
-                        style={[
-                          styles.tierRadio,
-                          sel && styles.tierRadioSelected,
-                        ]}
-                      >
+                      <View style={[styles.tierRadio, sel && styles.tierRadioSelected]}>
                         {sel && <View style={styles.tierRadioDot} />}
                       </View>
                     </View>
                   </TouchableOpacity>
                 );
               })}
-
-              {/* Summary */}
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryTitle}>Summary</Text>
                 {[
-                  [
-                    "Platforms",
-                    form.platforms
-                      .map((id) => ALL_PLATFORMS.find((p) => p.id === id)?.name)
-                      .join(", ") || "–",
-                  ],
-                  [
-                    "Coverage",
-                    TIERS.find((t) => t.id === form.tier)?.name || "–",
-                  ],
-                  [
-                    "AutoPay",
-                    form.autopay ? "Enabled (5% discount)" : "Disabled",
-                  ],
+                  ["Platforms", form.platforms.map((id) => ALL_PLATFORMS.find((p) => p.id === id)?.name).join(", ") || "–"],
+                  ["Coverage", TIERS.find((t) => t.id === form.tier)?.name || "–"],
+                  ["AutoPay", form.autopay ? "Enabled (5% discount)" : "Disabled"],
                 ].map(([k, v]) => (
                   <View key={k} style={styles.summaryRow}>
                     <Text style={styles.summaryKey}>{k}</Text>
@@ -689,7 +436,6 @@ const SignUpScreen = ({ navigation }) => {
                   </View>
                 ))}
               </View>
-
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.ghostBtn} onPress={prevStep}>
                   <Text style={styles.ghostBtnText}>← Back</Text>
@@ -700,7 +446,7 @@ const SignUpScreen = ({ navigation }) => {
                   disabled={loading}
                 >
                   {loading ? (
-                    <ActivityIndicator color={COLORS.white} />
+                    <ActivityIndicator color="#FFFDFB" />
                   ) : (
                     <Text style={styles.ctaBtnText}>Create Account</Text>
                   )}
@@ -724,457 +470,187 @@ const SignUpScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
-  scroll: { paddingBottom: SIZES.padding * 3 },
+const createStyles = (COLORS, FONTS) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: COLORS.surface },
+    scroll: { paddingBottom: SIZES.padding * 3 },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: SIZES.padding,
+      paddingTop: SIZES.padding,
+      paddingBottom: SIZES.base,
+    },
+    backBtn: {
+      width: 40, height: 40, borderRadius: 12,
+      backgroundColor: COLORS.surfaceHigh,
+      justifyContent: "center", alignItems: "center",
+    },
+    headerTitle: { fontSize: SIZES.h3, fontFamily: FONTS.bold, color: COLORS.white },
+    errorBox: {
+      marginHorizontal: SIZES.padding, marginBottom: SIZES.base,
+      backgroundColor: COLORS.errorContainer, borderWidth: 1,
+      borderColor: COLORS.error + "40", borderRadius: SIZES.radius,
+      paddingHorizontal: 12, paddingVertical: 10,
+    },
+    errorText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.base,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.surfaceHigh,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: SIZES.h3,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
+    stepper: {
+      flexDirection: "row", alignItems: "center", justifyContent: "center",
+      paddingHorizontal: SIZES.padding, paddingVertical: SIZES.padding, gap: 4,
+    },
+    stepItem: { alignItems: "center", gap: 4 },
+    stepCircle: {
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: COLORS.surfaceHighest, justifyContent: "center",
+      alignItems: "center", borderWidth: 1, borderColor: COLORS.border,
+    },
+    stepActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    stepDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    stepNum: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.textFaint },
+    stepLabel: { fontSize: 9, fontFamily: FONTS.medium, color: COLORS.textFaint },
+    stepLine: { width: 24, height: 2, backgroundColor: COLORS.border, marginBottom: 12 },
 
-  errorBox: {
-    marginHorizontal: SIZES.padding,
-    marginBottom: SIZES.base,
-    backgroundColor: COLORS.errorContainer,
-    borderWidth: 1,
-    borderColor: COLORS.error + "40",
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  errorText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.error,
-  },
+    stepContent: { paddingHorizontal: SIZES.padding },
+    stepHeading: { fontSize: SIZES.h2, fontFamily: FONTS.display, color: COLORS.white, marginBottom: 6, marginTop: 4 },
+    stepSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginBottom: SIZES.padding },
 
-  // Stepper
-  stepper: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: SIZES.padding,
-    paddingVertical: SIZES.padding,
-    gap: 4,
-  },
-  stepItem: { alignItems: "center", gap: 4 },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.surfaceHighest,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  stepActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  stepDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  stepNum: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: COLORS.textFaint,
-  },
-  stepLabel: { fontSize: 9, fontFamily: FONTS.medium, color: COLORS.textFaint },
-  stepLine: {
-    width: 24,
-    height: 2,
-    backgroundColor: COLORS.border,
-    marginBottom: 12,
-  },
+    platformGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: SIZES.padding },
+    platformCard: {
+      width: "47%", padding: 14, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.surfaceContainer, borderWidth: 1,
+      borderColor: COLORS.border, alignItems: "center",
+    },
+    platformCardSelected: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.primary },
+    platformCardName: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    platformSelected: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.primary, marginTop: 4 },
 
-  stepContent: { paddingHorizontal: SIZES.padding },
-  stepHeading: {
-    fontSize: SIZES.h2,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    marginBottom: 6,
-    marginTop: 4,
-  },
-  stepSub: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-    marginBottom: SIZES.padding,
-  },
+    selectionBadge: {
+      flexDirection: "row", alignItems: "center", gap: 8,
+      backgroundColor: COLORS.successContainer, paddingHorizontal: 14,
+      paddingVertical: 8, borderRadius: SIZES.radiusFull,
+      alignSelf: "flex-start", marginBottom: SIZES.padding,
+    },
+    selectionBadgeText: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.success },
 
-  // Platform grid
-  platformGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: SIZES.padding,
-  },
-  platformCard: {
-    width: "47%",
-    padding: 14,
-    borderRadius: SIZES.radius,
-    backgroundColor: COLORS.surfaceContainer,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: "center",
-  },
-  platformCardSelected: {
-    backgroundColor: COLORS.primaryContainer,
-    borderColor: COLORS.primary,
-  },
-  platformCardName: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
-  platformSelected: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.medium,
-    color: COLORS.primary,
-    marginTop: 4,
-  },
+    rowFields: { flexDirection: "row" },
+    fieldWrap: { marginBottom: SIZES.padding * 0.85 },
+    fieldLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted, marginBottom: 6 },
+    fieldInput: {
+      height: 46, backgroundColor: COLORS.surfaceHighest, borderRadius: SIZES.radius,
+      paddingHorizontal: 14, fontSize: SIZES.body, fontFamily: FONTS.regular,
+      color: COLORS.white, borderWidth: 1, borderColor: COLORS.border,
+    },
+    fieldHint: { fontSize: 11, fontFamily: FONTS.regular, color: COLORS.textFaint, marginTop: 4 },
 
-  selectionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: COLORS.successContainer,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: SIZES.radiusFull,
-    alignSelf: "flex-start",
-    marginBottom: SIZES.padding,
-  },
-  selectionBadgeText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.success,
-  },
+    cityPill: {
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.surfaceHighest, marginRight: 8,
+      borderWidth: 1, borderColor: COLORS.border,
+    },
+    cityPillSelected: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.primary },
+    cityPillText: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted },
 
-  // Form fields
-  row: { flexDirection: "row" },
-  fieldWrap: { marginBottom: SIZES.padding * 0.85 },
-  fieldLabel: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
-    marginBottom: 6,
-  },
-  fieldInput: {
-    height: 46,
-    backgroundColor: COLORS.surfaceHighest,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 14,
-    fontSize: SIZES.body,
-    fontFamily: FONTS.regular,
-    color: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  fieldHint: {
-    fontSize: 11,
-    fontFamily: FONTS.regular,
-    color: COLORS.textFaint,
-    marginTop: 4,
-  },
+    verifyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: SIZES.base },
+    verifyBtn: {
+      height: 40, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.surfaceHighest,
+      borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 18,
+      justifyContent: "center", alignItems: "center",
+    },
+    verifyBtnText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    verifySuccessPill: {
+      flexDirection: "row", alignItems: "center", gap: 6,
+      backgroundColor: COLORS.successContainer, borderRadius: SIZES.radiusFull,
+      borderWidth: 1, borderColor: COLORS.success + "30",
+      paddingHorizontal: 10, paddingVertical: 6,
+    },
+    verifySuccessText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.success },
+    verifyInfoCard: {
+      backgroundColor: COLORS.successContainer, borderRadius: SIZES.radius,
+      paddingHorizontal: 12, paddingVertical: 10,
+      borderWidth: 1, borderColor: COLORS.success + "30",
+      marginBottom: SIZES.padding * 0.75,
+    },
+    verifyInfoText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.success },
 
-  // City pills
-  cityPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.surfaceHighest,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cityPillSelected: {
-    backgroundColor: COLORS.primaryContainer,
-    borderColor: COLORS.primary,
-  },
-  cityPillText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
-  },
+    secureNote: {
+      flexDirection: "row", alignItems: "center", gap: 6,
+      backgroundColor: COLORS.primaryContainer, paddingHorizontal: 12,
+      paddingVertical: 8, borderRadius: SIZES.radius, marginBottom: SIZES.padding,
+      borderWidth: 1, borderColor: COLORS.primary + "30",
+    },
+    secureNoteText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.primaryDim },
 
-  verifyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: SIZES.base,
-  },
-  verifyBtn: {
-    height: 40,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.surfaceHighest,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  verifyBtnText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
-  verifySuccessPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: COLORS.successContainer,
-    borderRadius: SIZES.radiusFull,
-    borderWidth: 1,
-    borderColor: COLORS.success + "30",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  verifySuccessText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: COLORS.success,
-  },
-  verifyInfoCard: {
-    backgroundColor: COLORS.successContainer,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: COLORS.success + "30",
-    marginBottom: SIZES.padding * 0.75,
-  },
-  verifyInfoText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.success,
-  },
+    consentCard: {
+      backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.2,
+      padding: SIZES.padding, marginTop: SIZES.base, marginBottom: SIZES.padding,
+      borderWidth: 1, borderColor: COLORS.border,
+    },
+    consentTitle: {
+      fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber,
+      letterSpacing: 0.5, marginBottom: SIZES.padding,
+    },
+    consentRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: SIZES.padding * 0.75 },
+    consentLabel: { flex: 1, fontSize: SIZES.small, fontFamily: FONTS.regular, color: COLORS.textMuted, lineHeight: 18 },
+    discountTag: {
+      backgroundColor: COLORS.successContainer, paddingHorizontal: 8, paddingVertical: 3,
+      borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.success + "30",
+    },
+    discountTagText: { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.success },
 
-  // Secure note
-  secureNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: COLORS.primaryContainer,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: SIZES.radius,
-    marginBottom: SIZES.padding,
-  },
-  secureNoteText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.primaryDim,
-  },
+    tierCard: {
+      borderRadius: SIZES.radius * 1.2, borderWidth: 1.5, borderColor: COLORS.border,
+      backgroundColor: COLORS.surfaceContainer, marginBottom: 12,
+      padding: SIZES.padding, overflow: "hidden",
+    },
+    tierCardSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryContainer },
+    recommendedBadge: {
+      backgroundColor: COLORS.primary, alignSelf: "flex-start",
+      paddingHorizontal: 10, paddingVertical: 3, borderRadius: SIZES.radiusFull,
+      marginBottom: SIZES.base,
+    },
+    recommendedText: { fontSize: 10, fontFamily: FONTS.bold, color: "#FFFDFB" },
+    tierCardInner: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    tierName: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 2 },
+    tierPrice: { fontSize: SIZES.body, fontFamily: FONTS.semiBold, color: COLORS.textMuted },
+    tierPayout: { fontSize: SIZES.small, fontFamily: FONTS.regular, color: COLORS.textFaint, marginTop: 2 },
+    tierRadio: {
+      width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+      borderColor: COLORS.border, justifyContent: "center", alignItems: "center",
+    },
+    tierRadioSelected: { borderColor: COLORS.primary },
+    tierRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary },
 
-  // Consent
-  consentCard: {
-    backgroundColor: COLORS.surfaceContainer,
-    borderRadius: SIZES.radius * 1.2,
-    padding: SIZES.padding,
-    marginTop: SIZES.base,
-    marginBottom: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  consentTitle: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.amber,
-    letterSpacing: 0.5,
-    marginBottom: SIZES.padding,
-    textTransform: "uppercase",
-  },
-  consentRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: SIZES.padding * 0.75,
-  },
-  consentLabel: {
-    flex: 1,
-    fontSize: SIZES.small,
-    fontFamily: FONTS.regular,
-    color: COLORS.textMuted,
-    lineHeight: 19,
-  },
-  discountTag: {
-    backgroundColor: COLORS.successContainer,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: SIZES.radiusFull,
-  },
-  discountTagText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: COLORS.success,
-  },
+    summaryCard: {
+      backgroundColor: COLORS.surfaceHigh, borderRadius: SIZES.radius,
+      padding: SIZES.padding, marginVertical: SIZES.padding,
+      borderWidth: 1, borderColor: COLORS.border,
+    },
+    summaryTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.textMuted, marginBottom: SIZES.padding * 0.6 },
+    summaryRow: {
+      flexDirection: "row", justifyContent: "space-between",
+      paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    },
+    summaryKey: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint },
+    summaryVal: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white },
 
-  // Tiers
-  tierCard: {
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SIZES.padding,
-    marginBottom: 12,
-    position: "relative",
-    overflow: "hidden",
-  },
-  tierCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryContainer,
-  },
-  tierCardInner: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  tierName: {
-    fontSize: SIZES.body,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  tierPrice: {
-    fontSize: SIZES.h2,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
-  tierPayout: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textFaint,
-    marginTop: 4,
-  },
-  tierRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tierRadioSelected: { borderColor: COLORS.primary },
-  tierRadioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: COLORS.primary,
-  },
-  recommendedBadge: {
-    position: "absolute",
-    top: -1,
-    right: 16,
-    backgroundColor: COLORS.amber,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  recommendedText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: "#fff",
-  },
-
-  // Summary
-  summaryCard: {
-    backgroundColor: COLORS.surfaceContainer,
-    borderRadius: SIZES.radius * 1.2,
-    padding: SIZES.padding,
-    marginBottom: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  summaryTitle: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.amber,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: SIZES.padding * 0.75,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  summaryKey: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-  },
-  summaryVal: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    flex: 1,
-    textAlign: "right",
-  },
-
-  // Buttons
-  ctaBtn: {
-    height: 52,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: SIZES.padding,
-  },
-  ctaBtnSmall: {
-    flex: 2,
-    height: 48,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  ctaBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
-  ghostBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: "transparent",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginRight: 12,
-  },
-  ghostBtnText: {
-    fontSize: SIZES.body,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
-  },
-  navRow: {
-    flexDirection: "row",
-    marginTop: SIZES.padding,
-    marginBottom: SIZES.base,
-  },
-
-  loginHint: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textFaint,
-  },
-});
+    navRow: { flexDirection: "row", gap: 10, marginTop: SIZES.padding },
+    ghostBtn: {
+      flex: 1, height: 48, borderRadius: SIZES.radiusFull, borderWidth: 1,
+      borderColor: COLORS.border, justifyContent: "center", alignItems: "center",
+    },
+    ghostBtnText: { fontSize: SIZES.body, fontFamily: FONTS.semiBold, color: COLORS.textMuted },
+    ctaBtn: {
+      height: 52, borderRadius: SIZES.radiusFull, backgroundColor: COLORS.primary,
+      justifyContent: "center", alignItems: "center", marginTop: SIZES.padding, ...SHADOWS.button,
+    },
+    ctaBtnSmall: {
+      flex: 2, height: 48, borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primary, justifyContent: "center", alignItems: "center", ...SHADOWS.button,
+    },
+    ctaBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#FFFDFB" },
+    loginHint: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint },
+  });
 
 export default SignUpScreen;

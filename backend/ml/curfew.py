@@ -16,6 +16,7 @@ Design constraints:
   - Fallback is always confidence=0.0 (no disruption assumed).
 """
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -299,6 +300,9 @@ async def fetch_rss_headlines(city: str, max_headlines: int = 20) -> list[str]:
 def classify_headlines(headlines: list[str]) -> tuple[float, str]:
     """Run zero-shot classification on headlines looking for curfew signals.
 
+    Uses batch inference (all headlines in one pipeline call) to avoid
+    blocking the event loop for 20 sequential forward passes.
+
     Returns:
         (max_confidence, matched_label)
 
@@ -315,20 +319,20 @@ def classify_headlines(headlines: list[str]) -> tuple[float, str]:
     best_label = "none"
 
     try:
-        for headline in headlines:
-            try:
-                result = pipe(headline, candidate_labels=CURFEW_LABELS)
-                top_score = float(result["scores"][0])
-                top_label = str(result["labels"][0])
-                if top_score > max_conf:
-                    max_conf = top_score
-                    best_label = top_label
-            except Exception:
-                # Individual headline failure — skip, don't crash loop
-                continue
+        # Batch all headlines in a single pipeline call — much faster than a loop
+        results = pipe(headlines, candidate_labels=CURFEW_LABELS)
+        # Single-headline input returns a dict; multi returns a list
+        if isinstance(results, dict):
+            results = [results]
+
+        for result in results:
+            top_score = float(result["scores"][0])
+            top_label = str(result["labels"][0])
+            if top_score > max_conf:
+                max_conf = top_score
+                best_label = top_label
 
     except Exception as exc:
-        # Catastrophic NLP failure — return safe default
         logger.error("[curfew] NLP classification crashed: %s", exc)
         return 0.0, "none"
 
@@ -371,8 +375,10 @@ async def evaluate_curfew_risk(city: str) -> dict[str, Any]:
     gdelt_score = float(np.clip(gdelt_count * 0.15, 0.0, 0.5))
 
     # Stage 2: RSS + NLP
+    # classify_headlines() is synchronous (HuggingFace CPU inference).
+    # Run in a thread so it never blocks the asyncio event loop.
     headlines = await fetch_rss_headlines(city)
-    nlp_score, nlp_label = classify_headlines(headlines)
+    nlp_score, nlp_label = await asyncio.to_thread(classify_headlines, headlines)
 
     # Combined confidence (deterministic, no randomness)
     confidence = float(np.clip(gdelt_score + nlp_score, 0.0, 1.0))

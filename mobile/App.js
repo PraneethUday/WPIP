@@ -10,8 +10,14 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
+import {
+  EBGaramond_400Regular,
+  EBGaramond_500Medium,
+  EBGaramond_700Bold,
+} from '@expo-google-fonts/eb-garamond';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 
 import LandingScreen from './screens/LandingScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -30,11 +36,12 @@ const hideSplash = async () => {
 
 function AppNavigator() {
   const { user, loading } = useAuth();
+  const { COLORS } = useTheme();
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFDFB', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#A51C30" />
+      <View style={{ flex: 1, backgroundColor: COLORS.surface, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -44,12 +51,9 @@ function AppNavigator() {
       initialRouteName={user ? 'Home' : 'Landing'}
       screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}
     >
-      {/* Public screens */}
       <Stack.Screen name="Landing" component={LandingScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
-
-      {/* Authenticated screens */}
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Policy" component={PolicyScreen} />
       <Stack.Screen name="Claims" component={ClaimsScreen} />
@@ -65,6 +69,9 @@ export default function App() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    EBGaramond_400Regular,
+    EBGaramond_500Medium,
+    EBGaramond_700Bold,
   });
 
   const onLayoutRootView = React.useCallback(async () => {
@@ -73,17 +80,19 @@ export default function App() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0C0E18', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#6C63FF" />
+      <View style={{ flex: 1, backgroundColor: '#04052E', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#A51C30" />
       </View>
     );
   }
 
   return (
-    <AuthProvider>
-      <NavigationContainer onReady={onLayoutRootView}>
-        <AppNavigator />
-      </NavigationContainer>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <NavigationContainer onReady={onLayoutRootView}>
+          <AppNavigator />
+        </NavigationContainer>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

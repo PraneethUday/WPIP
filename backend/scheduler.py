@@ -47,10 +47,14 @@ async def tick() -> None:
         logger.error("Supabase upsert failed: %s", exc)
 
     # Poll parametric triggers (weather/AQI thresholds)
+    # 5-minute hard cap: 6 cities × 60s each = 360s max, but gather runs them
+    # concurrently so 120s is a generous ceiling for the whole cycle.
     try:
-        trigger_summary = await poll_triggers()
+        trigger_summary = await asyncio.wait_for(poll_triggers(), timeout=120.0)
         if trigger_summary:
             logger.info("Trigger summary: %s", trigger_summary)
+    except asyncio.TimeoutError:
+        logger.error("Trigger polling timed out after 120 s — skipping this cycle.")
     except Exception as exc:
         logger.error("Trigger polling failed: %s", exc)
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,11 +11,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, FONTS, SIZES, SHADOWS } from "../constants/theme";
+import { SIZES, SHADOWS } from "../constants/theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 
 const LoginScreen = ({ navigation }) => {
   const { login } = useAuth();
+  const { COLORS, FONTS } = useTheme();
+  const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -27,10 +31,8 @@ const LoginScreen = ({ navigation }) => {
       setError("Please enter your email and password.");
       return;
     }
-
     setLoading(true);
     setError("");
-
     try {
       await login(email.trim(), password);
       navigation.reset({ index: 0, routes: [{ name: "Home" }] });
@@ -47,20 +49,14 @@ const LoginScreen = ({ navigation }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        {/* Top glow */}
         <View style={styles.bgGlow} />
 
         <View style={styles.content}>
-          {/* Logo */}
           <View style={styles.logoWrap}>
             <View style={styles.logoIcon}>
-              <Ionicons
-                name="shield-checkmark"
-                size={24}
-                color={COLORS.white}
-              />
+              <Ionicons name="shield-checkmark" size={24} color="#FFFDFB" />
             </View>
-            <Text style={styles.logoText}>WPIP</Text>
+            <Text style={styles.logoText}>GigGuard</Text>
           </View>
 
           <Text style={styles.title}>Welcome back</Text>
@@ -68,7 +64,6 @@ const LoginScreen = ({ navigation }) => {
             Sign in to your income protection account
           </Text>
 
-          {/* Card */}
           <View style={styles.card}>
             {!!error && (
               <View style={styles.errorBox}>
@@ -90,7 +85,7 @@ const LoginScreen = ({ navigation }) => {
             <Text style={styles.fieldLabel}>Password</Text>
             <View style={styles.passwordWrap}>
               <TextInput
-                style={[styles.fieldInput, { flex: 1, borderWidth: 0 }]}
+                style={[styles.fieldInput, { flex: 1, borderWidth: 0, height: 46 }]}
                 placeholder="••••••••"
                 placeholderTextColor={COLORS.textFaint}
                 value={password}
@@ -98,10 +93,7 @@ const LoginScreen = ({ navigation }) => {
                 secureTextEntry={!showPwd}
                 autoCapitalize="none"
               />
-              <TouchableOpacity
-                onPress={() => setShowPwd((v) => !v)}
-                style={styles.eyeBtn}
-              >
+              <TouchableOpacity onPress={() => setShowPwd((v) => !v)} style={styles.eyeBtn}>
                 <Ionicons
                   name={showPwd ? "eye-off-outline" : "eye-outline"}
                   size={18}
@@ -117,11 +109,11 @@ const LoginScreen = ({ navigation }) => {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color="#FFFDFB" />
               ) : (
                 <>
                   <Text style={styles.loginBtnText}>Sign In</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  <Ionicons name="arrow-forward" size={18} color="#FFFDFB" />
                 </>
               )}
             </TouchableOpacity>
@@ -142,129 +134,132 @@ const LoginScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
-  bgGlow: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: COLORS.primary,
-    opacity: 0.06,
-    top: -100,
-    alignSelf: "center",
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: SIZES.padding,
-    justifyContent: "center",
-    paddingBottom: SIZES.padding * 2,
-  },
-
-  logoWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SIZES.base,
-    justifyContent: "center",
-    marginBottom: SIZES.padding * 2,
-  },
-  logoIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoText: { fontSize: SIZES.h2, fontFamily: FONTS.bold, color: COLORS.white },
-
-  title: {
-    fontSize: SIZES.h1,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.regular,
-    color: COLORS.textMuted,
-    marginBottom: SIZES.padding * 1.5,
-    lineHeight: 20,
-  },
-
-  card: {
-    backgroundColor: COLORS.surfaceContainer,
-    borderRadius: SIZES.radius * 1.5,
-    padding: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.card,
-  },
-
-  errorBox: {
-    backgroundColor: COLORS.errorContainer,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: SIZES.base,
-    borderWidth: 1,
-    borderColor: COLORS.error + "40",
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-  },
-
-  fieldLabel: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
-    marginBottom: 6,
-    marginTop: SIZES.padding * 0.5,
-  },
-  fieldInput: {
-    height: 48,
-    backgroundColor: COLORS.surfaceHighest,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: 14,
-    fontSize: SIZES.body,
-    fontFamily: FONTS.regular,
-    color: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  passwordWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.surfaceHighest,
-    borderRadius: SIZES.radius,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    height: 48,
-    paddingLeft: 14,
-  },
-  eyeBtn: { paddingHorizontal: 14 },
-
-  loginBtn: {
-    height: 52,
-    borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.primary,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    ...SHADOWS.button,
-  },
-  loginBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
-
-  signupLink: { alignItems: "center", marginTop: SIZES.padding * 1.5 },
-  signupLinkText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textFaint,
-  },
-});
+const createStyles = (COLORS, FONTS) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: COLORS.surface },
+    bgGlow: {
+      position: "absolute",
+      width: 300,
+      height: 300,
+      borderRadius: 150,
+      backgroundColor: COLORS.primary,
+      opacity: 0.06,
+      top: -100,
+      alignSelf: "center",
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: SIZES.padding,
+      justifyContent: "center",
+      paddingBottom: SIZES.padding * 2,
+    },
+    logoWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SIZES.base,
+      justifyContent: "center",
+      marginBottom: SIZES.padding * 2,
+    },
+    logoIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: COLORS.primary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    logoText: {
+      fontSize: SIZES.h2,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+      letterSpacing: 0.5,
+    },
+    title: {
+      fontSize: SIZES.h1,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.regular,
+      color: COLORS.textMuted,
+      marginBottom: SIZES.padding * 1.5,
+      lineHeight: 20,
+    },
+    card: {
+      backgroundColor: COLORS.surfaceContainer,
+      borderRadius: SIZES.radius * 1.5,
+      padding: SIZES.padding,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      ...SHADOWS.card,
+    },
+    errorBox: {
+      backgroundColor: COLORS.errorContainer,
+      borderRadius: SIZES.radius,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: SIZES.base,
+      borderWidth: 1,
+      borderColor: COLORS.error + "40",
+    },
+    errorText: {
+      color: COLORS.error,
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+    },
+    fieldLabel: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textMuted,
+      marginBottom: 6,
+      marginTop: SIZES.padding * 0.5,
+    },
+    fieldInput: {
+      height: 48,
+      backgroundColor: COLORS.surfaceHighest,
+      borderRadius: SIZES.radius,
+      paddingHorizontal: 14,
+      fontSize: SIZES.body,
+      fontFamily: FONTS.regular,
+      color: COLORS.white,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    passwordWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.surfaceHighest,
+      borderRadius: SIZES.radius,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      height: 48,
+      paddingLeft: 14,
+    },
+    eyeBtn: { paddingHorizontal: 14 },
+    loginBtn: {
+      height: 52,
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primary,
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 10,
+      marginTop: SIZES.padding,
+      ...SHADOWS.button,
+    },
+    loginBtnText: {
+      fontSize: SIZES.body,
+      fontFamily: FONTS.bold,
+      color: "#FFFDFB",
+    },
+    signupLink: { alignItems: "center", marginTop: SIZES.padding * 1.5 },
+    signupLinkText: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+      color: COLORS.textFaint,
+    },
+  });
 
 export default LoginScreen;

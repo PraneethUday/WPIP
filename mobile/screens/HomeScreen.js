@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, FONTS, SIZES, SHADOWS } from "../constants/theme";
+import { SIZES, SHADOWS } from "../constants/theme";
+import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../lib/api";
 
@@ -24,26 +25,19 @@ const TRIGGER_ICONS = {
 };
 
 const PLATFORM_NAMES = {
-  swiggy: "Swiggy",
-  zomato: "Zomato",
-  amazon: "Amazon Flex",
-  blinkit: "Blinkit",
-  zepto: "Zepto",
-  meesho: "Meesho",
-  porter: "Porter",
-  dunzo: "Dunzo",
+  swiggy: "Swiggy", zomato: "Zomato", amazon: "Amazon Flex",
+  blinkit: "Blinkit", zepto: "Zepto", meesho: "Meesho",
+  porter: "Porter", dunzo: "Dunzo",
 };
 
 function money(value) {
   if (typeof value !== "number" || Number.isNaN(value)) return "—";
   return `₹${Math.round(value)}`;
 }
-
 function titleCaseTier(tier) {
   if (!tier) return "Standard";
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
-
 function riskLabel(risk) {
   if (typeof risk !== "number") return "UNKNOWN";
   if (risk < 0.15) return "LOW RISK";
@@ -51,7 +45,6 @@ function riskLabel(risk) {
   if (risk < 0.7) return "HIGH RISK";
   return "SEVERE";
 }
-
 function ttiLabel(tti) {
   if (typeof tti !== "number") return "Unknown";
   if (tti < 1.5) return "Free Flow";
@@ -60,48 +53,30 @@ function ttiLabel(tti) {
   if (tti < 3.5) return "Severe";
   return "Gridlock";
 }
-
-function ttiColor(tti) {
+function ttiColor(tti, COLORS) {
   if (typeof tti !== "number") return COLORS.textMuted;
   if (tti < 2.0) return COLORS.success;
   if (tti < 2.5) return COLORS.amber;
   return COLORS.error;
 }
-
 function formatDate(value) {
   if (!value) return "Unknown date";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "Unknown date";
-  return d.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
-
-function getStatusTone(status) {
+function getStatusTone(status, COLORS) {
   if (status === "paid") return { color: COLORS.success, label: "Paid" };
-  if (status === "approved" || status === "pending")
-    return { color: COLORS.amber, label: "Processing" };
+  if (status === "approved" || status === "pending") return { color: COLORS.amber, label: "Processing" };
   if (status === "rejected") return { color: COLORS.error, label: "Rejected" };
   return { color: COLORS.info, label: "Initiated" };
 }
 
-const QuickAction = ({ icon, label, onPress, color = COLORS.primary }) => (
-  <TouchableOpacity
-    style={styles.quickAction}
-    onPress={onPress}
-    activeOpacity={0.75}
-  >
-    <View style={[styles.quickActionIcon, { backgroundColor: color + "18" }]}>
-      <Ionicons name={icon} size={22} color={color} />
-    </View>
-    <Text style={styles.quickActionLabel}>{label}</Text>
-  </TouchableOpacity>
-);
-
 const HomeScreen = ({ navigation }) => {
   const { user, token, refreshUser } = useAuth();
+  const { COLORS, FONTS } = useTheme();
+  const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -122,44 +97,21 @@ const HomeScreen = ({ navigation }) => {
         setError("Missing delivery ID for this account.");
         return;
       }
-
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
       setError("");
-
       try {
-        if (isRefresh) {
-          await refreshUser();
-        }
-
+        if (isRefresh) await refreshUser();
         const [premiumRes, claimsRes, triggersRes] = await Promise.allSettled([
           api.predictPremium(deliveryId, userCity, userTier),
           api.getWorkerClaims(token, deliveryId),
           api.getTriggerStatus(),
         ]);
-
-        if (premiumRes.status === "fulfilled") {
-          setPremium(premiumRes.value);
-        }
-
-        if (claimsRes.status === "fulfilled") {
-          setClaims(claimsRes.value?.data || []);
-        } else {
-          setClaims([]);
-        }
-
-        if (triggersRes.status === "fulfilled") {
-          setTriggerStatus(triggersRes.value || {});
-        }
-
-        if (
-          premiumRes.status === "rejected" &&
-          claimsRes.status === "rejected"
-        ) {
+        if (premiumRes.status === "fulfilled") setPremium(premiumRes.value);
+        if (claimsRes.status === "fulfilled") setClaims(claimsRes.value?.data || []);
+        else setClaims([]);
+        if (triggersRes.status === "fulfilled") setTriggerStatus(triggersRes.value || {});
+        if (premiumRes.status === "rejected" && claimsRes.status === "rejected") {
           setError("Unable to load live dashboard data right now.");
         }
       } catch {
@@ -172,9 +124,7 @@ const HomeScreen = ({ navigation }) => {
     [deliveryId, refreshUser, token, userCity, userTier],
   );
 
-  useEffect(() => {
-    loadDashboard(false);
-  }, [loadDashboard]);
+  useEffect(() => { loadDashboard(false); }, [loadDashboard]);
 
   const cityData = useMemo(() => {
     if (!user?.city) return null;
@@ -186,21 +136,14 @@ const HomeScreen = ({ navigation }) => {
   const curfewData = cityData?.curfew || null;
   const activeTriggers = cityData?.triggers_fired || [];
 
-  const currentPremium = user?.autopay
-    ? premium?.weekly_premium_autopay
-    : premium?.weekly_premium;
+  const currentPremium = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
   const coverageActive = user?.verification_status === "verified" && !!premium;
-  const paidClaims = claims.filter(
-    (c) => c.payout_status === "paid" || c.status === "paid",
-  );
-  const totalPaid = paidClaims.reduce(
-    (sum, claim) => sum + (Number(claim.payout_amount) || 0),
-    0,
-  );
+  const paidClaims = claims.filter((c) => c.payout_status === "paid" || c.status === "paid");
+  const totalPaid = paidClaims.reduce((sum, claim) => sum + (Number(claim.payout_amount) || 0), 0);
 
   const recentActivity = useMemo(() => {
     const claimItems = claims.slice(0, 3).map((claim) => {
-      const tone = getStatusTone(claim.payout_status || claim.status);
+      const tone = getStatusTone(claim.payout_status || claim.status, COLORS);
       return {
         icon: TRIGGER_ICONS[claim.trigger_type] || "document-text",
         color: tone.color,
@@ -208,47 +151,45 @@ const HomeScreen = ({ navigation }) => {
         sub: `${formatDate(claim.created_at)} · ${money(Number(claim.payout_amount))}`,
       };
     });
-
     if (claimItems.length > 0) return claimItems;
-
-    return [
-      {
-        icon: "shield-checkmark",
-        color: COLORS.success,
-        title: "No claims yet",
-        sub: "Your claims will appear automatically during disruptions.",
-      },
-    ];
-  }, [claims]);
+    return [{
+      icon: "shield-checkmark",
+      color: COLORS.success,
+      title: "No claims yet",
+      sub: "Your claims will appear automatically during disruptions.",
+    }];
+  }, [claims, COLORS]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>Loading your WPIP dashboard...</Text>
+          <Text style={styles.loaderText}>Loading your dashboard...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning,";
+    if (h < 17) return "Good afternoon,";
+    return "Good evening,";
+  })();
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* Top bar */}
         <View style={styles.topBar}>
           <View>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.userName}>{user?.name || "WPIP User"}</Text>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.userName}>{user?.name || "GigGuard User"}</Text>
             <View style={styles.platformBadge}>
               <Text style={styles.platformBadgeText}>
                 {(user?.platforms || []).length > 0
-                  ? user.platforms
-                      .map((p) => PLATFORM_NAMES[p] || p)
-                      .join(" + ")
+                  ? user.platforms.map((p) => PLATFORM_NAMES[p] || p).join(" + ")
                   : "No platform linked"}
               </Text>
             </View>
@@ -259,9 +200,9 @@ const HomeScreen = ({ navigation }) => {
             disabled={refreshing}
           >
             {refreshing ? (
-              <ActivityIndicator color={COLORS.white} size="small" />
+              <ActivityIndicator color="#FFFDFB" size="small" />
             ) : (
-              <Ionicons name="refresh" size={20} color={COLORS.white} />
+              <Ionicons name="refresh" size={20} color="#FFFDFB" />
             )}
           </TouchableOpacity>
         </View>
@@ -273,40 +214,25 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Active Shield Card */}
+        {/* Coverage Shield Card */}
         <View style={styles.shieldCard}>
           <View style={styles.shieldGlow} />
-
           <View style={styles.shieldCardTop}>
             <Text style={styles.shieldCardLabel}>THIS WEEK'S COVERAGE</Text>
             <View style={styles.activeBadge}>
-              <View style={styles.activePulse} />
-              <Text style={styles.activeBadgeText}>
-                {coverageActive ? "ACTIVE" : "INACTIVE"}
-              </Text>
+              <View style={[styles.activePulse, { backgroundColor: coverageActive ? COLORS.success : COLORS.error }]} />
+              <Text style={styles.activeBadgeText}>{coverageActive ? "ACTIVE" : "INACTIVE"}</Text>
             </View>
           </View>
-
           <Text style={styles.payoutAmount}>{money(premium?.max_payout)}</Text>
           <Text style={styles.payoutLabel}>Maximum weekly payout</Text>
-
           <View style={styles.shieldCardMeta}>
-            <Text style={styles.metaText}>
-              {titleCaseTier(user?.tier)} Plan
-            </Text>
+            <Text style={styles.metaText}>{titleCaseTier(user?.tier)} Plan</Text>
             <View style={styles.metaDot} />
-            <Text style={[styles.metaText, { color: COLORS.success }]}>
-              Premium: {money(currentPremium)}
-            </Text>
+            <Text style={[styles.metaText, { color: COLORS.success }]}>Premium: {money(currentPremium)}</Text>
           </View>
-
           <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: coverageActive ? "100%" : "35%" },
-              ]}
-            />
+            <View style={[styles.progressFill, { width: coverageActive ? "100%" : "35%" }]} />
           </View>
         </View>
 
@@ -314,51 +240,43 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.weatherCard}>
           <View style={styles.weatherLeft}>
             <View style={styles.weatherIconWrap}>
-              <Ionicons
-                name={activeTriggers.length > 0 ? "warning" : "partly-sunny"}
-                size={22}
-                color={COLORS.amber}
-              />
+              <Ionicons name={activeTriggers.length > 0 ? "warning" : "partly-sunny"} size={22} color={COLORS.amber} />
             </View>
             <View style={styles.weatherTextWrap}>
               <Text style={styles.weatherCity}>{user?.city || "Unknown"}</Text>
               <Text style={styles.weatherSub} numberOfLines={2}>
-                Rain: {weather?.rain_1h ?? 0}mm/h · AQI:{" "}
-                {weather?.aqi_index ?? "NA"} · Temp:{" "}
-                {weather?.temperature ?? "NA"}°C
+                Rain: {weather?.rain_1h ?? 0}mm/h · AQI: {weather?.aqi_index ?? "NA"} · Temp: {weather?.temperature ?? "NA"}°C
               </Text>
             </View>
           </View>
           <View style={styles.riskBadge}>
-            <Text style={styles.riskBadgeText}>
-              {riskLabel(premium?.weather_risk)}
-            </Text>
+            <Text style={styles.riskBadgeText}>{riskLabel(premium?.weather_risk)}</Text>
           </View>
         </View>
 
-        {/* Traffic Card */}
+        {/* Traffic */}
         {trafficData && (
           <View style={styles.trafficCard}>
             <View style={styles.trafficLeft}>
-              <View style={styles.trafficIconWrap}>
-                <Ionicons name="car" size={20} color={ttiColor(trafficData.tti)} />
+              <View style={[styles.trafficIconWrap, { backgroundColor: ttiColor(trafficData.tti, COLORS) + "18" }]}>
+                <Ionicons name="car" size={20} color={ttiColor(trafficData.tti, COLORS)} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.trafficTitle}>Traffic · {user?.city || "City"}</Text>
                 <Text style={styles.trafficSub}>
-                  TTI: {(trafficData.tti || 1).toFixed(2)} · {ttiLabel(trafficData.tti)}  ·  Speed: {Math.round(trafficData.current_speed_kmh || 0)} km/h
+                  TTI: {(trafficData.tti || 1).toFixed(2)} · {ttiLabel(trafficData.tti)} · Speed: {Math.round(trafficData.current_speed_kmh || 0)} km/h
                 </Text>
               </View>
             </View>
-            <View style={[styles.ttiBadge, { borderColor: ttiColor(trafficData.tti) + "40" }]}>
-              <Text style={[styles.ttiBadgeText, { color: ttiColor(trafficData.tti) }]}>
+            <View style={[styles.ttiBadge, { borderColor: ttiColor(trafficData.tti, COLORS) + "40" }]}>
+              <Text style={[styles.ttiBadgeText, { color: ttiColor(trafficData.tti, COLORS) }]}>
                 {ttiLabel(trafficData.tti).toUpperCase()}
               </Text>
             </View>
           </View>
         )}
 
-        {/* Curfew / Unrest Card */}
+        {/* Curfew */}
         {curfewData && curfewData.gdelt_events > 0 && (
           <View style={styles.curfewCard}>
             <View style={styles.trafficLeft}>
@@ -367,9 +285,7 @@ const HomeScreen = ({ navigation }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.trafficTitle}>Curfew / Unrest · {user?.city || "City"}</Text>
-                <Text style={styles.trafficSub}>
-                  GDELT events: {curfewData.gdelt_events}
-                </Text>
+                <Text style={styles.trafficSub}>GDELT events: {curfewData.gdelt_events}</Text>
               </View>
             </View>
           </View>
@@ -382,9 +298,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.alertTitle}>Active Disruption Alerts</Text>
             </View>
             {activeTriggers.map((trigger) => (
-              <Text key={trigger.trigger_id} style={styles.alertText}>
-                • {trigger.description}
-              </Text>
+              <Text key={trigger.trigger_id} style={styles.alertText}>• {trigger.description}</Text>
             ))}
           </View>
         )}
@@ -398,77 +312,65 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.premiumPer}>/week</Text>
               </Text>
               <Text style={styles.premiumSub}>
-                {user?.autopay ? "AutoPay active" : "AutoPay disabled"} ·
-                history days: {premium?.history_days ?? 0}
+                {user?.autopay ? "AutoPay active" : "AutoPay disabled"} · history days: {premium?.history_days ?? 0}
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.payNowBtn}
-              onPress={() => navigation.navigate("Policy")}
-            >
+            <TouchableOpacity style={styles.payNowBtn} onPress={() => navigation.navigate("Policy")}>
               <Text style={styles.payNowText}>View Plan</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.premiumBreakdown}>
             {[
               ["Base", money(premium?.raw_prediction)],
-              [
-                "Weather Risk",
-                typeof premium?.weather_risk === "number"
-                  ? `${Math.round(premium.weather_risk * 100)}%`
-                  : "—",
-              ],
-              [
-                "City Risk",
-                typeof premium?.city_risk === "number"
-                  ? premium.city_risk.toFixed(2)
-                  : "—",
-              ],
+              ["Weather Risk", typeof premium?.weather_risk === "number" ? `${Math.round(premium.weather_risk * 100)}%` : "—"],
+              ["City Risk", typeof premium?.city_risk === "number" ? premium.city_risk.toFixed(2) : "—"],
               ["AutoPay", user?.autopay ? "−5%" : "Off"],
             ].map(([k, v]) => (
               <View key={k} style={styles.breakdownItem}>
                 <Text style={styles.breakdownKey}>{k}</Text>
-                <Text
-                  style={[
-                    styles.breakdownVal,
-                    v.startsWith("−") && { color: COLORS.success },
-                  ]}
-                >
-                  {v}
-                </Text>
+                <Text style={[styles.breakdownVal, String(v).startsWith("−") && { color: COLORS.success }]}>{v}</Text>
               </View>
             ))}
+          </View>
+        </View>
+
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{paidClaims.length}</Text>
+            <Text style={styles.statLabel}>Claims Settled</Text>
+          </View>
+          <View style={[styles.statCard, { borderColor: COLORS.success + "40", backgroundColor: COLORS.successContainer }]}>
+            <Text style={[styles.statValue, { color: COLORS.success }]}>{money(totalPaid)}</Text>
+            <Text style={styles.statLabel}>Total Received</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{claims.length}</Text>
+            <Text style={styles.statLabel}>Total Claims</Text>
           </View>
         </View>
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.quickActionsRow}>
-          <QuickAction
-            icon="shield-outline"
-            label="My Policy"
-            onPress={() => navigation.navigate("Policy")}
-            color={COLORS.primary}
-          />
-          <QuickAction
-            icon="document-text-outline"
-            label="Claims"
-            onPress={() => navigation.navigate("Claims")}
-            color={COLORS.amber}
-          />
-          <QuickAction
-            icon="card-outline"
-            label="Payments"
-            onPress={() => navigation.navigate("Payments")}
-            color={COLORS.success}
-          />
-          <QuickAction
-            icon="person-outline"
-            label="Profile"
-            onPress={() => navigation.navigate("Profile")}
-            color={COLORS.info}
-          />
+          {[
+            { icon: "shield-outline", label: "My Policy", route: "Policy", color: COLORS.primary },
+            { icon: "document-text-outline", label: "Claims", route: "Claims", color: COLORS.amber },
+            { icon: "card-outline", label: "Payments", route: "Payments", color: COLORS.success },
+            { icon: "person-outline", label: "Profile", route: "Profile", color: COLORS.info },
+          ].map((action) => (
+            <TouchableOpacity
+              key={action.label}
+              style={styles.quickAction}
+              onPress={() => navigation.navigate(action.route)}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: action.color + "18", borderColor: action.color + "30" }]}>
+                <Ionicons name={action.icon} size={22} color={action.color} />
+              </View>
+              <Text style={styles.quickActionLabel}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Recent Activity */}
@@ -477,17 +379,9 @@ const HomeScreen = ({ navigation }) => {
           {recentActivity.map((item, i) => (
             <View
               key={`${item.title}-${i}`}
-              style={[
-                styles.activityRow,
-                i < recentActivity.length - 1 && styles.activityBorder,
-              ]}
+              style={[styles.activityRow, i < recentActivity.length - 1 && styles.activityBorder]}
             >
-              <View
-                style={[
-                  styles.activityIcon,
-                  { backgroundColor: item.color + "18" },
-                ]}
-              >
+              <View style={[styles.activityIcon, { backgroundColor: item.color + "18" }]}>
                 <Ionicons name={item.icon} size={18} color={item.color} />
               </View>
               <View style={{ flex: 1 }}>
@@ -501,493 +395,214 @@ const HomeScreen = ({ navigation }) => {
 
       {/* Bottom Tab Bar */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={22} color={COLORS.primary} />
-          <Text style={[styles.navText, { color: COLORS.primary }]}>Home</Text>
-          <View style={styles.navActiveDot} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate("Claims")}
-        >
-          <Ionicons
-            name="document-outline"
-            size={22}
-            color={COLORS.textFaint}
-          />
-          <Text style={styles.navText}>Claims</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate("Policy")}
-        >
-          <Ionicons name="shield-outline" size={22} color={COLORS.textFaint} />
-          <Text style={styles.navText}>Policy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate("Profile")}
-        >
-          <Ionicons name="person-outline" size={22} color={COLORS.textFaint} />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
+        {[
+          { icon: "home", label: "Home", route: null, active: true },
+          { icon: "document-outline", label: "Claims", route: "Claims" },
+          { icon: "shield-outline", label: "Policy", route: "Policy" },
+          { icon: "person-outline", label: "Profile", route: "Profile" },
+        ].map((tab) => (
+          <TouchableOpacity
+            key={tab.label}
+            style={styles.navItem}
+            onPress={tab.route ? () => navigation.navigate(tab.route) : undefined}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={22}
+              color={tab.active ? COLORS.primary : COLORS.textFaint}
+            />
+            <Text style={[styles.navText, tab.active && { color: COLORS.primary }]}>{tab.label}</Text>
+            {tab.active && <View style={styles.navActiveDot} />}
+          </TouchableOpacity>
+        ))}
       </View>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.surface },
-  scroll: { paddingBottom: 100 },
-  loaderWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  loaderText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-  },
+const createStyles = (COLORS, FONTS) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: COLORS.surface },
+    scroll: { paddingBottom: 100 },
+    loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+    loaderText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: SIZES.padding,
-    paddingTop: SIZES.padding,
-    paddingBottom: SIZES.padding * 0.5,
-  },
-  greeting: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-  },
-  userName: {
-    fontSize: SIZES.h2,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    marginTop: 2,
-  },
-  platformBadge: {
-    backgroundColor: COLORS.primaryContainer,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: SIZES.radiusFull,
-    alignSelf: "flex-start",
-    marginTop: 6,
-  },
-  platformBadgeText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.primaryDim,
-  },
-  notifBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.surfaceHigh,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  errorCard: {
-    marginHorizontal: SIZES.padding,
-    marginBottom: SIZES.padding * 0.75,
-    backgroundColor: COLORS.errorContainer,
-    borderWidth: 1,
-    borderColor: COLORS.error + "40",
-    borderRadius: SIZES.radius,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  errorCardText: {
-    color: COLORS.error,
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    flex: 1,
-  },
+    topBar: {
+      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
+      paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding, paddingBottom: SIZES.padding * 0.5,
+    },
+    greeting: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    userName: { fontSize: SIZES.h2, fontFamily: FONTS.display, color: COLORS.white, marginTop: 2 },
+    platformBadge: {
+      backgroundColor: COLORS.primaryContainer, paddingHorizontal: 10, paddingVertical: 4,
+      borderRadius: SIZES.radiusFull, alignSelf: "flex-start", marginTop: 6,
+      borderWidth: 1, borderColor: COLORS.primary + "30",
+    },
+    platformBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.primary },
+    notifBtn: {
+      width: 42, height: 42, borderRadius: 14,
+      backgroundColor: COLORS.primary, justifyContent: "center", alignItems: "center", marginTop: 4,
+    },
+    errorCard: {
+      marginHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75,
+      backgroundColor: COLORS.errorContainer, borderWidth: 1,
+      borderColor: COLORS.error + "40", borderRadius: SIZES.radius,
+      padding: 10, flexDirection: "row", alignItems: "center", gap: 8,
+    },
+    errorCardText: { color: COLORS.error, fontSize: SIZES.small, fontFamily: FONTS.medium, flex: 1 },
 
-  // Shield card
-  shieldCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.5,
-    backgroundColor: COLORS.primary,
-    padding: SIZES.padding,
-    marginBottom: SIZES.padding,
-    overflow: "hidden",
-    ...SHADOWS.button,
-  },
-  shieldGlow: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "#fff",
-    opacity: 0.05,
-    top: -80,
-    right: -60,
-  },
-  shieldCardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SIZES.padding * 0.75,
-  },
-  shieldCardLabel: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: "rgba(255,255,255,0.6)",
-    letterSpacing: 1,
-  },
-  activeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: SIZES.radiusFull,
-  },
-  activePulse: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: COLORS.success,
-  },
-  activeBadgeText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: "#fff",
-  },
-  payoutAmount: {
-    fontSize: 40,
-    fontFamily: FONTS.bold,
-    color: "#fff",
-    marginBottom: 4,
-  },
-  payoutLabel: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: "rgba(255,255,255,0.65)",
-    marginBottom: SIZES.padding,
-  },
-  shieldCardMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: SIZES.base,
-  },
-  metaText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: "rgba(255,255,255,0.7)",
-  },
-  metaDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.3)",
-  },
-  progressTrack: {
-    height: 6,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", backgroundColor: "#fff", borderRadius: 3 },
+    shieldCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.5,
+      backgroundColor: COLORS.primary, padding: SIZES.padding,
+      marginBottom: SIZES.padding, overflow: "hidden", ...SHADOWS.button,
+    },
+    shieldGlow: {
+      position: "absolute", width: 200, height: 200, borderRadius: 100,
+      backgroundColor: "#fff", opacity: 0.05, top: -80, right: -60,
+    },
+    shieldCardTop: {
+      flexDirection: "row", justifyContent: "space-between",
+      alignItems: "center", marginBottom: SIZES.padding * 0.75,
+    },
+    shieldCardLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: "rgba(255,255,255,0.6)", letterSpacing: 1 },
+    activeBadge: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10,
+      paddingVertical: 4, borderRadius: SIZES.radiusFull,
+    },
+    activePulse: { width: 7, height: 7, borderRadius: 4 },
+    activeBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: "#fff" },
+    payoutAmount: { fontSize: 40, fontFamily: FONTS.display, color: "#fff", marginBottom: 4 },
+    payoutLabel: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.65)", marginBottom: SIZES.padding },
+    shieldCardMeta: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: SIZES.base },
+    metaText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.7)" },
+    metaDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)" },
+    progressTrack: { height: 6, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, overflow: "hidden" },
+    progressFill: { height: "100%", backgroundColor: "#fff", borderRadius: 3 },
 
-  // Weather
-  weatherCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    padding: SIZES.padding * 0.85,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  weatherLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SIZES.padding * 0.6,
-    flex: 1,
-    marginRight: SIZES.base,
-  },
-  weatherTextWrap: { flex: 1, flexShrink: 1 },
-  weatherIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.amberContainer,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  weatherCity: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.white },
-  weatherSub: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  riskBadge: {
-    backgroundColor: COLORS.amberContainer,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: SIZES.radiusFull,
-    borderWidth: 1,
-    borderColor: COLORS.amber + "40",
-  },
-  // Traffic card
-  trafficCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    padding: SIZES.padding * 0.85,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SIZES.padding * 0.5,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  trafficLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SIZES.padding * 0.6,
-    flex: 1,
-    marginRight: SIZES.base,
-  },
-  trafficIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.primaryContainer,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  trafficTitle: { fontSize: 14, fontFamily: FONTS.bold, color: COLORS.white },
-  trafficSub: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  ttiBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: SIZES.radiusFull,
-    borderWidth: 1,
-  },
-  ttiBadgeText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    letterSpacing: 0.5,
-  },
-  curfewCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    padding: SIZES.padding * 0.85,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.error + "30",
-  },
-  riskBadgeText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.bold,
-    color: COLORS.amber,
-    letterSpacing: 0.5,
-  },
+    weatherCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border,
+    },
+    weatherLeft: { flexDirection: "row", alignItems: "center", gap: SIZES.padding * 0.6, flex: 1, marginRight: SIZES.base },
+    weatherTextWrap: { flex: 1, flexShrink: 1 },
+    weatherIconWrap: {
+      width: 42, height: 42, borderRadius: 12,
+      backgroundColor: COLORS.amberContainer, justifyContent: "center", alignItems: "center",
+    },
+    weatherCity: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.white },
+    weatherSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 2 },
+    riskBadge: {
+      backgroundColor: COLORS.amberContainer, paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.amber + "40",
+    },
+    riskBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.amber, letterSpacing: 0.5 },
 
-  alertCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.amberContainer,
-    borderWidth: 1,
-    borderColor: COLORS.amber + "40",
-    padding: SIZES.padding * 0.8,
-    marginBottom: SIZES.padding,
-  },
-  alertCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  alertTitle: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.amber,
-  },
-  alertText: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.amberDim,
-    marginTop: 2,
-  },
+    trafficCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      marginBottom: SIZES.padding * 0.5, borderWidth: 1, borderColor: COLORS.border,
+    },
+    trafficLeft: { flexDirection: "row", alignItems: "center", gap: SIZES.padding * 0.6, flex: 1, marginRight: SIZES.base },
+    trafficIconWrap: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+    trafficTitle: { fontSize: 14, fontFamily: FONTS.bold, color: COLORS.white },
+    trafficSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 2 },
+    ttiBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull, borderWidth: 1 },
+    ttiBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, letterSpacing: 0.5 },
+    curfewCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.error + "30",
+    },
 
-  // Premium
-  premiumCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    padding: SIZES.padding,
-    marginBottom: SIZES.padding,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  premiumCardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: SIZES.padding,
-  },
-  premiumAmount: { fontSize: 26, fontFamily: FONTS.bold, color: COLORS.white },
-  premiumPer: {
-    fontSize: SIZES.body,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-  },
-  premiumSub: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.medium,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  payNowBtn: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: SIZES.radiusFull,
-  },
-  payNowText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: "#fff" },
-  premiumBreakdown: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SIZES.padding * 0.75,
-  },
-  breakdownItem: { alignItems: "center" },
-  breakdownKey: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.medium,
-    color: COLORS.textFaint,
-    marginBottom: 4,
-  },
-  breakdownVal: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-  },
+    alertCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.amberContainer, borderWidth: 1,
+      borderColor: COLORS.amber + "40", padding: SIZES.padding * 0.8, marginBottom: SIZES.padding,
+    },
+    alertCardTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+    alertTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber },
+    alertText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.amberDim, marginTop: 2 },
 
-  // Quick Actions
-  sectionTitle: {
-    fontSize: SIZES.body,
-    fontFamily: FONTS.bold,
-    color: COLORS.white,
-    paddingHorizontal: SIZES.padding,
-    marginBottom: SIZES.padding,
-    marginTop: SIZES.base,
-  },
-  quickActionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: SIZES.padding,
-    marginBottom: SIZES.padding,
-  },
-  quickAction: { alignItems: "center" },
-  quickActionIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SIZES.base,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  quickActionLabel: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textMuted,
-    textAlign: "center",
-  },
+    premiumCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding,
+      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border,
+    },
+    premiumCardTop: {
+      flexDirection: "row", justifyContent: "space-between",
+      alignItems: "flex-start", marginBottom: SIZES.padding,
+    },
+    premiumAmount: { fontSize: 26, fontFamily: FONTS.display, color: COLORS.white },
+    premiumPer: { fontSize: SIZES.body, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    premiumSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 4 },
+    payNowBtn: {
+      backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 10,
+      borderRadius: SIZES.radiusFull,
+    },
+    payNowText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: "#FFFDFB" },
+    premiumBreakdown: {
+      flexDirection: "row", justifyContent: "space-between",
+      borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SIZES.padding * 0.75,
+    },
+    breakdownItem: { alignItems: "center" },
+    breakdownKey: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, marginBottom: 4 },
+    breakdownVal: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
 
-  // Activity
-  activityCard: {
-    marginHorizontal: SIZES.padding,
-    borderRadius: SIZES.radius * 1.2,
-    backgroundColor: COLORS.surfaceContainer,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: SIZES.padding,
-  },
-  activityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SIZES.padding * 0.75,
-    padding: SIZES.padding * 0.85,
-  },
-  activityBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  activityIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  activityTitle: {
-    fontSize: SIZES.small,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.white,
-    marginBottom: 2,
-  },
-  activitySub: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.medium,
-    color: COLORS.textFaint,
-  },
+    statsRow: {
+      flexDirection: "row", gap: SIZES.base, paddingHorizontal: SIZES.padding,
+      marginBottom: SIZES.padding,
+    },
+    statCard: {
+      flex: 1, backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius,
+      padding: SIZES.padding * 0.75, alignItems: "center", borderWidth: 1, borderColor: COLORS.border,
+    },
+    statValue: { fontSize: 20, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 2 },
+    statLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, textAlign: "center" },
 
-  // Bottom Nav
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 72,
-    backgroundColor: COLORS.surfaceContainer,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingBottom: Platform.OS === "ios" ? 16 : 0,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  navItem: { alignItems: "center", justifyContent: "center" },
-  navText: {
-    fontSize: SIZES.tiny,
-    fontFamily: FONTS.semiBold,
-    color: COLORS.textFaint,
-    marginTop: 3,
-  },
-  navActiveDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.primary,
-    marginTop: 2,
-  },
-});
+    sectionTitle: {
+      fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white,
+      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding, marginTop: SIZES.base,
+    },
+    quickActionsRow: {
+      flexDirection: "row", justifyContent: "space-between",
+      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding,
+    },
+    quickAction: { alignItems: "center" },
+    quickActionIcon: {
+      width: 54, height: 54, borderRadius: 16, justifyContent: "center",
+      alignItems: "center", marginBottom: SIZES.base, borderWidth: 1,
+    },
+    quickActionLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.textMuted, textAlign: "center" },
+
+    activityCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      backgroundColor: COLORS.surfaceContainer, borderWidth: 1,
+      borderColor: COLORS.border, marginBottom: SIZES.padding,
+    },
+    activityRow: {
+      flexDirection: "row", alignItems: "center",
+      gap: SIZES.padding * 0.75, padding: SIZES.padding * 0.85,
+    },
+    activityBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+    activityIcon: { width: 38, height: 38, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+    activityTitle: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
+    activitySub: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint },
+
+    bottomNav: {
+      position: "absolute", bottom: 0, left: 0, right: 0, height: 72,
+      backgroundColor: COLORS.surfaceContainer, flexDirection: "row",
+      justifyContent: "space-around", alignItems: "center",
+      paddingBottom: Platform.OS === "ios" ? 16 : 0,
+      borderTopWidth: 1, borderTopColor: COLORS.border,
+    },
+    navItem: { alignItems: "center", justifyContent: "center" },
+    navText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginTop: 3 },
+    navActiveDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 2 },
+  });
 
 export default HomeScreen;
