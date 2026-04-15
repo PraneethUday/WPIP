@@ -1,7 +1,7 @@
 {
-  "rmse": 13.4974,
-  "n_samples": 197,
-  "trained_at": "2026-04-04",
+  "rmse": 15.5286,
+  "n_samples": 199,
+  "trained_at": "2026-04-13",
   "features": [
     "avg_earnings_7d",
     "avg_deliveries_7d",
@@ -25,6 +25,8 @@
     "is_extreme_heat",
     "is_severe_aqi",
     "weather_risk",
-    "city_risk"
+    "city_risk",
+    "historical_traffic_variance",
+    "unrest_exposure_flag"
   ]
 }

@@ -3,16 +3,19 @@ Parametric Trigger Polling Engine for GigGuard.
 
 Every 15 minutes (called from scheduler.tick()), this module:
   1. Fetches live weather/AQI for all active worker cities
-  2. Evaluates each trigger rule against the data
-  3. If a threshold is breached → creates a disruption_event
-  4. For each disruption → auto-initiates claims for affected workers
+  2. Fetches live traffic TTI (TomTom) for all cities
+  3. Evaluates curfew/unrest risk (GDELT + NLP) for all cities
+  4. Evaluates each trigger rule against the data
+  5. If a threshold is breached → creates a disruption_event
+  6. For each disruption → auto-initiates claims for affected workers
 
-Trigger Rules (from README):
+Trigger Rules:
   T-01: Heavy Rainfall   — rain_1h > 20mm OR rain_3h > 64.5mm
   T-02: Extreme Heat      — temperature > 45°C
   T-03: Severe AQI        — AQI index ≥ 400 (Severe)
   T-04: Flood Risk        — rain_3h > 100mm
-  T-05: Curfew (stub)     — placeholder for government feed integration
+  T-05: Traffic Congestion — TTI > 2.5 for 2 consecutive 15-min cycles
+  T-06: Curfew / Unrest   — GDELT+NLP confidence ≥ 0.8
 """
 
 import logging
@@ -22,6 +25,8 @@ from datetime import date, datetime
 
 from db import supabase, PLATFORM_TABLES
 from ml.weather import fetch_weather
+from ml.traffic import fetch_traffic_tti
+from ml.curfew import evaluate_curfew_risk
 from claims import (
     get_worker_daily_wage,
     compute_payout,
@@ -34,8 +39,30 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# T-05 consecutive-cycle state tracking
+# ---------------------------------------------------------------------------
+# Stores the previous cycle's TTI per city.  T-05 only fires when TTI > 2.5
+# for 2 CONSECUTIVE 15-minute polling cycles.
+# Key: city name → previous cycle TTI (float)
+_previous_tti: dict[str, float] = {}
+
+
+# ---------------------------------------------------------------------------
 # Trigger rule definitions
 # ---------------------------------------------------------------------------
+
+# T-05 check needs the previous TTI, which is injected at poll-time
+def _check_traffic(ctx: dict) -> bool:
+    """T-05 fires if TTI > 2.5 for 2 consecutive cycles."""
+    current_tti = ctx.get("tti", 1.0)
+    prev_tti = ctx.get("_prev_tti", 1.0)
+    return current_tti > 2.5 and prev_tti > 2.5
+
+
+def _check_curfew(ctx: dict) -> bool:
+    """T-06 fires if combined GDELT+NLP confidence ≥ 0.8."""
+    return ctx.get("curfew_confidence", 0.0) >= 0.8
+
 
 TRIGGER_RULES: list[dict] = [
     {
@@ -68,10 +95,17 @@ TRIGGER_RULES: list[dict] = [
     },
     {
         "trigger_id": "T-05",
+        "trigger_type": "traffic_congestion",
+        "description": "Severe Traffic Congestion — TTI > 2.5 for 2 consecutive cycles",
+        "check": _check_traffic,
+        "severity": lambda w: "extreme" if w.get("tti", 1.0) > 3.5 else "severe",
+    },
+    {
+        "trigger_id": "T-06",
         "trigger_type": "curfew",
-        "description": "Curfew / Section 144 — government advisory",
-        "check": lambda _: False,  # stub — will integrate news/govt feed later
-        "severity": lambda _: "severe",
+        "description": "Curfew / Civil Unrest — GDELT + NLP confidence ≥ 0.8",
+        "check": _check_curfew,
+        "severity": lambda w: "extreme" if w.get("curfew_confidence", 0) >= 0.95 else "severe",
     },
 ]
 
@@ -84,37 +118,86 @@ MONITORED_CITIES = ["Chennai", "Bangalore", "Hyderabad", "Mumbai", "Delhi", "Pun
 # ---------------------------------------------------------------------------
 
 async def poll_triggers() -> dict:
-    """Poll weather for all cities and evaluate trigger rules.
+    """Poll weather, traffic, and curfew data for all cities and evaluate trigger rules.
 
     Returns a summary dict: {city: [list of fired trigger_ids]}
     """
-    logger.info("[triggers] Polling weather for %d cities...", len(MONITORED_CITIES))
+    logger.info("[triggers] Polling weather, traffic & curfew for %d cities...", len(MONITORED_CITIES))
     today = date.today().isoformat()
     summary: dict[str, list[str]] = {}
 
     for city in MONITORED_CITIES:
-        weather = await asyncio.to_thread(fetch_weather, city)
+        # --- Gather all data sources concurrently ---
+        weather_task = asyncio.to_thread(fetch_weather, city)
+        traffic_task = fetch_traffic_tti(city)
+        curfew_task = evaluate_curfew_risk(city)
+
+        weather, traffic, curfew = await asyncio.gather(
+            weather_task, traffic_task, curfew_task,
+            return_exceptions=True,
+        )
+
+        # Safe fallbacks if any gather branch raised
+        if isinstance(weather, Exception):
+            logger.error("[triggers] Weather fetch failed for %s: %s", city, weather)
+            weather = {}
+        if isinstance(traffic, Exception):
+            logger.error("[triggers] Traffic fetch failed for %s: %s", city, traffic)
+            traffic = {"tti": 1.0, "current_speed_kmh": 30.0}
+        if isinstance(curfew, Exception):
+            logger.error("[triggers] Curfew eval failed for %s: %s", city, curfew)
+            curfew = {"confidence": 0.0}
+
+        # --- Build unified context dict for trigger checks ---
+        current_tti = traffic.get("tti", 1.0)
+        prev_tti = _previous_tti.get(city, 1.0)
+
+        ctx = {
+            **weather,
+            # Traffic fields
+            "tti": current_tti,
+            "_prev_tti": prev_tti,
+            "current_speed_kmh": traffic.get("current_speed_kmh", 30.0),
+            "free_flow_speed_kmh": traffic.get("free_flow_speed_kmh", 30.0),
+            # Curfew fields
+            "curfew_confidence": curfew.get("confidence", 0.0),
+            "curfew_gdelt_events": curfew.get("gdelt_events", 0),
+            "curfew_nlp_label": curfew.get("nlp_label", "none"),
+        }
+
+        # --- Persist TTI to history table and update state ---
+        try:
+            await asyncio.to_thread(
+                _store_tti_history, city, current_tti,
+                traffic.get("current_speed_kmh", 0),
+                traffic.get("free_flow_speed_kmh", 0),
+            )
+        except Exception as exc:
+            logger.warning("[triggers] Failed to store TTI history for %s: %s", city, exc)
+
+        # Update the previous-cycle state for next poll
+        _previous_tti[city] = current_tti
+
+        # --- Evaluate all trigger rules ---
         fired: list[str] = []
 
         for rule in TRIGGER_RULES:
             try:
-                if rule["check"](weather):
+                if rule["check"](ctx):
                     logger.warning(
-                        "[triggers] 🚨 %s FIRED in %s — %s",
+                        "[triggers] %s FIRED in %s — %s",
                         rule["trigger_id"],
                         city,
                         rule["description"],
                     )
 
                     # Upsert disruption event (idempotent per trigger+city+date)
-                    # Run in thread to avoid blocking the async event loop
                     event_id = await asyncio.to_thread(
-                        _upsert_disruption_event, city, weather, rule, today
+                        _upsert_disruption_event, city, ctx, rule, today
                     )
 
                     if event_id:
                         # Auto-create claims for all workers in this city
-                        # Run in thread — this makes many synchronous Supabase calls
                         await asyncio.to_thread(
                             _auto_create_claims, event_id, city, rule, today
                         )
@@ -138,14 +221,33 @@ async def poll_triggers() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# TTI history persistence
+# ---------------------------------------------------------------------------
+
+def _store_tti_history(
+    city: str, tti: float, current_speed: float, free_flow_speed: float
+) -> None:
+    """Insert a row into traffic_tti_history for audit/consecutive-cycle logic."""
+    try:
+        supabase.table("traffic_tti_history").insert({
+            "city": city,
+            "tti_value": round(tti, 4),
+            "current_speed": round(current_speed, 1),
+            "free_flow_speed": round(free_flow_speed, 1),
+        }).execute()
+    except Exception as exc:
+        logger.warning("[triggers] TTI history insert failed for %s: %s", city, exc)
+
+
+# ---------------------------------------------------------------------------
 # Disruption event creation
 # ---------------------------------------------------------------------------
 
 def _upsert_disruption_event(
-    city: str, weather: dict, rule: dict, event_date: str
+    city: str, ctx: dict, rule: dict, event_date: str
 ) -> str | None:
     """Insert a disruption event row. Returns the event UUID, or None on duplicate."""
-    severity = rule["severity"](weather)
+    severity = rule["severity"](ctx)
 
     payload = {
         "trigger_id": rule["trigger_id"],
@@ -153,11 +255,16 @@ def _upsert_disruption_event(
         "city": city,
         "severity": severity,
         "description": rule["description"],
-        "temperature": weather.get("temperature"),
-        "rain_1h": weather.get("rain_1h"),
-        "rain_3h": weather.get("rain_3h"),
-        "aqi_index": weather.get("aqi_index"),
-        "wind_speed": weather.get("wind_speed"),
+        "temperature": ctx.get("temperature"),
+        "rain_1h": ctx.get("rain_1h"),
+        "rain_3h": ctx.get("rain_3h"),
+        "aqi_index": ctx.get("aqi_index"),
+        "wind_speed": ctx.get("wind_speed"),
+        # Phase 3 columns
+        "tti_value": ctx.get("tti"),
+        "current_speed_kmh": ctx.get("current_speed_kmh"),
+        "curfew_confidence": ctx.get("curfew_confidence"),
+        "curfew_source": ctx.get("curfew_nlp_label"),
         "status": "active",
         "event_date": event_date,
     }
@@ -216,7 +323,12 @@ def _auto_create_claims(
             # Compute payout
             daily_wage = get_worker_daily_wage(worker_id, days=7)
             disrupted_hours = 6.0  # default assumption
-            payout = compute_payout(daily_wage, disrupted_hours)
+
+            # T-06 Curfew: hard-cap payout at daily_wage * 0.50
+            if rule["trigger_id"] == "T-06":
+                payout = round(min(daily_wage * 0.50, daily_wage * 0.50), 2)
+            else:
+                payout = compute_payout(daily_wage, disrupted_hours)
 
             # ML Fraud scoring
             fraud_features = build_fraud_features(
@@ -227,8 +339,11 @@ def _auto_create_claims(
                 cross_platform_clear=cross_clear,
                 gps_verified=gps_verified,
                 supabase_client=supabase,
+                trigger_type=rule["trigger_type"],
             )
-            fraud_score, fraud_flags = compute_fraud_score(fraud_features)
+            fraud_score, fraud_flags = compute_fraud_score(
+                fraud_features, trigger_type=rule["trigger_type"]
+            )
 
             # Determine claim status based on fraud score
             status = "auto_initiated" if fraud_score < 0.75 else "under_review"
@@ -331,8 +446,8 @@ def test_fire_trigger(city: str = "Chennai", trigger_id: str = "T-01") -> dict:
     if not rule:
         return {"error": f"Unknown trigger_id: {trigger_id}"}
 
-    # Create a fake weather snapshot with the trigger condition met
-    fake_weather = {
+    # Create a fake context snapshot with the trigger condition met
+    fake_ctx = {
         "temperature": 46.0 if trigger_id == "T-02" else 32.0,
         "rain_1h": 25.0 if trigger_id in ("T-01", "T-04") else 0.0,
         "rain_3h": 70.0 if trigger_id == "T-01" else (120.0 if trigger_id == "T-04" else 0.0),
@@ -342,9 +457,18 @@ def test_fire_trigger(city: str = "Chennai", trigger_id: str = "T-01") -> dict:
         "is_extreme_heat": trigger_id == "T-02",
         "is_severe_aqi": trigger_id == "T-03",
         "is_flood_risk": trigger_id == "T-04",
+        # T-05 Traffic: fake consecutive high TTI
+        "tti": 3.2 if trigger_id == "T-05" else 1.0,
+        "_prev_tti": 2.8 if trigger_id == "T-05" else 1.0,
+        "current_speed_kmh": 8.0 if trigger_id == "T-05" else 30.0,
+        "free_flow_speed_kmh": 30.0,
+        # T-06 Curfew: fake high confidence
+        "curfew_confidence": 0.92 if trigger_id == "T-06" else 0.0,
+        "curfew_nlp_label": "section 144" if trigger_id == "T-06" else "none",
+        "curfew_gdelt_events": 4 if trigger_id == "T-06" else 0,
     }
 
-    event_id = _upsert_disruption_event(city, fake_weather, rule, today)
+    event_id = _upsert_disruption_event(city, fake_ctx, rule, today)
     claims_count = 0
     if event_id:
         claims_count = _auto_create_claims(event_id, city, rule, today)
@@ -359,24 +483,62 @@ def test_fire_trigger(city: str = "Chennai", trigger_id: str = "T-01") -> dict:
 
 
 def get_trigger_status() -> dict:
-    """Get current weather + trigger evaluation for all monitored cities."""
+    """Get current weather + traffic + curfew trigger evaluation for all monitored cities.
+
+    Note: This is a synchronous endpoint.  Traffic and curfew data is pulled
+    from cache (populated by the last poll_triggers() cycle) when available.
+    Weather is fetched live (it has its own 5-min cache).
+    """
     results: dict[str, dict] = {}
 
     for city in MONITORED_CITIES:
         weather = fetch_weather(city)
 
+        # Pull cached traffic/curfew — no async calls here to keep it sync-safe
+        from ml.traffic import _traffic_cache
+        traffic = {}
+        if city in _traffic_cache:
+            _, traffic = _traffic_cache[city]
+
+        from ml.curfew import _gdelt_cache
+        curfew_events = 0
+        if city in _gdelt_cache:
+            _, events = _gdelt_cache[city]
+            curfew_events = len(events)
+
+        current_tti = traffic.get("tti", 1.0)
+        prev_tti = _previous_tti.get(city, 1.0)
+
+        # Build context
+        ctx = {
+            **weather,
+            "tti": current_tti,
+            "_prev_tti": prev_tti,
+            "current_speed_kmh": traffic.get("current_speed_kmh", 30.0),
+            "curfew_confidence": 0.0,  # not re-evaluated in sync call
+            "curfew_gdelt_events": curfew_events,
+        }
+
         triggered = []
         for rule in TRIGGER_RULES:
-            if rule["check"](weather):
+            if rule["check"](ctx):
                 triggered.append({
                     "trigger_id": rule["trigger_id"],
                     "trigger_type": rule["trigger_type"],
                     "description": rule["description"],
-                    "severity": rule["severity"](weather),
+                    "severity": rule["severity"](ctx),
                 })
 
         results[city] = {
             "weather": weather,
+            "traffic": {
+                "tti": current_tti,
+                "current_speed_kmh": traffic.get("current_speed_kmh", 30.0),
+                "free_flow_speed_kmh": traffic.get("free_flow_speed_kmh", 30.0),
+            },
+            "curfew": {
+                "gdelt_events": curfew_events,
+            },
             "triggers_fired": triggered,
             "has_active_disruption": len(triggered) > 0,
         }

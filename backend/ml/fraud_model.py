@@ -6,9 +6,11 @@ Uses unsupervised anomaly detection to flag suspicious claim patterns:
   - Claim frequency (too many claims in a short window)
   - Payout amount anomalies
   - Timing patterns (claims filed suspiciously fast)
+  - T-06 Curfew geo-polygon mismatch (Phase 3)
 """
 
 import logging
+import math
 import numpy as np
 import joblib
 from pathlib import Path
@@ -20,6 +22,48 @@ MODEL_DIR = Path(__file__).parent / "saved_models"
 FRAUD_MODEL_PATH = MODEL_DIR / "fraud_model.joblib"
 
 
+# ---------------------------------------------------------------------------
+# Phase 3: Sub-city zone definitions for curfew geo-polygon validation
+# ---------------------------------------------------------------------------
+# Each city is split into North/South sub-zones using a dividing latitude.
+# When a T-06 curfew trigger fires, we check whether the worker's GPS pings
+# are INSIDE the affected sub-zone.  If all 3 recent pings are OUTSIDE,
+# we apply a massive +0.50 fraud penalty.
+
+CITY_SUB_ZONES: dict[str, dict] = {
+    "Chennai": {
+        "dividing_lat": 13.0600,
+        "north": {"lat_min": 13.0600, "lat_max": 13.2500, "lon_min": 80.1500, "lon_max": 80.3500},
+        "south": {"lat_min": 12.8500, "lat_max": 13.0600, "lon_min": 80.1500, "lon_max": 80.3500},
+    },
+    "Bangalore": {
+        "dividing_lat": 12.9700,
+        "north": {"lat_min": 12.9700, "lat_max": 13.1500, "lon_min": 77.4500, "lon_max": 77.7500},
+        "south": {"lat_min": 12.8000, "lat_max": 12.9700, "lon_min": 77.4500, "lon_max": 77.7500},
+    },
+    "Hyderabad": {
+        "dividing_lat": 17.4000,
+        "north": {"lat_min": 17.4000, "lat_max": 17.5500, "lon_min": 78.3500, "lon_max": 78.6000},
+        "south": {"lat_min": 17.2500, "lat_max": 17.4000, "lon_min": 78.3500, "lon_max": 78.6000},
+    },
+    "Mumbai": {
+        "dividing_lat": 19.0500,
+        "north": {"lat_min": 19.0500, "lat_max": 19.2800, "lon_min": 72.7800, "lon_max": 72.9800},
+        "south": {"lat_min": 18.8800, "lat_max": 19.0500, "lon_min": 72.7800, "lon_max": 72.9800},
+    },
+    "Delhi": {
+        "dividing_lat": 28.6200,
+        "north": {"lat_min": 28.6200, "lat_max": 28.8800, "lon_min": 77.0500, "lon_max": 77.3500},
+        "south": {"lat_min": 28.4000, "lat_max": 28.6200, "lon_min": 77.0500, "lon_max": 77.3500},
+    },
+    "Pune": {
+        "dividing_lat": 18.5200,
+        "north": {"lat_min": 18.5200, "lat_max": 18.6500, "lon_min": 73.7500, "lon_max": 73.9500},
+        "south": {"lat_min": 18.4000, "lat_max": 18.5200, "lon_min": 73.7500, "lon_max": 73.9500},
+    },
+}
+
+
 def build_fraud_features(
     worker_id: str,
     city: str,
@@ -28,6 +72,7 @@ def build_fraud_features(
     cross_platform_clear: bool,
     gps_verified: bool,
     supabase_client=None,
+    trigger_type: str = "",
 ) -> dict:
     """Build a feature vector for fraud scoring a single claim.
 
@@ -61,6 +106,13 @@ def build_fraud_features(
     # --- GPS: was location verified? ---
     gps_flag = 0.0 if gps_verified else 1.0
 
+    # --- Phase 3: T-06 curfew zone mismatch ---
+    curfew_zone_mismatch = 0.0
+    if trigger_type == "curfew" and supabase_client:
+        curfew_zone_mismatch = _check_curfew_zone_mismatch(
+            worker_id, city, supabase_client
+        )
+
     return {
         "claim_count_30d": claim_count_30d,
         "total_payout_30d": round(total_payout_30d, 2),
@@ -69,16 +121,67 @@ def build_fraud_features(
         "daily_wage": round(daily_wage, 2),
         "cross_platform_flag": cross_platform_flag,
         "gps_flag": gps_flag,
+        "curfew_zone_mismatch": curfew_zone_mismatch,
     }
 
 
 FRAUD_FEATURE_COLS = [
     "claim_count_30d", "total_payout_30d", "payout_amount",
     "payout_ratio", "daily_wage", "cross_platform_flag", "gps_flag",
+    "curfew_zone_mismatch",
 ]
 
 
-def compute_fraud_score(features: dict) -> tuple[float, list[str]]:
+def _check_curfew_zone_mismatch(
+    worker_id: str, city: str, supabase_client
+) -> float:
+    """Check if a worker's last 3 GPS pings are outside the affected curfew sub-zone.
+
+    For T-06 claims: if ALL 3 of the worker's most recent GPS pings fall outside
+    the affected city sub-zone, this returns 1.0 (triggering a +0.50 penalty in
+    rule-based scoring).  Otherwise returns 0.0.
+
+    If there are fewer than 3 pings or no zone data, returns 0.0 (benefit of doubt).
+    """
+    zones = CITY_SUB_ZONES.get(city)
+    if not zones:
+        return 0.0
+
+    try:
+        resp = (
+            supabase_client.table("gps_checkins")
+            .select("latitude, longitude, checked_in_at")
+            .eq("worker_id", worker_id)
+            .order("checked_in_at", desc=True)
+            .limit(3)
+            .execute()
+        )
+        pings = resp.data
+    except Exception:
+        return 0.0
+
+    if len(pings) < 3:
+        return 0.0  # Not enough data — give benefit of doubt
+
+    # The curfew is assumed to affect the "north" sub-zone by default.
+    # (In production, the disruption_event would specify the exact zone.)
+    affected_zone = zones["north"]
+
+    pings_outside = 0
+    for ping in pings:
+        lat = ping.get("latitude", 0)
+        lon = ping.get("longitude", 0)
+        if not (affected_zone["lat_min"] <= lat <= affected_zone["lat_max"] and
+                affected_zone["lon_min"] <= lon <= affected_zone["lon_max"]):
+            pings_outside += 1
+
+    # ALL 3 pings outside the affected zone = mismatch
+    return 1.0 if pings_outside == 3 else 0.0
+
+
+def compute_fraud_score(
+    features: dict, trigger_type: str = ""
+) -> tuple[float, list[str]]:
     """Compute a fraud score (0.0 to 1.0) and a list of flag reasons.
 
     Uses the Isolation Forest model if available, otherwise falls back
@@ -104,14 +207,16 @@ def compute_fraud_score(features: dict) -> tuple[float, list[str]]:
                 flags.append("ML_anomaly_detected")
         except Exception as e:
             logger.warning("Fraud model prediction failed: %s, falling back to rules", e)
-            score, flags = _rule_based_score(features)
+            score, flags = _rule_based_score(features, trigger_type)
     else:
-        score, flags = _rule_based_score(features)
+        score, flags = _rule_based_score(features, trigger_type)
 
     return round(score, 4), flags
 
 
-def _rule_based_score(features: dict) -> tuple[float, list[str]]:
+def _rule_based_score(
+    features: dict, trigger_type: str = ""
+) -> tuple[float, list[str]]:
     """Fallback rule-based fraud scoring when no ML model is available."""
     score = 0.0
     flags: list[str] = []
@@ -143,6 +248,13 @@ def _rule_based_score(features: dict) -> tuple[float, list[str]]:
     if features["total_payout_30d"] > 3000:
         score += 0.10
         flags.append("high_cumulative_payout")
+
+    # --- Phase 3: T-06 Curfew geo-polygon mismatch ---
+    # If the worker claims a curfew disruption but their last 3 GPS pings
+    # are outside the affected sub-zone, apply a massive penalty.
+    if trigger_type == "curfew" and features.get("curfew_zone_mismatch", 0) > 0:
+        score += 0.50
+        flags.append("curfew_zone_mismatch_all_pings_outside")
 
     return min(score, 1.0), flags
 
@@ -184,6 +296,7 @@ def train_fraud_model(supabase_client) -> dict:
             "daily_wage": wage,
             "cross_platform_flag": 0.0 if cross_clear else 1.0,
             "gps_flag": 0.0,  # Assume verified for historical context
+            "curfew_zone_mismatch": 0.0,  # No historical data for this
         })
 
     X = np.array([[r[col] for col in FRAUD_FEATURE_COLS] for r in rows])

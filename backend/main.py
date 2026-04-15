@@ -34,6 +34,8 @@ from ml.premium_model import (
     TIER_CONFIG,
 )
 from triggers import poll_triggers, get_trigger_status, test_fire_trigger
+from ml.traffic import fetch_traffic_tti, compute_traffic_risk
+from ml.curfew import evaluate_curfew_risk
 
 logging.basicConfig(
     level=logging.INFO,
@@ -606,6 +608,27 @@ def get_all_weather():
     """Get weather for all supported cities."""
     data = fetch_all_cities()
     return {"cities": data}
+
+
+@app.get("/api/traffic/{city}")
+async def get_city_traffic(city: str):
+    """Get real-time traffic TTI for a city from TomTom API."""
+    data = await fetch_traffic_tti(city)
+    risk = compute_traffic_risk(data.get("tti", 1.0))
+    return {
+        "city": city,
+        "traffic": {
+            **data,
+            "traffic_risk": round(risk, 4),
+        },
+    }
+
+
+@app.get("/api/curfew/{city}")
+async def get_city_curfew(city: str):
+    """Get curfew/unrest risk assessment for a city via GDELT + NLP."""
+    data = await evaluate_curfew_risk(city)
+    return {"city": city, "curfew": data}
 
 
 @app.get("/api/model/status")

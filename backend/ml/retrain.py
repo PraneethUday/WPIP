@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import date
 from db import supabase, PLATFORM_TABLES, fetch_worker_history
 from ml.weather import fetch_all_cities
+from ml.traffic import fetch_traffic_tti, _default_traffic
 from ml.premium_model import (
     build_features_from_history,
     build_training_data,
@@ -102,6 +103,21 @@ def retrain():
     city_weather = fetch_all_cities()
     cache_weather(city_weather)
 
+    # 1b. Fetch traffic TTI (Phase 3) — sync wrapper since retrain runs in a thread
+    print("[retrain] Fetching traffic TTI data...")
+    city_traffic: dict[str, dict] = {}
+    import asyncio
+    for city_name in city_weather.keys():
+        try:
+            loop = asyncio.new_event_loop()
+            traffic_data = loop.run_until_complete(fetch_traffic_tti(city_name))
+            loop.close()
+            city_traffic[city_name] = traffic_data
+            print(f"  {city_name}: TTI={traffic_data.get('tti', 'N/A')}")
+        except Exception as exc:
+            print(f"  {city_name}: traffic fetch failed ({exc}), using defaults")
+            city_traffic[city_name] = _default_traffic()
+
     for city, w in city_weather.items():
         print(f"  {city}: {w['temperature']}°C, AQI={w['aqi_index']}, Rain={w['rain_1h']}mm/h")
 
@@ -141,26 +157,34 @@ def retrain():
         print("[retrain] Not enough training samples. Skipping.")
         return
 
-    # 4. Build features + targets
-    print("[retrain] Building training dataset...")
-    X, y = build_training_data(all_histories, city_weather)
+    # 4. Build features + targets (now with 25 columns including traffic + curfew)
+    print("[retrain] Building training dataset (25-column tensor)...")
+    X, y = build_training_data(all_histories, city_weather, city_traffic)
     print(f"[retrain] Dataset: {X.shape[0]} samples, {X.shape[1]} features")
     print(f"[retrain] Premium range: ₹{y.min():.0f} — ₹{y.max():.0f} (mean: ₹{y.mean():.0f})")
+
+    # Invalidate old 23-column model if feature count changed
+    old_meta = load_metadata()
+    feature_count_changed = False
+    if old_meta and len(old_meta.get("features", [])) != X.shape[1]:
+        print(f"[retrain] Feature count changed ({len(old_meta.get('features', []))} -> {X.shape[1]}). Old model invalidated.")
+        feature_count_changed = True
 
     # 5. Train
     print("[retrain] Training XGBoost model...")
     model, rmse = train_model(X, y)
-    print(f"[retrain] New model RMSE: ₹{rmse:.2f}")
+    print(f"[retrain] New model RMSE: INR {rmse:.2f}")
 
-    # 6. Compare with existing model
-    old_meta = load_metadata()
-    if old_meta:
+    # 6. Compare with existing model (skip if feature count changed)
+    if old_meta and not feature_count_changed:
         old_rmse = old_meta.get("rmse", float("inf"))
-        print(f"[retrain] Previous model RMSE: ₹{old_rmse:.2f}")
+        print(f"[retrain] Previous model RMSE: INR {old_rmse:.2f}")
         if rmse > old_rmse * 1.1:  # allow 10% tolerance
             print(f"[retrain] New model is worse. Keeping old model.")
             return
         print(f"[retrain] New model is better or comparable. Replacing.")
+    elif feature_count_changed:
+        print("[retrain] Tensor shape changed — replacing model unconditionally.")
     else:
         print("[retrain] No existing model found. Saving first model.")
 

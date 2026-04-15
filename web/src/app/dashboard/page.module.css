@@ -314,6 +314,82 @@
   color: var(--amber);
 }
 
+/* ── Traffic strip ───────────────────────────────────────── */
+.trafficStrip {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: #0a1a3a;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  color: var(--info, #60a5fa);
+}
+
+/* ── Curfew strip ────────────────────────────────────────── */
+.curfewStrip {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--error-container, #1c0a0a);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  color: var(--error, #ef4444);
+}
+
+/* ── Strip section title ─────────────────────────────────── */
+.stripSectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+  margin-top: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Strip loading / error state ─────────────────────────── */
+.stripMuted {
+  font-size: 12px;
+  color: var(--faint);
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--elevated);
+}
+
+/* ── TTI badge ───────────────────────────────────────────── */
+.ttiBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ttiBadgeNormal {
+  background: var(--success-container);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.ttiBadgeModerate {
+  background: var(--amber-container);
+  color: var(--amber);
+  border: 1px solid rgba(255, 140, 66, 0.3);
+}
+.ttiBadgeSevere {
+  background: var(--error-container);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
 /* ── Plan cards ───────────────────────────────────────────── */
 .planCard {
   border: 1px solid var(--border);

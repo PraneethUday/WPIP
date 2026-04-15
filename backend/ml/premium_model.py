@@ -1,15 +1,16 @@
 """
 XGBoost-based weekly premium prediction model for GigGuard.
 
-Features:
+Features (25 columns):
   - Worker activity: rolling 7d avg earnings/deliveries/hours, trends
-  - Risk indicators: weather severity, AQI, past claims count
+  - Risk indicators: weather severity, AQI, traffic TTI, past claims count
+  - Unrest exposure flag (GDELT + NLP curfew signal)
   - City + platform encoding
   - Tier multiplier
 
 Target: weekly_premium (INR) = base_rate * risk_multiplier
   where base_rate = pct_of_avg_weekly_earnings
-  and risk_multiplier accounts for weather/AQI/claims history
+  and risk_multiplier accounts for weather/AQI/traffic/unrest history
 """
 
 import os
@@ -46,16 +47,23 @@ CITY_RISK_BASE = {
 }
 
 
-def build_features_from_history(history: list[dict], weather: dict | None = None) -> dict:
-    """Build ML feature vector from a worker's recent activity history + weather.
+def build_features_from_history(
+    history: list[dict],
+    weather: dict | None = None,
+    traffic: dict | None = None,
+    curfew: dict | None = None,
+) -> dict:
+    """Build ML feature vector from a worker's recent activity history + weather + traffic.
 
     Args:
         history: list of daily activity rows (most recent first), each with
                  keys: earnings, deliveries, active_hours, rating, date, city, platform
         weather: dict from weather.py with temperature, aqi_index, rain_1h, etc.
+        traffic: dict from traffic.py with tti, current_speed_kmh, etc.
+        curfew: dict from curfew.py with confidence, fired, etc.
 
     Returns:
-        flat dict of numeric features ready for model input
+        flat dict of 25 numeric features ready for model input
     """
     if not history:
         return _empty_features()
@@ -112,7 +120,7 @@ def build_features_from_history(history: list[dict], weather: dict | None = None
     is_extreme_heat = float(w.get("is_extreme_heat", False))
     is_severe_aqi = float(w.get("is_severe_aqi", False))
 
-    # Composite risk score (0-1 scale)
+    # Composite weather risk score (0-1 scale)
     weather_risk = min(1.0, (
         (rain_1h / 50.0) * 0.3 +
         (aqi_index / 500.0) * 0.3 +
@@ -124,6 +132,18 @@ def build_features_from_history(history: list[dict], weather: dict | None = None
     # City
     city = df["city"].iloc[-1] if "city" in df.columns else "Unknown"
     city_risk = CITY_RISK_BASE.get(city, 1.0)
+
+    # --- Phase 3: Traffic features ---
+    t = traffic or {}
+    tti_avg = float(t.get("tti", 1.0))
+    # traffic_risk = clip((TTI_avg - 1.2) / 2.0, 0, 1) * 0.2
+    historical_traffic_variance = float(
+        np.clip((tti_avg - 1.2) / 2.0, 0.0, 1.0) * 0.2
+    )
+
+    # --- Phase 3: Curfew / unrest features ---
+    c = curfew or {}
+    unrest_exposure_flag = 1 if c.get("fired", False) or c.get("confidence", 0) >= 0.8 else 0
 
     return {
         "avg_earnings_7d": round(avg_earnings_7d, 2),
@@ -149,11 +169,14 @@ def build_features_from_history(history: list[dict], weather: dict | None = None
         "is_severe_aqi": is_severe_aqi,
         "weather_risk": round(weather_risk, 4),
         "city_risk": city_risk,
+        # Phase 3 additions (columns 24-25)
+        "historical_traffic_variance": round(historical_traffic_variance, 4),
+        "unrest_exposure_flag": unrest_exposure_flag,
     }
 
 
 def _empty_features() -> dict:
-    """Return zero-filled features for workers with no history."""
+    """Return zero-filled features for workers with no history (25 columns)."""
     return {
         "avg_earnings_7d": 0, "avg_deliveries_7d": 0, "avg_hours_7d": 0,
         "avg_rating_7d": 0, "weekly_earnings_est": 0,
@@ -164,6 +187,9 @@ def _empty_features() -> dict:
         "humidity": 60, "wind_speed": 5,
         "is_heavy_rain": 0, "is_extreme_heat": 0, "is_severe_aqi": 0,
         "weather_risk": 0, "city_risk": 1.0,
+        # Phase 3
+        "historical_traffic_variance": 0.0,
+        "unrest_exposure_flag": 0,
     }
 
 
@@ -186,6 +212,14 @@ def compute_target_premium(features: dict, tier: str = "standard") -> float:
     # Weather risk: higher risk = higher premium (up to 1.5x)
     risk_mult = 1.0 + features["weather_risk"] * 0.5
 
+    # Phase 3: Traffic risk adds up to 1.2x on top of weather risk
+    traffic_var = features.get("historical_traffic_variance", 0.0)
+    traffic_mult = 1.0 + float(np.clip(traffic_var, 0.0, 0.2))
+
+    # Phase 3: Unrest exposure adds a flat 10% surcharge
+    unrest_flag = features.get("unrest_exposure_flag", 0)
+    unrest_mult = 1.10 if unrest_flag else 1.0
+
     # City multiplier
     city_mult = features["city_risk"]
 
@@ -201,7 +235,10 @@ def compute_target_premium(features: dict, tier: str = "standard") -> float:
     days_active = features.get("total_days_active", 7)
     activity_mult = max(0.9, min(1.3, 1.0 + (7 - min(days_active, 7)) / 14))
 
-    premium = base * risk_mult * city_mult * consistency_mult * efficiency_factor * activity_mult
+    premium = (
+        base * risk_mult * traffic_mult * unrest_mult
+        * city_mult * consistency_mult * efficiency_factor * activity_mult
+    )
 
     return round(premium, 2)
 
@@ -215,12 +252,14 @@ def clamp_premium(premium: float, tier: str = "standard") -> float:
 def build_training_data(
     all_worker_histories: list[tuple[str, list[dict], str]],
     city_weather: dict[str, dict] | None = None,
+    city_traffic: dict[str, dict] | None = None,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Build training dataset from worker histories.
 
     Args:
         all_worker_histories: list of (worker_id, history_rows, tier)
         city_weather: {city: weather_dict}
+        city_traffic: {city: traffic_dict} (Phase 3)
 
     Returns:
         X (DataFrame of features), y (Series of target premiums)
@@ -234,8 +273,9 @@ def build_training_data(
 
         city = history[0].get("city", "Unknown") if history else "Unknown"
         weather = (city_weather or {}).get(city)
+        traffic = (city_traffic or {}).get(city)
 
-        features = build_features_from_history(history, weather)
+        features = build_features_from_history(history, weather, traffic)
         target = compute_target_premium(features, tier)
 
         rows.append(features)

@@ -38,6 +38,26 @@ type Premium = {
   };
 };
 
+type TrafficData = {
+  tti: number;
+  current_speed_kmh: number;
+  free_flow_speed_kmh: number;
+  confidence: number;
+  road_closure: boolean;
+  traffic_risk: number;
+  source: string;
+};
+
+type CurfewData = {
+  confidence: number;
+  gdelt_events: number;
+  gdelt_score: number;
+  nlp_score: number;
+  nlp_label: string;
+  fired: boolean;
+  source: string;
+};
+
 type Tier = "basic" | "standard" | "pro";
 type QuoteMap = Partial<Record<Tier, Premium>>;
 
@@ -143,6 +163,21 @@ function riskLabel(risk: number): string {
   if (risk < 0.4) return "Moderate";
   if (risk < 0.7) return "High";
   return "Severe";
+}
+
+function ttiLabel(tti: number): { text: string; level: "normal" | "moderate" | "severe" } {
+  if (tti < 1.5) return { text: "Free Flow", level: "normal" };
+  if (tti < 2.0) return { text: "Light Congestion", level: "normal" };
+  if (tti < 2.5) return { text: "Moderate Congestion", level: "moderate" };
+  if (tti < 3.5) return { text: "Severe Congestion", level: "severe" };
+  return { text: "Gridlock", level: "severe" };
+}
+
+function curfewLabel(confidence: number): string {
+  if (confidence < 0.3) return "No signals";
+  if (confidence < 0.6) return "Low activity";
+  if (confidence < 0.8) return "Elevated risk";
+  return "Active alert";
 }
 
 function formatCardNumber(val: string): string {
@@ -257,6 +292,12 @@ export default function DashboardPage() {
   const [claims, setClaims] = useState<Record<string, unknown>[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(false);
 
+  // traffic & curfew
+  const [trafficData, setTrafficData] = useState<TrafficData | null>(null);
+  const [curfewData, setCurfewData] = useState<CurfewData | null>(null);
+  const [loadingTraffic, setLoadingTraffic] = useState(false);
+  const [loadingCurfew, setLoadingCurfew] = useState(false);
+
   // payment
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [showPayModal, setShowPayModal] = useState(false);
@@ -332,6 +373,11 @@ export default function DashboardPage() {
     fetchCurrentPremium(user);
     fetchTierQuotes(user);
     fetchClaims(user);
+    // Phase 3: fetch traffic and curfew data for user's city
+    if (user.city) {
+      fetchTraffic(user.city);
+      fetchCurfew(user.city);
+    }
     // load stored payments
     try {
       const stored = localStorage.getItem(paymentsStorageKey(user.id));
@@ -353,6 +399,32 @@ export default function DashboardPage() {
       /* silently fail */
     } finally {
       setLoadingClaims(false);
+    }
+  };
+
+  const fetchTraffic = async (city: string) => {
+    setLoadingTraffic(true);
+    try {
+      const res = await fetch(`/api/backend/traffic/${encodeURIComponent(city)}`);
+      const data = await res.json();
+      if (data?.traffic) setTrafficData(data.traffic);
+    } catch {
+      /* silently fail */
+    } finally {
+      setLoadingTraffic(false);
+    }
+  };
+
+  const fetchCurfew = async (city: string) => {
+    setLoadingCurfew(true);
+    try {
+      const res = await fetch(`/api/backend/curfew/${encodeURIComponent(city)}`);
+      const data = await res.json();
+      if (data?.curfew) setCurfewData(data.curfew);
+    } catch {
+      /* silently fail */
+    } finally {
+      setLoadingCurfew(false);
     }
   };
 
@@ -717,6 +789,78 @@ export default function DashboardPage() {
                       </span>
                     </div>
                   )}
+
+                  {/* Traffic strip */}
+                  {loadingTraffic ? (
+                    <div className={styles.stripMuted}>Loading traffic data...</div>
+                  ) : trafficData ? (
+                    <div className={styles.trafficStrip}>
+                      <span>
+                        TTI:{" "}
+                        <strong>{trafficData.tti.toFixed(2)}</strong>
+                        {" "}
+                        <span className={`${styles.ttiBadge} ${styles[`ttiBadge${ttiLabel(trafficData.tti).level.charAt(0).toUpperCase() + ttiLabel(trafficData.tti).level.slice(1)}`]}`}>
+                          {ttiLabel(trafficData.tti).text}
+                        </span>
+                      </span>
+                      <span>
+                        Speed:{" "}
+                        <strong>{trafficData.current_speed_kmh} km/h</strong>
+                      </span>
+                      <span>
+                        Free flow:{" "}
+                        <strong>{trafficData.free_flow_speed_kmh} km/h</strong>
+                      </span>
+                      <span>
+                        Traffic risk:{" "}
+                        <strong>{(trafficData.traffic_risk * 100).toFixed(0)}%</strong>
+                      </span>
+                      {trafficData.road_closure && (
+                        <span>
+                          <strong style={{ color: "var(--error)" }}>Road Closure Detected</strong>
+                        </span>
+                      )}
+                      <span style={{ opacity: 0.6 }}>
+                        Source: {trafficData.source}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {/* Curfew / unrest strip */}
+                  {loadingCurfew ? (
+                    <div className={styles.stripMuted}>Loading curfew data...</div>
+                  ) : curfewData ? (
+                    <div className={styles.curfewStrip}>
+                      <span>
+                        Unrest status:{" "}
+                        <strong>{curfewLabel(curfewData.confidence)}</strong>
+                      </span>
+                      <span>
+                        Confidence:{" "}
+                        <strong>{(curfewData.confidence * 100).toFixed(0)}%</strong>
+                      </span>
+                      <span>
+                        GDELT events:{" "}
+                        <strong>{curfewData.gdelt_events}</strong>
+                      </span>
+                      {curfewData.nlp_score > 0 && (
+                        <span>
+                          NLP match:{" "}
+                          <strong>
+                            {curfewData.nlp_label} ({(curfewData.nlp_score * 100).toFixed(0)}%)
+                          </strong>
+                        </span>
+                      )}
+                      {curfewData.fired && (
+                        <span>
+                          <strong style={{ color: "var(--error)" }}>T-06 Trigger Active</strong>
+                        </span>
+                      )}
+                      <span style={{ opacity: 0.6 }}>
+                        Source: {curfewData.source}
+                      </span>
+                    </div>
+                  ) : null}
 
                   <ul className={styles.coverList}>
                     {PLAN_DETAILS[currentTier].includes.map((item) => (
