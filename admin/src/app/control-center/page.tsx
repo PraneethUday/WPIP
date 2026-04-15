@@ -289,7 +289,7 @@ export default function ControlCenterPage() {
               borderRadius: 6,
             }}
           >
-            🚨 Disruptions
+            Disruptions
           </a>
           <a
             href="/admin"

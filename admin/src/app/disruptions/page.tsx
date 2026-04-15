@@ -393,8 +393,8 @@ export default function DisruptionsPage() {
                     }}
                   >
                     {tab === "overview"
-                      ? "🌦️ Weather & Triggers"
-                      : `📋 Claims (${totalClaims})`}
+                      ? " Weather & Triggers"
+                      : ` Claims (${totalClaims})`}
                   </button>
                 ))}
               </div>
@@ -639,7 +639,7 @@ export default function DisruptionsPage() {
                           opacity: firing ? 0.6 : 1,
                         }}
                       >
-                        {firing ? "Firing..." : "🔥 Fire Trigger"}
+                        {firing ? "Firing..." : "Fire Trigger"}
                       </button>
                     </div>
                   </div>

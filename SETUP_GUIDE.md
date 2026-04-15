@@ -105,32 +105,32 @@ The project uses **5 separate `.env` files** across different components. Below 
 # ============================================================
 
 # Supabase (shared)
-SUPABASE_URL=https://nqnhhdctbomisusqttll.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_6alKXPq0GgUnug8J4t6dyA_tYmy9e38
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xbmhoZGN0Ym9taXN1c3F0dGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk0Nzc1MSwiZXhwIjoyMDkwNTIzNzUxfQ._B30r0Y_igwmwsMW1RRgbTQuWp4JnHsON95efMvoAvk
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 
 
 
 ### 3.2 Backend `.env` — `/backend/.env`
 
-SUPABASE_URL=https://nqnhhdctbomisusqttll.supabase.co
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xbmhoZGN0Ym9taXN1c3F0dGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk0Nzc1MSwiZXhwIjoyMDkwNTIzNzUxfQ._B30r0Y_igwmwsMW1RRgbTQuWp4JnHsON95efMvoAvk
-OWM_API_KEY=abd42823f2ee732e3ecaccc4f31c7b5c
-JWT_SECRET=gigguard-super-secret-jwt-key-change-in-production
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+OWM_API_KEY=your_openweathermap_api_key
+JWT_SECRET=your_jwt_secret_min_32_chars
 
 
 ### 3.3 Web App `.env` — `/web/.env`
 
-NEXT_PUBLIC_SUPABASE_URL=https://nqnhhdctbomisusqttll.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_6alKXPq0GgUnug8J4t6dyA_tYmy9e38
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xbmhoZGN0Ym9taXN1c3F0dGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk0Nzc1MSwiZXhwIjoyMDkwNTIzNzUxfQ._B30r0Y_igwmwsMW1RRgbTQuWp4JnHsON95efMvoAvk
-JWT_SECRET=wpip-super-secret-jwt-key-change-in-production
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+JWT_SECRET=your_jwt_secret_min_32_chars
 
 
 ### 3.4 Admin Panel `.env` — `/admin/.env`
 
-NEXT_PUBLIC_SUPABASE_URL=https://nqnhhdctbomisusqttll.supabase.co
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xbmhoZGN0Ym9taXN1c3F0dGxsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk0Nzc1MSwiZXhwIjoyMDkwNTIzNzUxfQ._B30r0Y_igwmwsMW1RRgbTQuWp4JnHsON95efMvoAvk
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 BACKEND_URL=http://localhost:8000
 
 
@@ -138,8 +138,8 @@ BACKEND_URL=http://localhost:8000
 
 WEB_API_URL=http://localhost:3000
 BACKEND_API_URL=http://localhost:8000
-SUPABASE_URL=https://nqnhhdctbomisusqttll.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_6alKXPq0GgUnug8J4t6dyA_tYmy9e38
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### Environment Variables Summary Matrix
 

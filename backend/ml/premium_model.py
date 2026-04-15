@@ -32,9 +32,9 @@ METADATA_PATH = MODEL_DIR / "model_metadata.json"
 # Premium config per tier
 # Rate is applied to weekly_earnings_est; min/max are the allowed output bounds
 TIER_CONFIG = {
-    "basic":    {"rate": 0.015, "min": 10,  "max": 120,  "max_payout": 500},
-    "standard": {"rate": 0.025, "min": 20,  "max": 250, "max_payout": 1200},
-    "pro":      {"rate": 0.035, "min": 40,  "max": 400, "max_payout": 2500},
+    "basic":    {"rate": 0.008, "min": 40, "max": 80,  "max_payout": 500},
+    "standard": {"rate": 0.012, "min": 60, "max": 100, "max_payout": 1200},
+    "pro":      {"rate": 0.016, "min": 80, "max": 120, "max_payout": 2500},
 }
 
 # City risk weights (base — overridden by real weather data during prediction)
@@ -360,6 +360,11 @@ def predict_premium(
 
     X = pd.DataFrame([features], columns=FEATURE_COLS)
     raw_pred = float(model.predict(X)[0])
+
+    # Scale prediction by tier rate ratio (model trains on standard tier targets)
+    standard_rate = TIER_CONFIG["standard"]["rate"]
+    tier_rate = cfg["rate"]
+    raw_pred = raw_pred * (tier_rate / standard_rate)
 
     # Clamp to tier bounds only at serving time
     premium = clamp_premium(raw_pred, tier)

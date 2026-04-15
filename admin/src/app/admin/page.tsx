@@ -287,7 +287,7 @@ export default function AdminPage() {
               textDecoration: "none",
             }}
           >
-            🚨 Disruptions
+            Disruptions
           </a>
           <a
             href="/control-center"

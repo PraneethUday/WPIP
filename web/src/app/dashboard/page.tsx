@@ -3,6 +3,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
+// ─── Platform logos ───────────────────────────────────────────────────────────
+import {
+  SwiggyIcon,
+  ZomatoIcon,
+  BlinkitIcon,
+  ZeptoIcon,
+  MeeshoIcon,
+  DunzoIcon,
+  PorterIcon,
+} from "./PlatformIcons";
+
+const PLATFORM_LOGOS: Partial<Record<string, React.ReactNode>> = {
+  swiggy:  <SwiggyIcon height={14} />,
+  zomato:  <ZomatoIcon height={14} />,
+  blinkit: <BlinkitIcon height={14} />,
+  zepto:   <ZeptoIcon height={14} />,
+  meesho:  <MeeshoIcon height={12} />,
+  dunzo:   <DunzoIcon height={12} />,
+  porter:  <PorterIcon size={14} />,
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type User = {
@@ -103,9 +124,9 @@ const PLAN_DETAILS: Record<
   },
   standard: {
     label: "Standard Guard",
-    tag: "Balanced weekly protection",
+    tag: "Balanced Coverage",
     includes: ["Income loss support", "Weather disruption support"],
-  },
+  },  
   pro: {
     label: "Pro Protect",
     tag: "Highest payout priority",
@@ -274,6 +295,15 @@ function ProfileRow({
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -297,6 +327,27 @@ export default function DashboardPage() {
   const [curfewData, setCurfewData] = useState<CurfewData | null>(null);
   const [loadingTraffic, setLoadingTraffic] = useState(false);
   const [loadingCurfew, setLoadingCurfew] = useState(false);
+
+  // theme
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    // Read from the DOM attribute (already set by the anti-flash script before
+    // React hydrates) so state matches CSS on the very first render.
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "light") setTheme("light");
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("gg_theme", next);
+    if (next === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  };
 
   // payment
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -595,10 +646,70 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.brandBlock}>
-          <div className={styles.brandLogo}>WP</div>
-          <span className={styles.brandText}>WPIP</span>
+          <div className={styles.brandLogo}>GG</div>
+          <span className={styles.brandText}>GigGuard</span>
         </div>
+
+        {/* Center nav tabs */}
+        <nav className={styles.headerNavTabs}>
+          {NAV.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
         <div className={styles.headerActions}>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`${styles.themeBtn} ${theme === "light" ? styles.themeBtnLight : ""}`}
+            aria-label={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+          >
+            {theme === "dark" ? (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <line x1="12" y1="2" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="4.93" y1="4.93" x2="7.05" y2="7.05" />
+                <line x1="16.95" y1="16.95" x2="19.07" y2="19.07" />
+                <line x1="2" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+                <line x1="4.93" y1="19.07" x2="7.05" y2="16.95" />
+                <line x1="16.95" y1="7.05" x2="19.07" y2="4.93" />
+              </svg>
+            ) : (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
           <div className={styles.userBadge}>
             <div className={styles.userInitial}>
               {user.name.charAt(0).toUpperCase()}
@@ -612,107 +723,98 @@ export default function DashboardPage() {
       </header>
 
       <div className={styles.layout}>
-        {/* ── Sidebar ── */}
+        {/* ── Left Sidebar — Worker Info ── */}
         <aside className={styles.sidebar}>
-          {NAV.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`${styles.navBtn} ${tab === item.id ? styles.navBtnActive : ""}`}
-            >
-              {item.label}
-            </button>
-          ))}
+          <div className={styles.workerCard}>
+            <div className={styles.workerAvatar}>
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div className={styles.workerName}>{user.name}</div>
+            <div className={styles.workerRole}>{tierLabel}</div>
+            <div className={styles.workerCity}>{user.city || "–"}</div>
+          </div>
+
+          <div className={styles.sidebarStatGrid}>
+            <div className={styles.sidebarStat}>
+              <div className={styles.sidebarStatLabel}>Premium</div>
+              <div className={styles.sidebarStatValue}>
+                {money(currentWeeklyPremium)}
+              </div>
+            </div>
+            <div className={styles.sidebarStat}>
+              <div className={styles.sidebarStatLabel}>Max Payout</div>
+              <div className={styles.sidebarStatValue}>
+                {money(currentPremium?.max_payout)}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.sidebarStatus}>
+            <StatusPill
+              label="Coverage"
+              ok={coveredNow}
+              okText="Active"
+              badText="Inactive"
+            />
+            <StatusPill
+              label="Verification"
+              ok={verified}
+              okText="Verified"
+              badText="Pending"
+            />
+          </div>
+
+          <div className={styles.sidebarCta}>
+            <div className={styles.sidebarCtaEyebrow}>NEXT WEEK</div>
+            <div className={styles.sidebarCtaTitle}>Plan your coverage</div>
+            <div className={styles.sidebarCtaText}>{nextWindow.label}</div>
+          </div>
         </aside>
 
         <main className={styles.main}>
-          <div className={styles.content}>
+          <div>
             {/* ══ HOME TAB ══ */}
             {tab === "home" && (
-              <div>
-                <div className={styles.hero}>
-                  <h1 className={styles.heroTitle}>
-                    Coverage dashboard for {user.name}
-                  </h1>
-                  <p className={styles.heroSub}>
-                    Live insurance status, next-week plan, and weather-adjusted
-                    premium insights.
-                  </p>
-                  <div className={styles.heroStatusRow}>
-                    <StatusPill
-                      label="Now"
-                      ok={coveredNow}
-                      okText="Covered"
-                      badText="Not covered"
+              <div className={styles.homeGrid}>
+                <div className={styles.homeMain}>
+                  {/* Greeting */}
+                  <div className={styles.pageGreeting}>
+                    <h1 className={styles.greetTitle}>
+                      Good {greeting()}, {user.name.split(" ")[0]}.
+                    </h1>
+                    <p className={styles.greetSub}>
+                      {coveredNow
+                        ? "Your coverage is active this week"
+                        : "Coverage is not active this week"}{" "}
+                      · {user.city}
+                    </p>
+                  </div>
+
+                  <div className={styles.grid4}>
+                    <MetricCard
+                      label="Current plan"
+                      value={tierLabel}
+                      tone="blue"
                     />
-                    <StatusPill
-                      label="Next week"
-                      ok={coveredNextWeek}
-                      okText="Planned"
-                      badText="Not scheduled"
+                    <MetricCard
+                      label="Weekly premium"
+                      value={money(currentWeeklyPremium)}
+                      tone="green"
                     />
-                    <StatusPill
-                      label="Verification"
-                      ok={verified}
-                      okText="Verified"
-                      badText="Pending"
+                    <MetricCard
+                      label="Max payout"
+                      value={money(currentPremium?.max_payout)}
+                      tone="amber"
+                    />
+                    <MetricCard
+                      label="City"
+                      value={user.city || "–"}
+                      tone="ink"
                     />
                   </div>
-                </div>
 
-                <div className={styles.grid4}>
-                  <MetricCard
-                    label="Current plan"
-                    value={tierLabel}
-                    tone="blue"
-                  />
-                  <MetricCard
-                    label="Weekly premium"
-                    value={money(currentWeeklyPremium)}
-                    tone="green"
-                  />
-                  <MetricCard
-                    label="Max payout"
-                    value={money(currentPremium?.max_payout)}
-                    tone="amber"
-                  />
-                  <MetricCard
-                    label="City"
-                    value={user.city || "–"}
-                    tone="ink"
-                  />
-                </div>
-
-                {/* Pay Banner */}
-                <div className={styles.payBanner}>
-                  <div>
-                    <div className={styles.payBannerTitle}>
-                      This week&apos;s premium due
-                    </div>
-                    <div className={styles.payBannerAmount}>
-                      {money(currentWeeklyPremium)}
-                    </div>
-                    <div className={styles.bannerMeta}>
-                      {tierLabel} · {user.city}
-                    </div>
-                  </div>
-                  {paidToday ? (
-                    <div className={styles.payBannerPaid}>✓ Paid today</div>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.payBannerBtn}
-                      onClick={openPayModal}
-                      disabled={!currentPremium}
-                    >
-                      Pay Now →
-                    </button>
-                  )}
-                </div>
-
-                {/* Coverage this week */}
-                <section className={styles.panel}>
+                  {/* Coverage this week */}
+                  <section className={styles.panel}>
                   <div className={styles.panelHead}>
                     <h3 className={styles.panelTitle}>Coverage this week</h3>
                     <p className={styles.panelSub}>
@@ -970,12 +1072,13 @@ export default function DashboardPage() {
                         symbol: p.slice(0, 2).toUpperCase(),
                         iconClass: "platformIconDefault",
                       };
+                      const logo = PLATFORM_LOGOS[p];
                       return (
                         <span key={p} className={styles.platformChip}>
                           <span
                             className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
                           >
-                            {meta.symbol}
+                            {logo ?? meta.symbol}
                           </span>
                           {meta.name}
                         </span>
@@ -990,6 +1093,85 @@ export default function DashboardPage() {
                     inactive until verification completes.
                   </div>
                 )}
+                </div>
+
+                {/* ── Right aside ── */}
+                <aside className={styles.homeAside}>
+                  <div className={styles.asideCard}>
+                    <div className={styles.asideCardLabel}>UPCOMING PREMIUM</div>
+                    <div className={styles.asideCardAmount}>
+                      {money(currentWeeklyPremium)}
+                    </div>
+                    <div className={styles.asideCardMeta}>
+                      {tierLabel} · per week
+                    </div>
+                    <div className={styles.asideCardMeta}>{user.city}</div>
+                    {paidToday ? (
+                      <div className={styles.asidePaidBadge}>✓ Paid today</div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.asidePayBtn}
+                        onClick={openPayModal}
+                        disabled={!currentPremium}
+                      >
+                        Pay Premium →
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={styles.asideCard}>
+                    <div className={styles.asideCardLabel}>QUICK ACTIONS</div>
+                    <ul className={styles.quickActions}>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("payments")}
+                        >
+                          Pay This Week&apos;s Premium
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("claims")}
+                        >
+                          View Claims History
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("profile")}
+                        >
+                          Update Profile
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {currentPremium?.weather && (
+                    <div
+                      className={`${styles.asideCard} ${styles.asideRiskCard}`}
+                    >
+                      <div className={styles.asideCardLabel}>
+                        WEATHER & RISK
+                      </div>
+                      <div className={styles.riskBadge}>
+                        {riskLabel(currentPremium.weather_risk)} Risk
+                      </div>
+                      <div className={styles.riskDetails}>
+                        <span>{currentPremium.weather.weather_main}</span>
+                        <span>{currentPremium.weather.temperature}°C</span>
+                        <span>AQI {currentPremium.weather.aqi_index}</span>
+                        <span>Humidity {currentPremium.weather.humidity}%</span>
+                      </div>
+                    </div>
+                  )}
+                </aside>
               </div>
             )}
 
