@@ -185,9 +185,9 @@ async def poll_triggers() -> dict:
         for rule in TRIGGER_RULES:
             try:
                 if rule["check"](ctx):
-                    # Compute fuzzy severity (0.0–1.0) for this trigger + weather
+                    # Compute fuzzy severity (0.0–1.0) for this trigger + context
                     severity_label, severity_score = compute_trigger_severity(
-                        rule["trigger_id"], weather
+                        rule["trigger_id"], ctx
                     )
 
                     logger.warning(
@@ -552,7 +552,7 @@ def get_trigger_status() -> dict:
         for rule in TRIGGER_RULES:
             if rule["check"](ctx):
                 severity_label, severity_score = compute_trigger_severity(
-                    rule["trigger_id"], weather
+                    rule["trigger_id"], ctx
                 )
                 triggered.append({
                     "trigger_id": rule["trigger_id"],

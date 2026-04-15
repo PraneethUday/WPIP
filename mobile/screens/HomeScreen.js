@@ -19,6 +19,7 @@ const TRIGGER_ICONS = {
   severe_aqi: "cloud",
   flood: "water",
   extreme_heat: "thermometer",
+  traffic_congestion: "car",
   curfew: "ban",
 };
 
@@ -49,6 +50,22 @@ function riskLabel(risk) {
   if (risk < 0.4) return "MOD RISK";
   if (risk < 0.7) return "HIGH RISK";
   return "SEVERE";
+}
+
+function ttiLabel(tti) {
+  if (typeof tti !== "number") return "Unknown";
+  if (tti < 1.5) return "Free Flow";
+  if (tti < 2.0) return "Light";
+  if (tti < 2.5) return "Moderate";
+  if (tti < 3.5) return "Severe";
+  return "Gridlock";
+}
+
+function ttiColor(tti) {
+  if (typeof tti !== "number") return COLORS.textMuted;
+  if (tti < 2.0) return COLORS.success;
+  if (tti < 2.5) return COLORS.amber;
+  return COLORS.error;
 }
 
 function formatDate(value) {
@@ -165,6 +182,8 @@ const HomeScreen = ({ navigation }) => {
   }, [triggerStatus, user?.city]);
 
   const weather = cityData?.weather || premium?.weather || null;
+  const trafficData = cityData?.traffic || null;
+  const curfewData = cityData?.curfew || null;
   const activeTriggers = cityData?.triggers_fired || [];
 
   const currentPremium = user?.autopay
@@ -316,6 +335,45 @@ const HomeScreen = ({ navigation }) => {
             </Text>
           </View>
         </View>
+
+        {/* Traffic Card */}
+        {trafficData && (
+          <View style={styles.trafficCard}>
+            <View style={styles.trafficLeft}>
+              <View style={styles.trafficIconWrap}>
+                <Ionicons name="car" size={20} color={ttiColor(trafficData.tti)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.trafficTitle}>Traffic · {user?.city || "City"}</Text>
+                <Text style={styles.trafficSub}>
+                  TTI: {(trafficData.tti || 1).toFixed(2)} · {ttiLabel(trafficData.tti)}  ·  Speed: {Math.round(trafficData.current_speed_kmh || 0)} km/h
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.ttiBadge, { borderColor: ttiColor(trafficData.tti) + "40" }]}>
+              <Text style={[styles.ttiBadgeText, { color: ttiColor(trafficData.tti) }]}>
+                {ttiLabel(trafficData.tti).toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Curfew / Unrest Card */}
+        {curfewData && curfewData.gdelt_events > 0 && (
+          <View style={styles.curfewCard}>
+            <View style={styles.trafficLeft}>
+              <View style={[styles.trafficIconWrap, { backgroundColor: COLORS.error + "18" }]}>
+                <Ionicons name="ban" size={20} color={COLORS.error} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.trafficTitle}>Curfew / Unrest · {user?.city || "City"}</Text>
+                <Text style={styles.trafficSub}>
+                  GDELT events: {curfewData.gdelt_events}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {activeTriggers.length > 0 && (
           <View style={styles.alertCard}>
@@ -685,6 +743,64 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusFull,
     borderWidth: 1,
     borderColor: COLORS.amber + "40",
+  },
+  // Traffic card
+  trafficCard: {
+    marginHorizontal: SIZES.padding,
+    borderRadius: SIZES.radius * 1.2,
+    backgroundColor: COLORS.surfaceContainer,
+    padding: SIZES.padding * 0.85,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SIZES.padding * 0.5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  trafficLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SIZES.padding * 0.6,
+    flex: 1,
+    marginRight: SIZES.base,
+  },
+  trafficIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryContainer,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  trafficTitle: { fontSize: 14, fontFamily: FONTS.bold, color: COLORS.white },
+  trafficSub: {
+    fontSize: SIZES.small,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  ttiBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: SIZES.radiusFull,
+    borderWidth: 1,
+  },
+  ttiBadgeText: {
+    fontSize: SIZES.tiny,
+    fontFamily: FONTS.bold,
+    letterSpacing: 0.5,
+  },
+  curfewCard: {
+    marginHorizontal: SIZES.padding,
+    borderRadius: SIZES.radius * 1.2,
+    backgroundColor: COLORS.surfaceContainer,
+    padding: SIZES.padding * 0.85,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SIZES.padding,
+    borderWidth: 1,
+    borderColor: COLORS.error + "30",
   },
   riskBadgeText: {
     fontSize: SIZES.tiny,

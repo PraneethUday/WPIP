@@ -6,11 +6,12 @@ so payout amounts scale proportionally with disruption intensity, reducing
 basis risk in parametric insurance payouts.
 
 Calibration table:
-  T-01  Heavy Rain  — rain intensity (mm)  : 0% @ 20mm  → 100% @ 100mm
-  T-02  Extreme Heat — temperature (°C)    : 0% @ 39.5° → 100% @ 45°C
-  T-03  Severe AQI  — aqi_index            : 0% @ 300   → 100% @ 450
-  T-04  Flood Risk  — rain_3h (mm)         : 0% @ 64.5  → 100% @ 150mm
-  T-05  Curfew      — binary stub           : 0% or 100% (no fuzzy yet)
+  T-01  Heavy Rain        — rain intensity (mm)      : 0% @ 20mm  → 100% @ 100mm
+  T-02  Extreme Heat      — temperature (°C)         : 0% @ 39.5° → 100% @ 45°C
+  T-03  Severe AQI        — aqi_index                : 0% @ 300   → 100% @ 450
+  T-04  Flood Risk        — rain_3h (mm)             : 0% @ 64.5  → 100% @ 150mm
+  T-05  Traffic Congestion — TTI (Travel Time Index)  : 0% @ 2.5   → 100% @ 3.5
+  T-06  Curfew / Unrest   — GDELT+NLP confidence     : 0% @ 0.8   → 100% @ 0.95
 """
 
 from __future__ import annotations
@@ -62,7 +63,8 @@ _TRIGGER_CALIBRATION: dict[str, tuple[float, float]] = {
     "T-02": (39.5,  45.0),    # temperature (°C) — entry 39.5°C per design
     "T-03": (300.0, 450.0),   # aqi_index (India NAQI scale)
     "T-04": (64.5,  150.0),   # rain_3h (mm) for flood risk
-    "T-05": (0.0,   1.0),     # curfew stub — binary until govt feed integration
+    "T-05": (2.5,   3.5),     # TTI (Travel Time Index) — severe congestion scaling
+    "T-06": (0.8,   0.95),    # GDELT+NLP curfew/unrest confidence
 }
 
 
@@ -71,13 +73,14 @@ _TRIGGER_CALIBRATION: dict[str, tuple[float, float]] = {
 # ---------------------------------------------------------------------------
 
 def compute_trigger_severity(
-    trigger_id: str, weather: dict
+    trigger_id: str, ctx: dict
 ) -> tuple[str, float]:
-    """Compute fuzzy severity for a given trigger + weather snapshot.
+    """Compute fuzzy severity for a given trigger + context snapshot.
 
     Args:
-        trigger_id: GigGuard trigger code, e.g. "T-01", "T-02".
-        weather:    Weather dict from ml.weather.fetch_weather().
+        trigger_id: GigGuard trigger code, e.g. "T-01", "T-02", …, "T-06".
+        ctx:        Unified context dict containing weather, traffic, and
+                    curfew fields (built in triggers.poll_triggers).
 
     Returns:
         (text_label, float_score)
@@ -95,22 +98,26 @@ def compute_trigger_severity(
     if trigger_id == "T-01":
         # Use the strongest available rain signal:
         # rain_3h is preferable; if unavailable, extrapolate from rain_1h
-        rain_3h = weather.get("rain_3h", 0.0) or 0.0
-        rain_1h = weather.get("rain_1h", 0.0) or 0.0
+        rain_3h = ctx.get("rain_3h", 0.0) or 0.0
+        rain_1h = ctx.get("rain_1h", 0.0) or 0.0
         value = max(rain_3h, rain_1h * 3.0)
 
     elif trigger_id == "T-02":
-        value = float(weather.get("temperature", 0.0) or 0.0)
+        value = float(ctx.get("temperature", 0.0) or 0.0)
 
     elif trigger_id == "T-03":
-        value = float(weather.get("aqi_index", 0) or 0)
+        value = float(ctx.get("aqi_index", 0) or 0)
 
     elif trigger_id == "T-04":
-        value = float(weather.get("rain_3h", 0.0) or 0.0)
+        value = float(ctx.get("rain_3h", 0.0) or 0.0)
 
     elif trigger_id == "T-05":
-        # Curfew stub: binary until a government/news feed is integrated
-        value = 1.0 if weather.get("curfew_active", False) else 0.0
+        # Traffic congestion: use the current TTI value
+        value = float(ctx.get("tti", 1.0) or 1.0)
+
+    elif trigger_id == "T-06":
+        # Curfew / unrest: use GDELT+NLP combined confidence
+        value = float(ctx.get("curfew_confidence", 0.0) or 0.0)
 
     else:
         return ("severe", 1.0)
