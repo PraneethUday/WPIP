@@ -132,7 +132,7 @@ export default function LoginPage() {
                 className={styles.tabBtn}
                 onClick={() => router.push("/register")}
               >
-                Join the Ledger
+                Register
               </button>
             </nav>
 
@@ -193,7 +193,7 @@ export default function LoginPage() {
               disabled={loading}
               className={styles.submitBtn}
             >
-              {loading ? "Signing in..." : "Access Ledger →"}
+              {loading ? "Signing in..." : "Access Portal"}
             </button>
 
             <p className={styles.switchText}>
@@ -202,7 +202,7 @@ export default function LoginPage() {
                 className={styles.switchLink}
                 onClick={() => router.push("/register")}
               >
-                Join the Ledger
+                Register and get insured today!
               </span>
             </p>
           </div>

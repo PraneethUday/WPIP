@@ -426,13 +426,13 @@
   flex-shrink: 0;
 }
 .asideRiskCard {
-  background: var(--amber-container);
-  border-color: rgba(255, 140, 66, 0.25);
+  background: var(--elevated);
+  border-color: var(--border);
 }
 .riskBadge {
   font-size: 16px;
   font-weight: 800;
-  color: var(--amber);
+  color: var(--primary);
   margin-bottom: 8px;
 }
 .riskDetails {
@@ -440,10 +440,10 @@
   flex-wrap: wrap;
   gap: 5px;
   font-size: 11px;
-  color: var(--amber);
+  color: var(--primary);
 }
 .riskDetails span {
-  background: rgba(255, 140, 66, 0.12);
+  background: var(--primary-container);
   border-radius: 4px;
   padding: 2px 7px;
 }
@@ -632,13 +632,13 @@
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  border: 1px solid rgba(255, 140, 66, 0.3);
-  background: var(--amber-container);
+  border: 1px solid var(--border);
+  background: var(--elevated);
   border-radius: 10px;
   padding: 12px;
   font-size: 12px;
   margin-bottom: 12px;
-  color: var(--amber);
+  color: var(--primary);
 }
 
 /* ── Traffic strip ───────────────────────────────────────── */
@@ -646,13 +646,13 @@
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  background: #0a1a3a;
+  border: 1px solid var(--border);
+  background: var(--elevated);
   border-radius: 10px;
   padding: 12px;
   font-size: 12px;
   margin-bottom: 12px;
-  color: var(--info, #60a5fa);
+  color: var(--primary);
 }
 
 /* ── Curfew strip ────────────────────────────────────────── */
@@ -660,13 +660,13 @@
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  background: var(--error-container, #1c0a0a);
+  border: 1px solid var(--border);
+  background: var(--elevated);
   border-radius: 10px;
   padding: 12px;
   font-size: 12px;
   margin-bottom: 12px;
-  color: var(--error, #ef4444);
+  color: var(--primary);
 }
 
 /* ── Strip section title ─────────────────────────────────── */
@@ -744,9 +744,9 @@
   color: var(--white);
 }
 .planTag {
-  border: 1px solid rgba(255, 140, 66, 0.4);
-  background: var(--amber-container);
-  color: var(--amber);
+  border: 1px solid rgba(19, 42, 19, 0.6);
+  background: #132a13;
+  color: #ecf39e;
   font-size: 10px;
   padding: 3px 8px;
   border-radius: var(--radius-full);
