@@ -15,13 +15,13 @@ import {
 } from "./PlatformIcons";
 
 const PLATFORM_LOGOS: Partial<Record<string, React.ReactNode>> = {
-  swiggy:  <SwiggyIcon height={14} />,
-  zomato:  <ZomatoIcon height={14} />,
+  swiggy: <SwiggyIcon height={14} />,
+  zomato: <ZomatoIcon height={14} />,
   blinkit: <BlinkitIcon height={14} />,
-  zepto:   <ZeptoIcon height={14} />,
-  meesho:  <MeeshoIcon height={12} />,
-  dunzo:   <DunzoIcon height={12} />,
-  porter:  <PorterIcon size={14} />,
+  zepto: <ZeptoIcon height={14} />,
+  meesho: <MeeshoIcon height={12} />,
+  dunzo: <DunzoIcon height={12} />,
+  porter: <PorterIcon size={14} />,
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ const PLAN_DETAILS: Record<
     label: "Standard Guard",
     tag: "Balanced Coverage",
     includes: ["Income loss support", "Weather disruption support"],
-  },  
+  },
   pro: {
     label: "Pro Protect",
     tag: "Highest payout priority",
@@ -186,7 +186,10 @@ function riskLabel(risk: number): string {
   return "Severe";
 }
 
-function ttiLabel(tti: number): { text: string; level: "normal" | "moderate" | "severe" } {
+function ttiLabel(tti: number): {
+  text: string;
+  level: "normal" | "moderate" | "severe";
+} {
   if (tti < 1.5) return { text: "Free Flow", level: "normal" };
   if (tti < 2.0) return { text: "Light Congestion", level: "normal" };
   if (tti < 2.5) return { text: "Moderate Congestion", level: "moderate" };
@@ -456,7 +459,9 @@ export default function DashboardPage() {
   const fetchTraffic = async (city: string) => {
     setLoadingTraffic(true);
     try {
-      const res = await fetch(`/api/backend/traffic/${encodeURIComponent(city)}`);
+      const res = await fetch(
+        `/api/backend/traffic/${encodeURIComponent(city)}`,
+      );
       const data = await res.json();
       if (data?.traffic) setTrafficData(data.traffic);
     } catch {
@@ -469,7 +474,9 @@ export default function DashboardPage() {
   const fetchCurfew = async (city: string) => {
     setLoadingCurfew(true);
     try {
-      const res = await fetch(`/api/backend/curfew/${encodeURIComponent(city)}`);
+      const res = await fetch(
+        `/api/backend/curfew/${encodeURIComponent(city)}`,
+      );
       const data = await res.json();
       if (data?.curfew) setCurfewData(data.curfew);
     } catch {
@@ -647,7 +654,9 @@ export default function DashboardPage() {
       <header className={styles.header}>
         <div className={styles.brandBlock}>
           <div className={styles.brandLogo}>WPIP</div>
-          <span className={styles.brandText}>Worker Protection Insurance Portal</span>
+          <span className={styles.brandText}>
+            Worker Protection Insurance Portal
+          </span>
         </div>
 
         {/* Center nav tabs */}
@@ -815,290 +824,316 @@ export default function DashboardPage() {
 
                   {/* Coverage this week */}
                   <section className={styles.panel}>
-                  <div className={styles.panelHead}>
-                    <h3 className={styles.panelTitle}>Coverage this week</h3>
-                    <p className={styles.panelSub}>
-                      Active plan: {PLAN_DETAILS[currentTier].label}. Coverage
-                      requires verification and a computed premium.
-                    </p>
-                  </div>
+                    <div className={styles.panelHead}>
+                      <h3 className={styles.panelTitle}>Coverage this week</h3>
+                      <p className={styles.panelSub}>
+                        Active plan: {PLAN_DETAILS[currentTier].label}. Coverage
+                        requires verification and a computed premium.
+                      </p>
+                    </div>
 
-                  {loadingCurrent ? (
-                    <div className={styles.muted}>
-                      Calculating current-week premium…
-                    </div>
-                  ) : premiumError ? (
-                    <div className={styles.errorText}>{premiumError}</div>
-                  ) : currentPremium ? (
-                    <div className={styles.coverageGrid}>
-                      <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>Status</div>
-                        <div className={styles.coverageValue}>
-                          {coveredNow
-                            ? "Active coverage"
-                            : "Coverage unavailable"}
+                    {loadingCurrent ? (
+                      <div className={styles.muted}>
+                        Calculating current-week premium…
+                      </div>
+                    ) : premiumError ? (
+                      <div className={styles.errorText}>{premiumError}</div>
+                    ) : currentPremium ? (
+                      <div className={styles.coverageGrid}>
+                        <div className={styles.coverageCard}>
+                          <div className={styles.coverageLabel}>Status</div>
+                          <div className={styles.coverageValue}>
+                            {coveredNow
+                              ? "Active coverage"
+                              : "Coverage unavailable"}
+                          </div>
+                        </div>
+                        <div className={styles.coverageCard}>
+                          <div className={styles.coverageLabel}>
+                            Weekly premium
+                          </div>
+                          <div className={styles.coverageValue}>
+                            {money(currentWeeklyPremium)}
+                          </div>
+                        </div>
+                        <div className={styles.coverageCard}>
+                          <div className={styles.coverageLabel}>
+                            Max payout per claim
+                          </div>
+                          <div className={styles.coverageValue}>
+                            {money(currentPremium.max_payout)}
+                          </div>
+                        </div>
+                        <div className={styles.coverageCard}>
+                          <div className={styles.coverageLabel}>Risk level</div>
+                          <div className={styles.coverageValue}>
+                            {riskLabel(currentPremium.weather_risk)}
+                          </div>
                         </div>
                       </div>
-                      <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>
-                          Weekly premium
-                        </div>
-                        <div className={styles.coverageValue}>
-                          {money(currentWeeklyPremium)}
-                        </div>
+                    ) : (
+                      <div className={styles.muted}>
+                        Current plan data is not available.
                       </div>
-                      <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>
-                          Max payout per claim
-                        </div>
-                        <div className={styles.coverageValue}>
-                          {money(currentPremium.max_payout)}
-                        </div>
-                      </div>
-                      <div className={styles.coverageCard}>
-                        <div className={styles.coverageLabel}>Risk level</div>
-                        <div className={styles.coverageValue}>
-                          {riskLabel(currentPremium.weather_risk)}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={styles.muted}>
-                      Current plan data is not available.
-                    </div>
-                  )}
+                    )}
 
-                  {currentPremium?.weather && (
-                    <div className={styles.weatherStrip}>
-                      <span>
-                        Temp:{" "}
-                        <strong>{currentPremium.weather.temperature}°C</strong>
-                      </span>
-                      <span>
-                        AQI: <strong>{currentPremium.weather.aqi_index}</strong>
-                      </span>
-                      <span>
-                        Rain:{" "}
-                        <strong>{currentPremium.weather.rain_1h} mm/h</strong>
-                      </span>
-                      <span>
-                        Humidity:{" "}
-                        <strong>{currentPremium.weather.humidity}%</strong>
-                      </span>
-                      <span>
-                        Condition:{" "}
-                        <strong>{currentPremium.weather.weather_main}</strong>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Traffic strip */}
-                  {loadingTraffic ? (
-                    <div className={styles.stripMuted}>Loading traffic data...</div>
-                  ) : trafficData ? (
-                    <div className={styles.trafficStrip}>
-                      <span>
-                        TTI:{" "}
-                        <strong>{trafficData.tti.toFixed(2)}</strong>
-                        {" "}
-                        <span className={`${styles.ttiBadge} ${styles[`ttiBadge${ttiLabel(trafficData.tti).level.charAt(0).toUpperCase() + ttiLabel(trafficData.tti).level.slice(1)}`]}`}>
-                          {ttiLabel(trafficData.tti).text}
-                        </span>
-                      </span>
-                      <span>
-                        Speed:{" "}
-                        <strong>{trafficData.current_speed_kmh} km/h</strong>
-                      </span>
-                      <span>
-                        Free flow:{" "}
-                        <strong>{trafficData.free_flow_speed_kmh} km/h</strong>
-                      </span>
-                      <span>
-                        Traffic risk:{" "}
-                        <strong>{(trafficData.traffic_risk * 100).toFixed(0)}%</strong>
-                      </span>
-                      {trafficData.road_closure && (
+                    {currentPremium?.weather && (
+                      <div className={styles.weatherStrip}>
                         <span>
-                          <strong style={{ color: "var(--error)" }}>Road Closure Detected</strong>
-                        </span>
-                      )}
-                      <span style={{ opacity: 0.6 }}>
-                        Source: {trafficData.source}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {/* Curfew / unrest strip */}
-                  {loadingCurfew ? (
-                    <div className={styles.stripMuted}>Loading curfew data...</div>
-                  ) : curfewData ? (
-                    <div className={styles.curfewStrip}>
-                      <span>
-                        Unrest status:{" "}
-                        <strong>{curfewLabel(curfewData.confidence)}</strong>
-                      </span>
-                      <span>
-                        Confidence:{" "}
-                        <strong>{(curfewData.confidence * 100).toFixed(0)}%</strong>
-                      </span>
-                      <span>
-                        GDELT events:{" "}
-                        <strong>{curfewData.gdelt_events}</strong>
-                      </span>
-                      {curfewData.nlp_score > 0 && (
-                        <span>
-                          NLP match:{" "}
+                          Temp:{" "}
                           <strong>
-                            {curfewData.nlp_label} ({(curfewData.nlp_score * 100).toFixed(0)}%)
+                            {currentPremium.weather.temperature}°C
                           </strong>
                         </span>
-                      )}
-                      {curfewData.fired && (
                         <span>
-                          <strong style={{ color: "var(--error)" }}>T-06 Trigger Active</strong>
+                          AQI:{" "}
+                          <strong>{currentPremium.weather.aqi_index}</strong>
                         </span>
-                      )}
-                      <span style={{ opacity: 0.6 }}>
-                        Source: {curfewData.source}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  <ul className={styles.coverList}>
-                    {PLAN_DETAILS[currentTier].includes.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </section>
-
-                {/* Next week plan */}
-                <section className={styles.panel}>
-                  <div className={styles.panelHead}>
-                    <h3 className={styles.panelTitle}>
-                      Insurance for next week
-                    </h3>
-                    <p className={styles.panelSub}>
-                      {nextWindow.label} · select a plan to schedule it for next
-                      week.
-                    </p>
-                  </div>
-
-                  <div className={styles.grid3}>
-                    {TIERS.map((tier) => {
-                      const quote = quotes[tier];
-                      const selected = tier === nextWeekTier;
-                      return (
-                        <div
-                          key={tier}
-                          className={`${styles.planCard} ${selected ? styles.planCardSelected : ""}`}
-                        >
-                          <div className={styles.planTopRow}>
-                            <h4>{PLAN_DETAILS[tier].label}</h4>
-                            <span className={styles.planTag}>
-                              {PLAN_DETAILS[tier].tag}
-                            </span>
-                          </div>
-                          <div className={styles.planPremium}>
-                            {loadingQuotes && !quote
-                              ? "Calculating…"
-                              : money(
-                                  user.autopay
-                                    ? quote?.weekly_premium_autopay
-                                    : quote?.weekly_premium,
-                                )}
-                          </div>
-                          <div className={styles.planPayout}>
-                            Max payout: {money(quote?.max_payout)}
-                          </div>
-                          <button
-                            type="button"
-                            className={
-                              selected ? styles.planBtnSelected : styles.planBtn
-                            }
-                            onClick={() => applyNextWeekPlan(tier)}
-                          >
-                            {selected
-                              ? "Scheduled for next week"
-                              : "Choose for next week"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className={styles.nextWeekSummary}>
-                    <div>
-                      <div className={styles.coverageLabel}>Scheduled plan</div>
-                      <div className={styles.coverageValue}>
-                        {PLAN_DETAILS[nextWeekTier].label}
+                        <span>
+                          Rain:{" "}
+                          <strong>{currentPremium.weather.rain_1h} mm/h</strong>
+                        </span>
+                        <span>
+                          Humidity:{" "}
+                          <strong>{currentPremium.weather.humidity}%</strong>
+                        </span>
+                        <span>
+                          Condition:{" "}
+                          <strong>{currentPremium.weather.weather_main}</strong>
+                        </span>
                       </div>
-                    </div>
-                    <div>
-                      <div className={styles.coverageLabel}>
-                        Projected premium
-                      </div>
-                      <div className={styles.coverageValue}>
-                        {money(nextWeeklyPremium)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className={styles.coverageLabel}>Coverage state</div>
-                      <div className={styles.coverageValue}>
-                        {coveredNextWeek
-                          ? "Will be covered"
-                          : "Not covered yet"}
-                      </div>
-                    </div>
-                  </div>
+                    )}
 
-                  <ul className={styles.coverList}>
-                    {PLAN_DETAILS[nextWeekTier].includes.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-
-                  {planMessage && (
-                    <div className={styles.successText}>{planMessage}</div>
-                  )}
-                </section>
-
-                {/* Platforms */}
-                <section className={styles.panel}>
-                  <h3 className={styles.panelTitle}>Connected platforms</h3>
-                  <div className={styles.platformWrap}>
-                    {user.platforms.map((p) => {
-                      const meta = PLATFORM_META[p] ?? {
-                        name: p,
-                        symbol: p.slice(0, 2).toUpperCase(),
-                        iconClass: "platformIconDefault",
-                      };
-                      const logo = PLATFORM_LOGOS[p];
-                      return (
-                        <span key={p} className={styles.platformChip}>
+                    {/* Traffic strip */}
+                    {loadingTraffic ? (
+                      <div className={styles.stripMuted}>
+                        Loading traffic data...
+                      </div>
+                    ) : trafficData ? (
+                      <div className={styles.trafficStrip}>
+                        <span>
+                          TTI: <strong>{trafficData.tti.toFixed(2)}</strong>{" "}
                           <span
-                            className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
+                            className={`${styles.ttiBadge} ${styles[`ttiBadge${ttiLabel(trafficData.tti).level.charAt(0).toUpperCase() + ttiLabel(trafficData.tti).level.slice(1)}`]}`}
                           >
-                            {logo ?? meta.symbol}
+                            {ttiLabel(trafficData.tti).text}
                           </span>
-                          {meta.name}
                         </span>
-                      );
-                    })}
-                  </div>
-                </section>
+                        <span>
+                          Speed:{" "}
+                          <strong>{trafficData.current_speed_kmh} km/h</strong>
+                        </span>
+                        <span>
+                          Free flow:{" "}
+                          <strong>
+                            {trafficData.free_flow_speed_kmh} km/h
+                          </strong>
+                        </span>
+                        <span>
+                          Traffic risk:{" "}
+                          <strong>
+                            {(trafficData.traffic_risk * 100).toFixed(0)}%
+                          </strong>
+                        </span>
+                        {trafficData.road_closure && (
+                          <span>
+                            <strong style={{ color: "var(--error)" }}>
+                              Road Closure Detected
+                            </strong>
+                          </span>
+                        )}
+                        <span style={{ opacity: 0.6 }}>
+                          Source: {trafficData.source}
+                        </span>
+                      </div>
+                    ) : null}
 
-                {!verified && (
-                  <div className={styles.warningBox}>
-                    Your account is pending verification. Insurance remains
-                    inactive until verification completes.
-                  </div>
-                )}
+                    {/* Curfew / unrest strip */}
+                    {loadingCurfew ? (
+                      <div className={styles.stripMuted}>
+                        Loading curfew data...
+                      </div>
+                    ) : curfewData ? (
+                      <div className={styles.curfewStrip}>
+                        <span>
+                          Unrest status:{" "}
+                          <strong>{curfewLabel(curfewData.confidence)}</strong>
+                        </span>
+                        <span>
+                          Confidence:{" "}
+                          <strong>
+                            {(curfewData.confidence * 100).toFixed(0)}%
+                          </strong>
+                        </span>
+                        <span>
+                          GDELT events:{" "}
+                          <strong>{curfewData.gdelt_events}</strong>
+                        </span>
+                        {curfewData.nlp_score > 0 && (
+                          <span>
+                            NLP match:{" "}
+                            <strong>
+                              {curfewData.nlp_label} (
+                              {(curfewData.nlp_score * 100).toFixed(0)}%)
+                            </strong>
+                          </span>
+                        )}
+                        {curfewData.fired && (
+                          <span>
+                            <strong style={{ color: "var(--error)" }}>
+                              T-06 Trigger Active
+                            </strong>
+                          </span>
+                        )}
+                        <span style={{ opacity: 0.6 }}>
+                          Source: {curfewData.source}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    <ul className={styles.coverList}>
+                      {PLAN_DETAILS[currentTier].includes.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  {/* Next week plan */}
+                  <section className={styles.panel}>
+                    <div className={styles.panelHead}>
+                      <h3 className={styles.panelTitle}>
+                        Insurance for next week
+                      </h3>
+                      <p className={styles.panelSub}>
+                        {nextWindow.label} · select a plan to schedule it for
+                        next week.
+                      </p>
+                    </div>
+
+                    <div className={styles.grid3}>
+                      {TIERS.map((tier) => {
+                        const quote = quotes[tier];
+                        const selected = tier === nextWeekTier;
+                        return (
+                          <div
+                            key={tier}
+                            className={`${styles.planCard} ${selected ? styles.planCardSelected : ""}`}
+                          >
+                            <div className={styles.planTopRow}>
+                              <h4>{PLAN_DETAILS[tier].label}</h4>
+                              <span className={styles.planTag}>
+                                {PLAN_DETAILS[tier].tag}
+                              </span>
+                            </div>
+                            <div className={styles.planPremium}>
+                              {loadingQuotes && !quote
+                                ? "Calculating…"
+                                : money(
+                                    user.autopay
+                                      ? quote?.weekly_premium_autopay
+                                      : quote?.weekly_premium,
+                                  )}
+                            </div>
+                            <div className={styles.planPayout}>
+                              Max payout: {money(quote?.max_payout)}
+                            </div>
+                            <button
+                              type="button"
+                              className={
+                                selected
+                                  ? styles.planBtnSelected
+                                  : styles.planBtn
+                              }
+                              onClick={() => applyNextWeekPlan(tier)}
+                            >
+                              {selected
+                                ? "Scheduled for next week"
+                                : "Choose for next week"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className={styles.nextWeekSummary}>
+                      <div>
+                        <div className={styles.coverageLabel}>
+                          Scheduled plan
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {PLAN_DETAILS[nextWeekTier].label}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.coverageLabel}>
+                          Projected premium
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {money(nextWeeklyPremium)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.coverageLabel}>
+                          Coverage state
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {coveredNextWeek
+                            ? "Will be covered"
+                            : "Not covered yet"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <ul className={styles.coverList}>
+                      {PLAN_DETAILS[nextWeekTier].includes.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+
+                    {planMessage && (
+                      <div className={styles.successText}>{planMessage}</div>
+                    )}
+                  </section>
+
+                  {/* Platforms */}
+                  <section className={styles.panel}>
+                    <h3 className={styles.panelTitle}>Connected platforms</h3>
+                    <div className={styles.platformWrap}>
+                      {user.platforms.map((p) => {
+                        const meta = PLATFORM_META[p] ?? {
+                          name: p,
+                          symbol: p.slice(0, 2).toUpperCase(),
+                          iconClass: "platformIconDefault",
+                        };
+                        const logo = PLATFORM_LOGOS[p];
+                        return (
+                          <span key={p} className={styles.platformChip}>
+                            <span
+                              className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
+                            >
+                              {logo ?? meta.symbol}
+                            </span>
+                            {meta.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {!verified && (
+                    <div className={styles.warningBox}>
+                      Your account is pending verification. Insurance remains
+                      inactive until verification completes.
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Right aside ── */}
                 <aside className={styles.homeAside}>
                   <div className={styles.asideCard}>
-                    <div className={styles.asideCardLabel}>UPCOMING PREMIUM</div>
+                    <div className={styles.asideCardLabel}>
+                      UPCOMING PREMIUM
+                    </div>
                     <div className={styles.asideCardAmount}>
                       {money(currentWeeklyPremium)}
                     </div>
@@ -1617,7 +1652,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={styles.modalDisclaimer}>
-                  🔒 This is a mock payment. No real transaction will occur.
+                  This is a mock payment. No real transaction will occur.
                 </div>
               </>
             )}

@@ -53,6 +53,8 @@ export default function PaymentScreen({ navigation }) {
   const [currentPremium, setCurrentPremium] = useState(null);
   const [loadingPremium, setLoadingPremium] = useState(true);
   const [payments, setPayments] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [method, setMethod] = useState("upi");
   const [form, setForm] = useState({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
@@ -63,6 +65,7 @@ export default function PaymentScreen({ navigation }) {
   const storageKey = `${STORAGE_KEY_PREFIX}${user?.id || "guest"}`;
 
   const loadData = useCallback(async () => {
+    // ── Premium ──────────────────────────────────────────────
     setLoadingPremium(true);
     try {
       if (user?.delivery_id && user?.city) {
@@ -72,19 +75,31 @@ export default function PaymentScreen({ navigation }) {
     } catch {} finally {
       setLoadingPremium(false);
     }
+
+    // ── Payment history — always prefer server ───────────────
+    setLoadingHistory(true);
+    setHistoryError("");
     try {
       const res = await api.getPaymentHistory(token);
+      // Use server response unconditionally — it is the source of truth.
+      // Server returns [] for accounts with no payments, which is correct.
       const serverPayments = res?.payments ?? [];
-      if (serverPayments.length > 0) {
-        setPayments(serverPayments);
-        await AsyncStorage.setItem(storageKey, JSON.stringify(serverPayments));
-        return;
+      setPayments(serverPayments);
+      // Keep local cache in sync for offline use
+      AsyncStorage.setItem(storageKey, JSON.stringify(serverPayments)).catch(() => {});
+    } catch (err) {
+      // Server failed — surface the real error and fall back to local cache
+      const msg = err?.message || "Could not load payment history.";
+      setHistoryError(msg);
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (raw) setPayments(JSON.parse(raw));
+      } catch {
+        setPayments([]);
       }
-    } catch {}
-    try {
-      const raw = await AsyncStorage.getItem(storageKey);
-      if (raw) setPayments(JSON.parse(raw));
-    } catch { setPayments([]); }
+    } finally {
+      setLoadingHistory(false);
+    }
   }, [user, token, storageKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -184,7 +199,20 @@ export default function PaymentScreen({ navigation }) {
 
         {/* Payment History */}
         <Text style={styles.sectionTitle}>Payment History</Text>
-        {payments.length === 0 ? (
+
+        {!!historyError && (
+          <View style={styles.historyErrorCard}>
+            <Ionicons name="cloud-offline-outline" size={16} color={COLORS.error} />
+            <Text style={styles.historyErrorText}>{historyError}</Text>
+          </View>
+        )}
+
+        {loadingHistory ? (
+          <View style={styles.historyLoading}>
+            <ActivityIndicator color={COLORS.primary} size="small" />
+            <Text style={styles.historyLoadingText}>Loading from server…</Text>
+          </View>
+        ) : payments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="receipt-outline" size={32} color={COLORS.textFaint} />
             <Text style={styles.emptyText}>No payments yet.</Text>
@@ -347,6 +375,10 @@ const createStyles = (COLORS, FONTS) =>
     emptyCard: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.2, borderWidth: 1, borderColor: COLORS.border, padding: SIZES.padding * 1.5, alignItems: "center", gap: 8 },
     emptyText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.textMuted },
     emptySubText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint, textAlign: "center" },
+    historyErrorCard: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: COLORS.errorContainer, borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.error + "40", padding: 12, marginBottom: SIZES.base },
+    historyErrorText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error, flex: 1 },
+    historyLoading: { flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "center", paddingVertical: SIZES.padding * 1.5 },
+    historyLoadingText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
     historyCard: { backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius * 1.2, borderWidth: 1, borderColor: COLORS.border },
     historyRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: SIZES.padding * 0.85 },
     historyBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },

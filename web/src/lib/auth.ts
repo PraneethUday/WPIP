@@ -2,15 +2,17 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
 const primarySecret = process.env.JWT_SECRET || "wpip-dev-secret";
-const legacyDevSecret = "wpip-dev-secret";
 
 const signingSecret = new TextEncoder().encode(primarySecret);
 
+// Accept tokens from both the web and the Python backend regardless of
+// which default secret was in use when the token was issued.
+const knownSecrets = ["wpip-dev-secret", "gigguard-dev-secret"];
 const verifySecrets = [
   new TextEncoder().encode(primarySecret),
-  ...(primarySecret !== legacyDevSecret
-    ? [new TextEncoder().encode(legacyDevSecret)]
-    : []),
+  ...knownSecrets
+    .filter(s => s !== primarySecret)
+    .map(s => new TextEncoder().encode(s)),
 ];
 
 export async function hashPassword(password: string): Promise<string> {

@@ -6,22 +6,32 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../lib/api";
 
+const PAY_STORAGE_KEY_PREFIX = "gg_payments_";
+
+function formatCardNumber(raw) {
+  return raw.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+}
+function formatExpiry(raw) {
+  const d = raw.replace(/\D/g, "").slice(0, 4);
+  return d.length >= 3 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+}
+
 const TRIGGER_ICONS = {
-  heavy_rain: "rainy",
-  severe_aqi: "cloud",
-  flood: "water",
-  extreme_heat: "thermometer",
-  traffic_congestion: "car",
-  curfew: "ban",
+  heavy_rain: "rainy", severe_aqi: "cloud", flood: "water",
+  extreme_heat: "thermometer", traffic_congestion: "car", curfew: "ban",
 };
 
 const PLATFORM_NAMES = {
@@ -39,14 +49,14 @@ function titleCaseTier(tier) {
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 function riskLabel(risk) {
-  if (typeof risk !== "number") return "UNKNOWN";
-  if (risk < 0.15) return "LOW RISK";
-  if (risk < 0.4) return "MOD RISK";
-  if (risk < 0.7) return "HIGH RISK";
-  return "SEVERE";
+  if (typeof risk !== "number") return "—";
+  if (risk < 0.15) return "Low Risk";
+  if (risk < 0.4)  return "Moderate";
+  if (risk < 0.7)  return "High Risk";
+  return "Severe";
 }
 function ttiLabel(tti) {
-  if (typeof tti !== "number") return "Unknown";
+  if (typeof tti !== "number") return "—";
   if (tti < 1.5) return "Free Flow";
   if (tti < 2.0) return "Light";
   if (tti < 2.5) return "Moderate";
@@ -60,15 +70,15 @@ function ttiColor(tti, COLORS) {
   return COLORS.error;
 }
 function formatDate(value) {
-  if (!value) return "Unknown date";
+  if (!value) return "—";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "Unknown date";
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 function getStatusTone(status, COLORS) {
-  if (status === "paid") return { color: COLORS.success, label: "Paid" };
-  if (status === "approved" || status === "pending") return { color: COLORS.amber, label: "Processing" };
-  if (status === "rejected") return { color: COLORS.error, label: "Rejected" };
+  if (status === "paid")                               return { color: COLORS.success, label: "Paid" };
+  if (status === "approved" || status === "pending")  return { color: COLORS.amber, label: "Processing" };
+  if (status === "rejected")                          return { color: COLORS.error, label: "Rejected" };
   return { color: COLORS.info, label: "Initiated" };
 }
 
@@ -77,95 +87,168 @@ const HomeScreen = ({ navigation }) => {
   const { COLORS, FONTS } = useTheme();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [premium, setPremium] = useState(null);
-  const [claims, setClaims] = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [error, setError]               = useState("");
+  const [premium, setPremium]           = useState(null);
+  const [claims, setClaims]             = useState([]);
   const [triggerStatus, setTriggerStatus] = useState({});
 
-  const deliveryId = user?.delivery_id;
-  const userCity = user?.city;
-  const userTier = user?.tier || "standard";
+  // Payment modal state
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payMethod, setPayMethod]       = useState("upi");
+  const [payForm, setPayForm]           = useState({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
+  const [paying, setPaying]             = useState(false);
+  const [payError, setPayError]         = useState("");
+  const [paySuccess, setPaySuccess]     = useState(null);
+  const [paidThisWeek, setPaidThisWeek] = useState(false);
 
-  const loadDashboard = useCallback(
-    async (isRefresh = false) => {
-      if (!deliveryId) {
-        setLoading(false);
-        setClaims([]);
-        setPremium(null);
-        setError("Missing delivery ID for this account.");
-        return;
-      }
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError("");
-      try {
-        if (isRefresh) await refreshUser();
-        const [premiumRes, claimsRes, triggersRes] = await Promise.allSettled([
-          api.predictPremium(deliveryId, userCity, userTier),
-          api.getWorkerClaims(token, deliveryId),
-          api.getTriggerStatus(),
-        ]);
-        if (premiumRes.status === "fulfilled") setPremium(premiumRes.value);
-        if (claimsRes.status === "fulfilled") setClaims(claimsRes.value?.data || []);
-        else setClaims([]);
-        if (triggersRes.status === "fulfilled") setTriggerStatus(triggersRes.value || {});
-        if (premiumRes.status === "rejected" && claimsRes.status === "rejected") {
-          setError("Unable to load live dashboard data right now.");
-        }
-      } catch {
-        setError("Unable to load live dashboard data right now.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [deliveryId, refreshUser, token, userCity, userTier],
-  );
+  const storageKey = `${PAY_STORAGE_KEY_PREFIX}${user?.id || "guest"}`;
+
+  const deliveryId = user?.delivery_id;
+  const userCity   = user?.city;
+  const userTier   = user?.tier || "standard";
+
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (!deliveryId) {
+      setLoading(false); setClaims([]); setPremium(null);
+      setError("Missing delivery ID for this account.");
+      return;
+    }
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    setError("");
+    try {
+      if (isRefresh) await refreshUser();
+      const [premiumRes, claimsRes, triggersRes] = await Promise.allSettled([
+        api.predictPremium(deliveryId, userCity, userTier),
+        api.getWorkerClaims(token, deliveryId),
+        api.getTriggerStatus(),
+      ]);
+      if (premiumRes.status  === "fulfilled") setPremium(premiumRes.value);
+      if (claimsRes.status   === "fulfilled") setClaims(claimsRes.value?.data || []);
+      else setClaims([]);
+      if (triggersRes.status === "fulfilled") setTriggerStatus(triggersRes.value || {});
+      if (premiumRes.status  === "rejected" && claimsRes.status === "rejected")
+        setError("Unable to load live data right now.");
+    } catch {
+      setError("Unable to load live data right now.");
+    } finally {
+      setLoading(false); setRefreshing(false);
+    }
+  }, [deliveryId, refreshUser, token, userCity, userTier]);
 
   useEffect(() => { loadDashboard(false); }, [loadDashboard]);
 
-  const cityData = useMemo(() => {
-    if (!user?.city) return null;
-    return triggerStatus?.[user.city] || null;
-  }, [triggerStatus, user?.city]);
+  // Check paid-this-week from server first, fall back to local cache
+  useEffect(() => {
+    async function checkPaidThisWeek() {
+      const isWithinWeek = (ts) =>
+        ts && ((new Date() - new Date(ts)) / (1000 * 60 * 60 * 24)) < 7;
 
-  const weather = cityData?.weather || premium?.weather || null;
-  const trafficData = cityData?.traffic || null;
-  const curfewData = cityData?.curfew || null;
+      // Try server first — this catches payments made on web/other devices
+      if (token) {
+        try {
+          const res = await api.getPaymentHistory(token);
+          const serverPayments = res?.payments ?? [];
+          // Keep local cache in sync
+          AsyncStorage.setItem(storageKey, JSON.stringify(serverPayments)).catch(() => {});
+          const paid = serverPayments.some(p => p.status === "success" && isWithinWeek(p.timestamp));
+          setPaidThisWeek(paid);
+          return;
+        } catch {
+          // Fall through to local cache
+        }
+      }
+
+      // Offline fallback
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        setPaidThisWeek(saved.some(p => p.status === "success" && isWithinWeek(p.timestamp)));
+      } catch {}
+    }
+    checkPaidThisWeek();
+  }, [storageKey, token]);
+
+  function openPayModal() {
+    setPayForm({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
+    setPayError(""); setPaySuccess(null); setPayMethod("upi"); setShowPayModal(true);
+  }
+  function closePayModal() { setShowPayModal(false); setPaySuccess(null); setPayError(""); setPaying(false); }
+
+  function validatePayForm() {
+    if (payMethod === "upi") {
+      if (!payForm.upiId.trim()) return "Enter your UPI ID.";
+      if (!/^[\w.\-+]+@[\w]+$/.test(payForm.upiId.trim())) return "Enter a valid UPI ID (e.g. name@upi).";
+    } else {
+      if (payForm.cardNumber.replace(/\s/g, "").length !== 16) return "Enter a valid 16-digit card number.";
+      if (!payForm.expiry || payForm.expiry.length < 5) return "Enter a valid expiry (MM/YY).";
+      if (!payForm.cvv || payForm.cvv.length < 3) return "Enter a valid CVV.";
+      if (!payForm.name.trim()) return "Enter the cardholder name.";
+    }
+    return null;
+  }
+
+  async function handlePay() {
+    const err = validatePayForm();
+    if (err) { setPayError(err); return; }
+    setPaying(true); setPayError("");
+    try {
+      const res = await api.payPremium(token, {
+        method: payMethod, amount: weeklyPremiumAmt,
+        tier: user?.tier || "standard", worker_id: user?.id,
+      });
+      const record = {
+        transaction_id: res.transaction_id, method: payMethod,
+        amount: res.amount ?? weeklyPremiumAmt,
+        tier: res.tier || user?.tier || "standard",
+        status: "success", timestamp: res.timestamp || new Date().toISOString(),
+      };
+      const saved = await AsyncStorage.getItem(storageKey).then(r => r ? JSON.parse(r) : []).catch(() => []);
+      await AsyncStorage.setItem(storageKey, JSON.stringify([record, ...saved]));
+      setPaidThisWeek(true);
+      setPaySuccess(record);
+    } catch (e) {
+      setPayError(e.message || "Payment failed. Please try again.");
+    } finally { setPaying(false); }
+  }
+
+  const cityData      = useMemo(() => (user?.city ? triggerStatus?.[user.city] || null : null), [triggerStatus, user?.city]);
+  const weather       = cityData?.weather || premium?.weather || null;
+  const trafficData   = cityData?.traffic || null;
   const activeTriggers = cityData?.triggers_fired || [];
 
-  const currentPremium = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
-  const coverageActive = user?.verification_status === "verified" && !!premium;
-  const paidClaims = claims.filter((c) => c.payout_status === "paid" || c.status === "paid");
-  const totalPaid = paidClaims.reduce((sum, claim) => sum + (Number(claim.payout_amount) || 0), 0);
+  const currentPremium    = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
+  const weeklyPremiumAmt  = currentPremium || premium?.weekly_premium || 0;
+  const coverageActive    = user?.verification_status === "verified" && !!premium;
+  const paidClaims      = claims.filter(c => c.payout_status === "paid" || c.status === "paid");
+  const totalPaid       = paidClaims.reduce((s, c) => s + (Number(c.payout_amount) || 0), 0);
 
   const recentActivity = useMemo(() => {
-    const claimItems = claims.slice(0, 3).map((claim) => {
+    const items = claims.slice(0, 3).map(claim => {
       const tone = getStatusTone(claim.payout_status || claim.status, COLORS);
       return {
         icon: TRIGGER_ICONS[claim.trigger_type] || "document-text",
         color: tone.color,
-        title: `${tone.label} · ${claim.claim_number || "Claim"}`,
-        sub: `${formatDate(claim.created_at)} · ${money(Number(claim.payout_amount))}`,
+        title: claim.trigger_type
+          ? claim.trigger_type.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+          : "Claim",
+        status: tone.label,
+        amount: money(Number(claim.payout_amount)),
+        date: formatDate(claim.created_at),
       };
     });
-    if (claimItems.length > 0) return claimItems;
-    return [{
-      icon: "shield-checkmark",
-      color: COLORS.success,
-      title: "No claims yet",
-      sub: "Your claims will appear automatically during disruptions.",
-    }];
+    if (items.length > 0) return items;
+    return [{ icon: "shield-checkmark", color: COLORS.primary, title: "No claims yet", status: "Protected", amount: "—", date: "—" }];
   }, [claims, COLORS]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loaderWrap}>
+        <View style={styles.loader}>
           <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>Loading your dashboard...</Text>
+          <Text style={styles.loaderText}>Loading dashboard…</Text>
         </View>
       </SafeAreaView>
     );
@@ -173,246 +256,348 @@ const HomeScreen = ({ navigation }) => {
 
   const greeting = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning,";
-    if (h < 17) return "Good afternoon,";
-    return "Good evening,";
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
   })();
+
+  const firstName = user?.name?.split(" ")[0] || "there";
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <View>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.userName}>{user?.name || "GigGuard User"}</Text>
-            <View style={styles.platformBadge}>
-              <Text style={styles.platformBadgeText}>
-                {(user?.platforms || []).length > 0
-                  ? user.platforms.map((p) => PLATFORM_NAMES[p] || p).join(" + ")
-                  : "No platform linked"}
-              </Text>
-            </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{greeting},</Text>
+            <Text style={styles.userName}>{firstName}</Text>
           </View>
           <TouchableOpacity
-            style={styles.notifBtn}
+            style={styles.refreshBtn}
             onPress={() => loadDashboard(true)}
             disabled={refreshing}
           >
-            {refreshing ? (
-              <ActivityIndicator color="#FFFDFB" size="small" />
-            ) : (
-              <Ionicons name="refresh" size={20} color="#FFFDFB" />
-            )}
+            {refreshing
+              ? <ActivityIndicator color={COLORS.primary} size="small" />
+              : <Ionicons name="refresh-outline" size={20} color={COLORS.textMuted} />}
           </TouchableOpacity>
         </View>
 
+        {/* Platforms pill */}
+        {(user?.platforms || []).length > 0 && (
+          <View style={styles.pillRow}>
+            <View style={styles.platformPill}>
+              <Ionicons name="briefcase-outline" size={11} color={COLORS.primary} />
+              <Text style={styles.platformPillText}>
+                {user.platforms.map(p => PLATFORM_NAMES[p] || p).join(" · ")}
+              </Text>
+            </View>
+            <View style={[styles.statusPill, { backgroundColor: coverageActive ? COLORS.successContainer : COLORS.errorContainer, borderColor: coverageActive ? COLORS.success + "40" : COLORS.error + "40" }]}>
+              <View style={[styles.statusDot, { backgroundColor: coverageActive ? COLORS.success : COLORS.error }]} />
+              <Text style={[styles.statusPillText, { color: coverageActive ? COLORS.success : COLORS.error }]}>
+                {coverageActive ? "Protected" : "Inactive"}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {!!error && (
           <View style={styles.errorCard}>
-            <Ionicons name="warning-outline" size={16} color={COLORS.error} />
+            <Ionicons name="warning-outline" size={15} color={COLORS.error} />
             <Text style={styles.errorCardText}>{error}</Text>
           </View>
         )}
 
-        {/* Coverage Shield Card */}
-        <View style={styles.shieldCard}>
-          <View style={styles.shieldGlow} />
-          <View style={styles.shieldCardTop}>
-            <Text style={styles.shieldCardLabel}>THIS WEEK'S COVERAGE</Text>
-            <View style={styles.activeBadge}>
-              <View style={[styles.activePulse, { backgroundColor: coverageActive ? COLORS.success : COLORS.error }]} />
-              <Text style={styles.activeBadgeText}>{coverageActive ? "ACTIVE" : "INACTIVE"}</Text>
+        {/* ── Coverage Hero ── */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlow} />
+          <View style={styles.heroTop}>
+            <View>
+              <Text style={styles.heroLabel}>THIS WEEK'S COVERAGE</Text>
+              <Text style={styles.heroAmount}>{money(premium?.max_payout)}</Text>
+              <Text style={styles.heroSub}>Maximum payout · {titleCaseTier(user?.tier)} Plan</Text>
+            </View>
+            <View style={styles.heroShield}>
+              <Ionicons name="shield-checkmark" size={32} color={coverageActive ? COLORS.primary : COLORS.textFaint} />
             </View>
           </View>
-          <Text style={styles.payoutAmount}>{money(premium?.max_payout)}</Text>
-          <Text style={styles.payoutLabel}>Maximum weekly payout</Text>
-          <View style={styles.shieldCardMeta}>
-            <Text style={styles.metaText}>{titleCaseTier(user?.tier)} Plan</Text>
-            <View style={styles.metaDot} />
-            <Text style={[styles.metaText, { color: COLORS.success }]}>Premium: {money(currentPremium)}</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: coverageActive ? "100%" : "35%" }]} />
+          <View style={styles.heroDivider} />
+          <View style={styles.heroBottom}>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatVal}>{money(currentPremium)}</Text>
+              <Text style={styles.heroStatKey}>Weekly premium</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatVal}>{money(totalPaid)}</Text>
+              <Text style={styles.heroStatKey}>Total received</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatVal}>{paidClaims.length}</Text>
+              <Text style={styles.heroStatKey}>Claims paid</Text>
+            </View>
           </View>
         </View>
 
-        {/* Weather Risk */}
-        <View style={styles.weatherCard}>
-          <View style={styles.weatherLeft}>
-            <View style={styles.weatherIconWrap}>
-              <Ionicons name={activeTriggers.length > 0 ? "warning" : "partly-sunny"} size={22} color={COLORS.amber} />
-            </View>
-            <View style={styles.weatherTextWrap}>
-              <Text style={styles.weatherCity}>{user?.city || "Unknown"}</Text>
-              <Text style={styles.weatherSub} numberOfLines={2}>
-                Rain: {weather?.rain_1h ?? 0}mm/h · AQI: {weather?.aqi_index ?? "NA"} · Temp: {weather?.temperature ?? "NA"}°C
-              </Text>
-            </View>
+        {/* ── Pay Premium Card ── */}
+        <View style={styles.payCard}>
+          <View style={styles.payCardLeft}>
+            <Text style={styles.payCardLabel}>WEEKLY PREMIUM</Text>
+            <Text style={styles.payCardAmount}>{money(weeklyPremiumAmt)}</Text>
+            <Text style={styles.payCardSub}>
+              {user?.autopay ? "AutoPay · 5% off" : "Pay to keep coverage active"}
+            </Text>
           </View>
-          <View style={styles.riskBadge}>
-            <Text style={styles.riskBadgeText}>{riskLabel(premium?.weather_risk)}</Text>
-          </View>
+          {paidThisWeek ? (
+            <View style={styles.paidBadge}>
+              <Ionicons name="checkmark-circle" size={15} color={COLORS.success} />
+              <Text style={styles.paidBadgeText}>Paid</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.payNowBtn} onPress={openPayModal} activeOpacity={0.85}>
+              <Text style={styles.payNowText}>Pay Now</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Traffic */}
-        {trafficData && (
-          <View style={styles.trafficCard}>
-            <View style={styles.trafficLeft}>
-              <View style={[styles.trafficIconWrap, { backgroundColor: ttiColor(trafficData.tti, COLORS) + "18" }]}>
-                <Ionicons name="car" size={20} color={ttiColor(trafficData.tti, COLORS)} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.trafficTitle}>Traffic · {user?.city || "City"}</Text>
-                <Text style={styles.trafficSub}>
-                  TTI: {(trafficData.tti || 1).toFixed(2)} · {ttiLabel(trafficData.tti)} · Speed: {Math.round(trafficData.current_speed_kmh || 0)} km/h
-                </Text>
-              </View>
-            </View>
-            <View style={[styles.ttiBadge, { borderColor: ttiColor(trafficData.tti, COLORS) + "40" }]}>
-              <Text style={[styles.ttiBadgeText, { color: ttiColor(trafficData.tti, COLORS) }]}>
-                {ttiLabel(trafficData.tti).toUpperCase()}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Curfew */}
-        {curfewData && curfewData.gdelt_events > 0 && (
-          <View style={styles.curfewCard}>
-            <View style={styles.trafficLeft}>
-              <View style={[styles.trafficIconWrap, { backgroundColor: COLORS.error + "18" }]}>
-                <Ionicons name="ban" size={20} color={COLORS.error} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.trafficTitle}>Curfew / Unrest · {user?.city || "City"}</Text>
-                <Text style={styles.trafficSub}>GDELT events: {curfewData.gdelt_events}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
+        {/* ── Active Disruption Alert ── */}
         {activeTriggers.length > 0 && (
           <View style={styles.alertCard}>
-            <View style={styles.alertCardTop}>
-              <Ionicons name="alert-circle" size={16} color={COLORS.amber} />
-              <Text style={styles.alertTitle}>Active Disruption Alerts</Text>
+            <View style={styles.alertLeft}>
+              <Ionicons name="flash" size={18} color={COLORS.amber} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.alertTitle}>Disruption Active · {user?.city}</Text>
+                <Text style={styles.alertSub}>{activeTriggers[0].description}</Text>
+              </View>
             </View>
-            {activeTriggers.map((trigger) => (
-              <Text key={trigger.trigger_id} style={styles.alertText}>• {trigger.description}</Text>
-            ))}
+            <View style={[styles.alertDot, { backgroundColor: COLORS.amber }]} />
           </View>
         )}
 
-        {/* Premium Card */}
-        <View style={styles.premiumCard}>
-          <View style={styles.premiumCardTop}>
-            <View>
-              <Text style={styles.premiumAmount}>
-                {money(currentPremium)}{" "}
-                <Text style={styles.premiumPer}>/week</Text>
-              </Text>
-              <Text style={styles.premiumSub}>
-                {user?.autopay ? "AutoPay active" : "AutoPay disabled"} · history days: {premium?.history_days ?? 0}
+        {/* ── Environment strip ── */}
+        <View style={styles.envCard}>
+          <View style={styles.envRow}>
+            <View style={styles.envIconWrap}>
+              <Ionicons name="partly-sunny-outline" size={18} color={COLORS.primary} />
+            </View>
+            <View style={styles.envTextWrap}>
+              <Text style={styles.envTitle}>{user?.city || "Your city"}</Text>
+              <Text style={styles.envSub} numberOfLines={1}>
+                {weather
+                  ? `${weather.temperature ?? "—"}°C · AQI ${weather.aqi_index ?? "—"} · Rain ${weather.rain_1h ?? 0}mm/h`
+                  : "Weather data unavailable"}
               </Text>
             </View>
-            <TouchableOpacity style={styles.payNowBtn} onPress={() => navigation.navigate("Policy")}>
-              <Text style={styles.payNowText}>View Plan</Text>
-            </TouchableOpacity>
+            <View style={styles.riskPill}>
+              <Text style={styles.riskPillText}>{riskLabel(premium?.weather_risk)}</Text>
+            </View>
           </View>
-          <View style={styles.premiumBreakdown}>
-            {[
-              ["Base", money(premium?.raw_prediction)],
-              ["Weather Risk", typeof premium?.weather_risk === "number" ? `${Math.round(premium.weather_risk * 100)}%` : "—"],
-              ["City Risk", typeof premium?.city_risk === "number" ? premium.city_risk.toFixed(2) : "—"],
-              ["AutoPay", user?.autopay ? "−5%" : "Off"],
-            ].map(([k, v]) => (
-              <View key={k} style={styles.breakdownItem}>
-                <Text style={styles.breakdownKey}>{k}</Text>
-                <Text style={[styles.breakdownVal, String(v).startsWith("−") && { color: COLORS.success }]}>{v}</Text>
+          {trafficData && (
+            <>
+              <View style={styles.envSeparator} />
+              <View style={styles.envRow}>
+                <View style={styles.envIconWrap}>
+                  <Ionicons name="car-outline" size={18} color={ttiColor(trafficData.tti, COLORS)} />
+                </View>
+                <View style={styles.envTextWrap}>
+                  <Text style={styles.envTitle}>Traffic · TTI {(trafficData.tti || 1).toFixed(2)}</Text>
+                  <Text style={styles.envSub}>{Math.round(trafficData.current_speed_kmh || 0)} km/h current speed</Text>
+                </View>
+                <View style={[styles.riskPill, {
+                  backgroundColor: ttiColor(trafficData.tti, COLORS) + "18",
+                  borderColor: ttiColor(trafficData.tti, COLORS) + "40",
+                }]}>
+                  <Text style={[styles.riskPillText, { color: ttiColor(trafficData.tti, COLORS) }]}>
+                    {ttiLabel(trafficData.tti)}
+                  </Text>
+                </View>
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{paidClaims.length}</Text>
-            <Text style={styles.statLabel}>Claims Settled</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: COLORS.success + "40", backgroundColor: COLORS.successContainer }]}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>{money(totalPaid)}</Text>
-            <Text style={styles.statLabel}>Total Received</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{claims.length}</Text>
-            <Text style={styles.statLabel}>Total Claims</Text>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsRow}>
+        {/* ── Quick Actions ── */}
+        <Text style={styles.sectionLabel}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
           {[
-            { icon: "shield-outline", label: "My Policy", route: "Policy", color: COLORS.primary },
-            { icon: "document-text-outline", label: "Claims", route: "Claims", color: COLORS.amber },
-            { icon: "card-outline", label: "Payments", route: "Payments", color: COLORS.success },
-            { icon: "person-outline", label: "Profile", route: "Profile", color: COLORS.info },
-          ].map((action) => (
+            { icon: "shield-outline",        label: "My Policy",  route: "Policy",   color: COLORS.primary },
+            { icon: "document-text-outline", label: "Claims",     route: "Claims",   color: COLORS.amber },
+            { icon: "card-outline",          label: "Payments",   route: "Payments", color: COLORS.success },
+            { icon: "person-outline",        label: "Profile",    route: "Profile",  color: COLORS.info },
+          ].map(action => (
             <TouchableOpacity
               key={action.label}
-              style={styles.quickAction}
+              style={styles.actionItem}
               onPress={() => navigation.navigate(action.route)}
-              activeOpacity={0.75}
+              activeOpacity={0.7}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: action.color + "18", borderColor: action.color + "30" }]}>
+              <View style={[styles.actionIcon, { backgroundColor: action.color + "15", borderColor: action.color + "30" }]}>
                 <Ionicons name={action.icon} size={22} color={action.color} />
               </View>
-              <Text style={styles.quickActionLabel}>{action.label}</Text>
+              <Text style={styles.actionLabel}>{action.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Recent Activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
+
+        {/* ── Recent Activity ── */}
+        <Text style={styles.sectionLabel}>Recent Activity</Text>
         <View style={styles.activityCard}>
           {recentActivity.map((item, i) => (
             <View
-              key={`${item.title}-${i}`}
-              style={[styles.activityRow, i < recentActivity.length - 1 && styles.activityBorder]}
+              key={`activity-${i}`}
+              style={[styles.activityRow, i < recentActivity.length - 1 && { borderBottomWidth: 1, borderBottomColor: COLORS.border }]}
             >
-              <View style={[styles.activityIcon, { backgroundColor: item.color + "18" }]}>
-                <Ionicons name={item.icon} size={18} color={item.color} />
+              <View style={[styles.activityIconWrap, { backgroundColor: item.color + "15" }]}>
+                <Ionicons name={item.icon} size={17} color={item.color} />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={styles.activityMeta}>
                 <Text style={styles.activityTitle}>{item.title}</Text>
-                <Text style={styles.activitySub}>{item.sub}</Text>
+                <Text style={styles.activityDate}>{item.date}</Text>
+              </View>
+              <View style={styles.activityRight}>
+                <Text style={[styles.activityAmount, { color: item.color }]}>{item.amount}</Text>
+                <Text style={[styles.activityStatus, { color: item.color }]}>{item.status}</Text>
               </View>
             </View>
           ))}
         </View>
+
       </ScrollView>
 
-      {/* Bottom Tab Bar */}
+      {/* ── Payment Modal ── */}
+      <Modal visible={showPayModal} transparent animationType="slide" onRequestClose={closePayModal}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={styles.modalSheet}>
+            {paySuccess ? (
+              <View style={styles.successWrap}>
+                <View style={styles.successCircle}>
+                  <Ionicons name="checkmark" size={36} color={COLORS.success} />
+                </View>
+                <Text style={styles.successTitle}>Payment Successful</Text>
+                <Text style={styles.successTxId}>{paySuccess.transaction_id}</Text>
+                <Text style={styles.successAmt}>{money(paySuccess.amount)} paid</Text>
+                <TouchableOpacity style={styles.doneBtn} onPress={closePayModal}>
+                  <Text style={styles.doneBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalTop}>
+                  <View>
+                    <Text style={styles.modalTitle}>Pay Premium</Text>
+                    <Text style={styles.modalAmt}>{money(weeklyPremiumAmt)}</Text>
+                  </View>
+                  <TouchableOpacity onPress={closePayModal} style={styles.modalCloseBtn}>
+                    <Ionicons name="close" size={18} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Method selector */}
+                <View style={styles.methodRow}>
+                  {[
+                    { id: "upi",    label: "UPI",         icon: "phone-portrait-outline" },
+                    { id: "debit",  label: "Debit Card",  icon: "card-outline" },
+                    { id: "credit", label: "Credit Card", icon: "wallet-outline" },
+                  ].map(m => (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={[styles.methodChip, payMethod === m.id && styles.methodChipActive]}
+                      onPress={() => { setPayMethod(m.id); setPayError(""); }}
+                    >
+                      <Ionicons name={m.icon} size={14} color={payMethod === m.id ? COLORS.primary : COLORS.textFaint} />
+                      <Text style={[styles.methodChipText, payMethod === m.id && { color: COLORS.primary }]}>{m.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Form fields */}
+                {payMethod === "upi" ? (
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>UPI ID</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="yourname@upi"
+                      placeholderTextColor={COLORS.textFaint}
+                      value={payForm.upiId}
+                      onChangeText={t => setPayForm(f => ({ ...f, upiId: t }))}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.field}>
+                      <Text style={styles.fieldLabel}>Cardholder Name</Text>
+                      <TextInput style={styles.fieldInput} placeholder="Name on card" placeholderTextColor={COLORS.textFaint} value={payForm.name} onChangeText={t => setPayForm(f => ({ ...f, name: t }))} autoCapitalize="words" />
+                    </View>
+                    <View style={styles.field}>
+                      <Text style={styles.fieldLabel}>Card Number</Text>
+                      <TextInput style={styles.fieldInput} placeholder="0000 0000 0000 0000" placeholderTextColor={COLORS.textFaint} value={payForm.cardNumber} onChangeText={t => setPayForm(f => ({ ...f, cardNumber: formatCardNumber(t) }))} keyboardType="numeric" maxLength={19} />
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 12 }}>
+                      <View style={[styles.field, { flex: 1 }]}>
+                        <Text style={styles.fieldLabel}>Expiry</Text>
+                        <TextInput style={styles.fieldInput} placeholder="MM/YY" placeholderTextColor={COLORS.textFaint} value={payForm.expiry} onChangeText={t => setPayForm(f => ({ ...f, expiry: formatExpiry(t) }))} keyboardType="numeric" maxLength={5} />
+                      </View>
+                      <View style={[styles.field, { flex: 1 }]}>
+                        <Text style={styles.fieldLabel}>CVV</Text>
+                        <TextInput style={styles.fieldInput} placeholder="•••" placeholderTextColor={COLORS.textFaint} value={payForm.cvv} onChangeText={t => setPayForm(f => ({ ...f, cvv: t.replace(/\D/g, "").slice(0, 4) }))} keyboardType="numeric" secureTextEntry maxLength={4} />
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {!!payError && (
+                  <View style={styles.payErrorBox}>
+                    <Ionicons name="warning-outline" size={14} color={COLORS.error} />
+                    <Text style={styles.payErrorText}>{payError}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.submitBtn, paying && { opacity: 0.65 }]}
+                  onPress={handlePay}
+                  disabled={paying}
+                  activeOpacity={0.85}
+                >
+                  {paying
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <>
+                        <Ionicons name="lock-closed" size={15} color="#fff" />
+                        <Text style={styles.submitBtnText}>Pay {money(weeklyPremiumAmt)}</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Bottom Nav ── */}
       <View style={styles.bottomNav}>
         {[
-          { icon: "home", label: "Home", route: null, active: true },
-          { icon: "document-outline", label: "Claims", route: "Claims" },
-          { icon: "shield-outline", label: "Policy", route: "Policy" },
-          { icon: "person-outline", label: "Profile", route: "Profile" },
-        ].map((tab) => (
+          { icon: "home",             label: "Home",   route: null,       active: true },
+          { icon: "document-outline", label: "Claims", route: "Claims",   active: false },
+          { icon: "shield-outline",   label: "Policy", route: "Policy",   active: false },
+          { icon: "person-outline",   label: "Profile",route: "Profile",  active: false },
+        ].map(tab => (
           <TouchableOpacity
             key={tab.label}
             style={styles.navItem}
             onPress={tab.route ? () => navigation.navigate(tab.route) : undefined}
           >
-            <Ionicons
-              name={tab.icon}
-              size={22}
-              color={tab.active ? COLORS.primary : COLORS.textFaint}
-            />
-            <Text style={[styles.navText, tab.active && { color: COLORS.primary }]}>{tab.label}</Text>
-            {tab.active && <View style={styles.navActiveDot} />}
+            <View style={tab.active ? styles.navActiveWrap : null}>
+              <Ionicons name={tab.icon} size={22} color={tab.active ? COLORS.primary : COLORS.textFaint} />
+            </View>
+            <Text style={[styles.navLabel, tab.active && { color: COLORS.primary }]}>{tab.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -422,187 +607,312 @@ const HomeScreen = ({ navigation }) => {
 
 const createStyles = (COLORS, FONTS) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.surface },
-    scroll: { paddingBottom: 100 },
-    loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-    loaderText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    container:   { flex: 1, backgroundColor: COLORS.surface },
+    scroll:      { paddingBottom: 88 },
+    loader:      { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
+    loaderText:  { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
-    topBar: {
-      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-      paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding, paddingBottom: SIZES.padding * 0.5,
+    // ── Header ───────────────────────────────────────────────
+    header: {
+      flexDirection: "row", justifyContent: "space-between",
+      alignItems: "flex-start", paddingHorizontal: SIZES.padding,
+      paddingTop: SIZES.padding, paddingBottom: SIZES.base,
     },
-    greeting: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
-    userName: { fontSize: SIZES.h2, fontFamily: FONTS.display, color: COLORS.white, marginTop: 2 },
-    platformBadge: {
-      backgroundColor: COLORS.primaryContainer, paddingHorizontal: 10, paddingVertical: 4,
-      borderRadius: SIZES.radiusFull, alignSelf: "flex-start", marginTop: 6,
-      borderWidth: 1, borderColor: COLORS.primary + "30",
+    headerLeft: { gap: 2 },
+    greeting:   { fontSize: SIZES.small, fontFamily: FONTS.regular, color: COLORS.textFaint },
+    userName:   { fontSize: SIZES.h2, fontFamily: FONTS.display, color: COLORS.white },
+    refreshBtn: {
+      width: 38, height: 38, borderRadius: 12,
+      backgroundColor: COLORS.surfaceContainer,
+      borderWidth: 1, borderColor: COLORS.border,
+      justifyContent: "center", alignItems: "center",
+      marginTop: 4,
     },
-    platformBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.primary },
-    notifBtn: {
-      width: 42, height: 42, borderRadius: 14,
-      backgroundColor: COLORS.primary, justifyContent: "center", alignItems: "center", marginTop: 4,
+
+    pillRow: {
+      flexDirection: "row", gap: 8, alignItems: "center",
+      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.85,
     },
+    platformPill: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      backgroundColor: COLORS.primaryContainer,
+      borderWidth: 1, borderColor: COLORS.borderActive,
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull,
+    },
+    platformPillText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.primary },
+    statusPill: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: SIZES.radiusFull, borderWidth: 1,
+    },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusPillText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold },
+
     errorCard: {
+      flexDirection: "row", alignItems: "center", gap: 8,
       marginHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75,
       backgroundColor: COLORS.errorContainer, borderWidth: 1,
-      borderColor: COLORS.error + "40", borderRadius: SIZES.radius,
-      padding: 10, flexDirection: "row", alignItems: "center", gap: 8,
+      borderColor: COLORS.error + "35", borderRadius: SIZES.radius,
+      padding: 10,
     },
-    errorCardText: { color: COLORS.error, fontSize: SIZES.small, fontFamily: FONTS.medium, flex: 1 },
+    errorCardText: { flex: 1, fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
 
-    shieldCard: {
+    // ── Hero Card ────────────────────────────────────────────
+    heroCard: {
       marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.5,
-      backgroundColor: COLORS.primary, padding: SIZES.padding,
-      marginBottom: SIZES.padding, overflow: "hidden", ...SHADOWS.button,
+      backgroundColor: COLORS.surfaceContainer,
+      borderWidth: 1, borderColor: COLORS.border,
+      marginBottom: SIZES.padding, overflow: "hidden",
+      ...SHADOWS.card,
     },
-    shieldGlow: {
-      position: "absolute", width: 200, height: 200, borderRadius: 100,
-      backgroundColor: "#fff", opacity: 0.05, top: -80, right: -60,
+    heroGlow: {
+      position: "absolute", width: 220, height: 220, borderRadius: 110,
+      backgroundColor: COLORS.primary, opacity: 0.06,
+      top: -60, right: -60,
     },
-    shieldCardTop: {
+    heroTop: {
       flexDirection: "row", justifyContent: "space-between",
-      alignItems: "center", marginBottom: SIZES.padding * 0.75,
+      alignItems: "flex-start", padding: SIZES.padding,
     },
-    shieldCardLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: "rgba(255,255,255,0.6)", letterSpacing: 1 },
-    activeBadge: {
-      flexDirection: "row", alignItems: "center", gap: 5,
-      backgroundColor: "rgba(255,255,255,0.15)", paddingHorizontal: 10,
-      paddingVertical: 4, borderRadius: SIZES.radiusFull,
+    heroLabel: {
+      fontSize: 10, fontFamily: FONTS.bold, color: COLORS.textFaint,
+      letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8,
     },
-    activePulse: { width: 7, height: 7, borderRadius: 4 },
-    activeBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: "#fff" },
-    payoutAmount: { fontSize: 40, fontFamily: FONTS.display, color: "#fff", marginBottom: 4 },
-    payoutLabel: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.65)", marginBottom: SIZES.padding },
-    shieldCardMeta: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: SIZES.base },
-    metaText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: "rgba(255,255,255,0.7)" },
-    metaDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)" },
-    progressTrack: { height: 6, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, overflow: "hidden" },
-    progressFill: { height: "100%", backgroundColor: "#fff", borderRadius: 3 },
+    heroAmount: {
+      fontSize: 36, fontFamily: FONTS.display, color: COLORS.white, lineHeight: 40,
+    },
+    heroSub: {
+      fontSize: SIZES.small, fontFamily: FONTS.regular,
+      color: COLORS.textFaint, marginTop: 4,
+    },
+    heroShield: {
+      width: 56, height: 56, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.surfaceHigh,
+      borderWidth: 1, borderColor: COLORS.border,
+      justifyContent: "center", alignItems: "center",
+    },
+    heroDivider: { height: 1, backgroundColor: COLORS.border, marginHorizontal: SIZES.padding },
+    heroBottom: {
+      flexDirection: "row", padding: SIZES.padding, paddingVertical: SIZES.padding * 0.85,
+    },
+    heroStat:        { flex: 1, alignItems: "center" },
+    heroStatVal:     { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 3 },
+    heroStatKey:     { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
+    heroStatDivider: { width: 1, backgroundColor: COLORS.border },
 
-    weatherCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border,
-    },
-    weatherLeft: { flexDirection: "row", alignItems: "center", gap: SIZES.padding * 0.6, flex: 1, marginRight: SIZES.base },
-    weatherTextWrap: { flex: 1, flexShrink: 1 },
-    weatherIconWrap: {
-      width: 42, height: 42, borderRadius: 12,
-      backgroundColor: COLORS.amberContainer, justifyContent: "center", alignItems: "center",
-    },
-    weatherCity: { fontSize: 15, fontFamily: FONTS.bold, color: COLORS.white },
-    weatherSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 2 },
-    riskBadge: {
-      backgroundColor: COLORS.amberContainer, paddingHorizontal: 10, paddingVertical: 5,
-      borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.amber + "40",
-    },
-    riskBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, color: COLORS.amber, letterSpacing: 0.5 },
-
-    trafficCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      marginBottom: SIZES.padding * 0.5, borderWidth: 1, borderColor: COLORS.border,
-    },
-    trafficLeft: { flexDirection: "row", alignItems: "center", gap: SIZES.padding * 0.6, flex: 1, marginRight: SIZES.base },
-    trafficIconWrap: { width: 42, height: 42, borderRadius: 12, justifyContent: "center", alignItems: "center" },
-    trafficTitle: { fontSize: 14, fontFamily: FONTS.bold, color: COLORS.white },
-    trafficSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 2 },
-    ttiBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull, borderWidth: 1 },
-    ttiBadgeText: { fontSize: SIZES.tiny, fontFamily: FONTS.bold, letterSpacing: 0.5 },
-    curfewCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding * 0.85,
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.error + "30",
-    },
-
+    // ── Alert Card ───────────────────────────────────────────
     alertCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.amberContainer, borderWidth: 1,
-      borderColor: COLORS.amber + "40", padding: SIZES.padding * 0.8, marginBottom: SIZES.padding,
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.amberContainer,
+      borderWidth: 1, borderColor: COLORS.amber + "40",
+      padding: SIZES.padding * 0.85, marginBottom: SIZES.padding,
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
-    alertCardTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-    alertTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber },
-    alertText: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.amberDim, marginTop: 2 },
+    alertLeft:  { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+    alertTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber, marginBottom: 2 },
+    alertSub:   { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.amberDim },
+    alertDot:   { width: 8, height: 8, borderRadius: 4, opacity: 0.8 },
 
-    premiumCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.surfaceContainer, padding: SIZES.padding,
-      marginBottom: SIZES.padding, borderWidth: 1, borderColor: COLORS.border,
+    // ── Environment card ─────────────────────────────────────
+    envCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.surfaceContainer,
+      borderWidth: 1, borderColor: COLORS.border,
+      marginBottom: SIZES.padding,
     },
-    premiumCardTop: {
+    envRow: {
+      flexDirection: "row", alignItems: "center", gap: 12,
+      padding: SIZES.padding * 0.85,
+    },
+    envSeparator: { height: 1, backgroundColor: COLORS.border },
+    envIconWrap: {
+      width: 36, height: 36, borderRadius: 10,
+      backgroundColor: COLORS.surfaceHigh,
+      justifyContent: "center", alignItems: "center",
+    },
+    envTextWrap: { flex: 1 },
+    envTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
+    envSub:      { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
+    riskPill: {
+      paddingHorizontal: 9, paddingVertical: 4, borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primaryContainer, borderWidth: 1, borderColor: COLORS.borderActive,
+    },
+    riskPillText: { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary, letterSpacing: 0.3 },
+
+    // ── Quick Actions ────────────────────────────────────────
+    sectionLabel: {
+      fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.textMuted,
+      textTransform: "uppercase", letterSpacing: 0.8,
+      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75,
+    },
+    actionsGrid: {
       flexDirection: "row", justifyContent: "space-between",
-      alignItems: "flex-start", marginBottom: SIZES.padding,
+      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 1.25,
     },
+    actionItem: { alignItems: "center", width: "22%" },
+    actionIcon: {
+      width: 52, height: 52, borderRadius: SIZES.radius,
+      justifyContent: "center", alignItems: "center",
+      marginBottom: 7, borderWidth: 1,
+    },
+    actionLabel: {
+      fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted, textAlign: "center",
+    },
+
+    // ── Premium Card ─────────────────────────────────────────
+    premiumCard: {
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.surfaceContainer,
+      borderWidth: 1, borderColor: COLORS.border,
+      padding: SIZES.padding, marginBottom: SIZES.padding * 1.25,
+    },
+    premiumHeader: {
+      flexDirection: "row", justifyContent: "space-between",
+      alignItems: "flex-end", marginBottom: SIZES.padding,
+    },
+    premiumTitle:  { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginBottom: 4 },
     premiumAmount: { fontSize: 26, fontFamily: FONTS.display, color: COLORS.white },
-    premiumPer: { fontSize: SIZES.body, fontFamily: FONTS.medium, color: COLORS.textMuted },
-    premiumSub: { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted, marginTop: 4 },
-    payNowBtn: {
-      backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 10,
-      borderRadius: SIZES.radiusFull,
-    },
-    payNowText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: "#FFFDFB" },
-    premiumBreakdown: {
+    viewPlanBtn:   { flexDirection: "row", alignItems: "center", gap: 3 },
+    viewPlanText:  { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.primary },
+    breakdownRow:  {
       flexDirection: "row", justifyContent: "space-between",
       borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SIZES.padding * 0.75,
     },
     breakdownItem: { alignItems: "center" },
-    breakdownKey: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, marginBottom: 4 },
-    breakdownVal: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    breakdownKey:  { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint, marginBottom: 4 },
+    breakdownVal:  { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
 
-    statsRow: {
-      flexDirection: "row", gap: SIZES.base, paddingHorizontal: SIZES.padding,
-      marginBottom: SIZES.padding,
-    },
-    statCard: {
-      flex: 1, backgroundColor: COLORS.surfaceContainer, borderRadius: SIZES.radius,
-      padding: SIZES.padding * 0.75, alignItems: "center", borderWidth: 1, borderColor: COLORS.border,
-    },
-    statValue: { fontSize: 20, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 2 },
-    statLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint, textAlign: "center" },
-
-    sectionTitle: {
-      fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white,
-      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding, marginTop: SIZES.base,
-    },
-    quickActionsRow: {
-      flexDirection: "row", justifyContent: "space-between",
-      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding,
-    },
-    quickAction: { alignItems: "center" },
-    quickActionIcon: {
-      width: 54, height: 54, borderRadius: 16, justifyContent: "center",
-      alignItems: "center", marginBottom: SIZES.base, borderWidth: 1,
-    },
-    quickActionLabel: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.textMuted, textAlign: "center" },
-
+    // ── Activity Card ────────────────────────────────────────
     activityCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
-      backgroundColor: COLORS.surfaceContainer, borderWidth: 1,
-      borderColor: COLORS.border, marginBottom: SIZES.padding,
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      backgroundColor: COLORS.surfaceContainer,
+      borderWidth: 1, borderColor: COLORS.border,
+      marginBottom: SIZES.padding,
     },
     activityRow: {
       flexDirection: "row", alignItems: "center",
-      gap: SIZES.padding * 0.75, padding: SIZES.padding * 0.85,
+      gap: 12, padding: SIZES.padding * 0.85,
     },
-    activityBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
-    activityIcon: { width: 38, height: 38, borderRadius: 12, justifyContent: "center", alignItems: "center" },
-    activityTitle: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
-    activitySub: { fontSize: SIZES.tiny, fontFamily: FONTS.medium, color: COLORS.textFaint },
+    activityIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+    activityMeta:     { flex: 1 },
+    activityTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
+    activityDate:     { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
+    activityRight:    { alignItems: "flex-end" },
+    activityAmount:   { fontSize: SIZES.small, fontFamily: FONTS.bold, marginBottom: 2 },
+    activityStatus:   { fontSize: SIZES.tiny, fontFamily: FONTS.medium },
 
-    bottomNav: {
-      position: "absolute", bottom: 0, left: 0, right: 0, height: 72,
-      backgroundColor: COLORS.surfaceContainer, flexDirection: "row",
-      justifyContent: "space-around", alignItems: "center",
-      paddingBottom: Platform.OS === "ios" ? 16 : 0,
-      borderTopWidth: 1, borderTopColor: COLORS.border,
+    // ── Pay Premium Card ─────────────────────────────────────
+    payCard: {
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius,
+      backgroundColor: COLORS.primaryContainer,
+      borderWidth: 1, borderColor: COLORS.borderActive,
+      padding: SIZES.padding,
+      marginBottom: SIZES.padding,
+      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
-    navItem: { alignItems: "center", justifyContent: "center" },
-    navText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginTop: 3 },
-    navActiveDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary, marginTop: 2 },
+    payCardLeft:   { flex: 1 },
+    payCardLabel:  { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary, letterSpacing: 1, textTransform: "uppercase", marginBottom: 5 },
+    payCardAmount: { fontSize: 24, fontFamily: FONTS.display, color: COLORS.white, lineHeight: 28 },
+    payCardSub:    { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint, marginTop: 3 },
+    paidBadge: {
+      flexDirection: "row", alignItems: "center", gap: 5,
+      backgroundColor: COLORS.successContainer,
+      borderWidth: 1, borderColor: COLORS.success + "40",
+      paddingHorizontal: 12, paddingVertical: 7, borderRadius: SIZES.radiusFull,
+    },
+    paidBadgeText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.success },
+    payNowBtn: {
+      backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 11,
+      borderRadius: SIZES.radiusFull, ...SHADOWS.button,
+    },
+    payNowText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: "#fff" },
+
+    // ── Payment Modal ─────────────────────────────────────────
+    modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+    modalSheet: {
+      backgroundColor: COLORS.surfaceContainer,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: SIZES.padding, paddingBottom: SIZES.padding * 2.5,
+      borderTopWidth: 1, borderColor: COLORS.border,
+    },
+    modalHandle: {
+      width: 36, height: 4, borderRadius: 2,
+      backgroundColor: COLORS.border, alignSelf: "center", marginBottom: SIZES.padding,
+    },
+    modalTop: {
+      flexDirection: "row", justifyContent: "space-between",
+      alignItems: "flex-start", marginBottom: SIZES.padding,
+    },
+    modalTitle: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginBottom: 4 },
+    modalAmt:   { fontSize: 32, fontFamily: FONTS.display, color: COLORS.white },
+    modalCloseBtn: {
+      width: 34, height: 34, borderRadius: 10,
+      backgroundColor: COLORS.surfaceHigh, justifyContent: "center", alignItems: "center",
+    },
+    methodRow: { flexDirection: "row", gap: 8, marginBottom: SIZES.padding },
+    methodChip: {
+      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+      gap: 5, paddingVertical: 9, borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.surfaceHigh, borderWidth: 1, borderColor: COLORS.border,
+    },
+    methodChipActive: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.borderActive },
+    methodChipText: { fontSize: 11, fontFamily: FONTS.semiBold, color: COLORS.textFaint },
+    field:      { marginBottom: SIZES.padding * 0.75 },
+    fieldLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted, marginBottom: 7 },
+    fieldInput: {
+      height: 48, backgroundColor: COLORS.surfaceHigh,
+      borderRadius: SIZES.radius, paddingHorizontal: 14,
+      fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.white,
+      borderWidth: 1, borderColor: COLORS.border,
+    },
+    payErrorBox: {
+      flexDirection: "row", alignItems: "center", gap: 7,
+      backgroundColor: COLORS.errorContainer, borderRadius: SIZES.radius,
+      padding: 10, marginBottom: SIZES.base,
+      borderWidth: 1, borderColor: COLORS.error + "35",
+    },
+    payErrorText: { flex: 1, fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
+    submitBtn: {
+      height: 52, borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primary,
+      flexDirection: "row", justifyContent: "center", alignItems: "center",
+      gap: 10, marginTop: SIZES.base, ...SHADOWS.button,
+    },
+    submitBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
+    successWrap:   { alignItems: "center", paddingVertical: SIZES.padding * 1.5 },
+    successCircle: {
+      width: 80, height: 80, borderRadius: 40,
+      backgroundColor: COLORS.successContainer, borderWidth: 1,
+      borderColor: COLORS.success + "40",
+      justifyContent: "center", alignItems: "center", marginBottom: SIZES.padding,
+    },
+    successTitle:  { fontSize: SIZES.h3, fontFamily: FONTS.display, color: COLORS.white, marginBottom: 6 },
+    successTxId:   { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint, marginBottom: 4 },
+    successAmt:    { fontSize: SIZES.h2, fontFamily: FONTS.bold, color: COLORS.success, marginBottom: SIZES.padding * 1.5 },
+    doneBtn: {
+      height: 50, width: "100%", borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primary, justifyContent: "center",
+      alignItems: "center", ...SHADOWS.button,
+    },
+    doneBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
+
+    // ── Bottom Nav ───────────────────────────────────────────
+    bottomNav: {
+      position: "absolute", bottom: 0, left: 0, right: 0,
+      height: 68, backgroundColor: COLORS.surfaceContainer,
+      borderTopWidth: 1, borderTopColor: COLORS.border,
+      flexDirection: "row", justifyContent: "space-around", alignItems: "center",
+      paddingBottom: Platform.OS === "ios" ? 14 : 0,
+    },
+    navItem:      { alignItems: "center", justifyContent: "center" },
+    navActiveWrap: {
+      backgroundColor: COLORS.primaryContainer, width: 40, height: 28,
+      borderRadius: 8, justifyContent: "center", alignItems: "center",
+    },
+    navLabel: {
+      fontSize: 10, fontFamily: FONTS.medium, color: COLORS.textFaint, marginTop: 3,
+    },
   });
 
 export default HomeScreen;

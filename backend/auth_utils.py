@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 
-JWT_SECRET = os.getenv("JWT_SECRET", "gigguard-dev-secret")
+JWT_SECRET = os.getenv("JWT_SECRET", "wpip-dev-secret")
 JWT_ALGORITHM = "HS256"
 JWT_EXP_DAYS = 30
 

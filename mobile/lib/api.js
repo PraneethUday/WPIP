@@ -83,11 +83,13 @@ function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// Auth routes (same contract as web app)
+// Auth routes — always prefer the web (Next.js) URL so tokens are issued
+// and verified by the same secret used by the payment and history APIs.
+// Backend is kept as fallback only.
 export function login(email, password) {
   return requestWithFallback(
-    `${BACKEND_URL}/api/auth/login`,
     `${WEB_URL}/api/auth/login`,
+    `${BACKEND_URL}/api/auth/login`,
     {
       method: "POST",
       body: JSON.stringify({ email, password }),
@@ -97,8 +99,8 @@ export function login(email, password) {
 
 export function register(formData) {
   return requestWithFallback(
-    `${BACKEND_URL}/api/auth/register`,
     `${WEB_URL}/api/auth/register`,
+    `${BACKEND_URL}/api/auth/register`,
     {
       method: "POST",
       body: JSON.stringify(formData),
@@ -108,8 +110,8 @@ export function register(formData) {
 
 export function getMe(token) {
   return requestWithFallback(
-    `${BACKEND_URL}/api/auth/me`,
     `${WEB_URL}/api/auth/me`,
+    `${BACKEND_URL}/api/auth/me`,
     {
       headers: authHeaders(token),
     },
