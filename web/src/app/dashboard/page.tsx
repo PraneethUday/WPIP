@@ -646,8 +646,8 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <header className={styles.header}>
         <div className={styles.brandBlock}>
-          <div className={styles.brandLogo}>GG</div>
-          <span className={styles.brandText}>GigGuard</span>
+          <div className={styles.brandLogo}>WPIP</div>
+          <span className={styles.brandText}>Worker Protection Insurance Portal</span>
         </div>
 
         {/* Center nav tabs */}
