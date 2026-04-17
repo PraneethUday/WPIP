@@ -7,6 +7,9 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
@@ -99,6 +102,11 @@ export default function ClaimsScreen({ navigation }) {
   const [error, setError]         = useState("");
   const [claims, setClaims]       = useState([]);
 
+  // escalation modal state
+  const [escalateClaim, setEscalateClaim] = useState(null);
+  const [escalateMsg, setEscalateMsg]     = useState("");
+  const [escalateLoading, setEscalateLoading] = useState(false);
+
   const loadClaims = useCallback(async (isRefresh = false) => {
     if (!user?.delivery_id) {
       setLoading(false);
@@ -137,6 +145,34 @@ export default function ClaimsScreen({ navigation }) {
   const reviewCount    = normalized.filter((c) => c._status === "under-review").length;
   const rejectedCount  = normalized.filter((c) => c._status === "rejected").length;
   const countFor       = (k) => k === "all" ? normalized.length : normalized.filter((c) => c._status === k).length;
+
+  const handleEscalate = async () => {
+    if (!escalateClaim || !escalateMsg.trim()) {
+      Alert.alert("Required", "Please describe the issue before submitting.");
+      return;
+    }
+    setEscalateLoading(true);
+    try {
+      await api.submitSupportTicket(token, {
+        ticket_type: "claim_escalation",
+        subject: `Escalation for claim ${escalateClaim.claim_number || escalateClaim.id}`,
+        message: escalateMsg.trim(),
+        source_tab: "claims",
+        worker_id: user.id,
+        delivery_id: user.delivery_id,
+        claim_id: escalateClaim.id,
+        claim_number: escalateClaim.claim_number || null,
+        claim_trigger_type: escalateClaim.trigger_type || null,
+      });
+      Alert.alert("Submitted", "Your escalation has been sent to the admin for review.");
+      setEscalateClaim(null);
+      setEscalateMsg("");
+    } catch (err) {
+      Alert.alert("Error", err?.message || "Could not submit escalation.");
+    } finally {
+      setEscalateLoading(false);
+    }
+  };
 
   // ── loading skeleton ──────────────────────────────────────────────────────
   if (loading) {
@@ -350,9 +386,21 @@ export default function ClaimsScreen({ navigation }) {
                     {claim._status === "under-review" && (
                       <View style={[styles.cardFooter, { backgroundColor: COLORS.amberContainer }]}>
                         <Ionicons name="time-outline" size={11} color={COLORS.amber} />
-                        <Text style={[styles.cardFooterText, { color: COLORS.amber }]}>
+                        <Text style={[styles.cardFooterText, { color: COLORS.amber, flex: 1 }]}>
                           {t("under_review_note")}
                         </Text>
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: COLORS.primary,
+                            paddingHorizontal: 12,
+                            paddingVertical: 5,
+                            borderRadius: 6,
+                            marginLeft: 8,
+                          }}
+                          onPress={() => { setEscalateClaim(claim); setEscalateMsg(""); }}
+                        >
+                          <Text style={{ color: "#fff", fontSize: 11, fontFamily: FONTS.bold }}>Escalate</Text>
+                        </TouchableOpacity>
                       </View>
                     )}
 
@@ -363,6 +411,96 @@ export default function ClaimsScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* ── Escalation Modal ── */}
+      <Modal
+        visible={!!escalateClaim}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEscalateClaim(null)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          justifyContent: "flex-end",
+        }}>
+          <View style={{
+            backgroundColor: COLORS.surface,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 24,
+            paddingBottom: 40,
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontFamily: FONTS.bold,
+              color: COLORS.white,
+              marginBottom: 6,
+            }}>Escalate Claim</Text>
+            <Text style={{
+              fontSize: 13,
+              fontFamily: FONTS.medium,
+              color: COLORS.textMuted,
+              marginBottom: 16,
+            }}>
+              {escalateClaim?.claim_number
+                ? `Claim #${escalateClaim.claim_number}`
+                : "Describe why you believe this claim should be approved."}
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: COLORS.surfaceHigh,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                padding: 14,
+                height: 100,
+                textAlignVertical: "top",
+                color: COLORS.white,
+                fontSize: 14,
+                fontFamily: FONTS.medium,
+              }}
+              placeholder="Describe your issue..."
+              placeholderTextColor={COLORS.textFaint}
+              multiline
+              value={escalateMsg}
+              onChangeText={setEscalateMsg}
+            />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: COLORS.surfaceHigh,
+                  borderRadius: 10,
+                  paddingVertical: 13,
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                }}
+                onPress={() => setEscalateClaim(null)}
+              >
+                <Text style={{ color: COLORS.textMuted, fontFamily: FONTS.semiBold, fontSize: 14 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: COLORS.primary,
+                  borderRadius: 10,
+                  paddingVertical: 13,
+                  alignItems: "center",
+                  opacity: escalateLoading ? 0.6 : 1,
+                }}
+                onPress={handleEscalate}
+                disabled={escalateLoading}
+              >
+                {escalateLoading
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={{ color: "#fff", fontFamily: FONTS.bold, fontSize: 14 }}>Submit Escalation</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

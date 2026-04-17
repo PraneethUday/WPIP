@@ -59,7 +59,7 @@ export default function LoginPage() {
       <header className={styles.topBar}>
         <div className={styles.brand}>
           <div className={styles.brandMark}>GG</div>
-          <span className={styles.brandName}>GigGuard</span>
+          <span className={styles.brandName}>Worker Protection Insurance Platform</span>
         </div>
         <div className={styles.secureLabel}>
           <svg
@@ -84,7 +84,7 @@ export default function LoginPage() {
               Income protection for every delivery, every week.
             </h2>
             <p className={styles.leftSub}>
-              GigGuard insures delivery workers against weather disruptions,
+              WPIP insures delivery workers against weather disruptions,
               platform downtime, and income loss — starting at ₹40/week.
             </p>
             <div className={styles.featureList}>
@@ -134,7 +134,7 @@ export default function LoginPage() {
 
             <h1 className={styles.formHeading}>Welcome Back</h1>
             <p className={styles.formSub}>
-              Please enter your credentials to access your GigGuard account.
+              Please enter your credentials to access your WPIP account.
             </p>
 
             {error && <div className={styles.errorBox}>{error}</div>}
@@ -193,7 +193,7 @@ export default function LoginPage() {
             </button>
 
             <p className={styles.switchText}>
-              New to GigGuard?{" "}
+              New to WPIP?{" "}
               <span
                 className={styles.switchLink}
                 onClick={() => router.push("/register")}
@@ -208,7 +208,7 @@ export default function LoginPage() {
       {/* ── Footer ── */}
       <footer className={styles.footer}>
         <span className={styles.footerCopy}>
-          GigGuard © 2024. All rights reserved.
+          WPIP © 2024. All rights reserved.
         </span>
         <div className={styles.footerLinks}>
           {["Privacy Policy", "Contact Support", "Security"].map((l) => (

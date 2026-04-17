@@ -1,4 +1,4 @@
-// ─── GigGuard translations ───────────────────────────────────────────────────
+// ─── WPIP translations ───────────────────────────────────────────────────
 // Supported: en · hi · te · ta · ml
 
 export const LANGUAGES = [

@@ -123,7 +123,7 @@ export default function SimulatorPage() {
             GG
           </Link>
           <Link href="/dashboard" className={styles.brandText}>
-            GigGuard
+            WPIP
           </Link>
         </div>
 

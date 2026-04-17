@@ -361,7 +361,7 @@ const SignUpScreen = ({ navigation }) => {
               <View style={styles.consentCard}>
                 <Text style={styles.consentTitle}>Consent & Authorisations</Text>
                 {[
-                  { key: "consent", label: "I authorise GigGuard to monitor weather and disruption data in my delivery zone for insurance claims." },
+                  { key: "consent", label: "I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims." },
                   { key: "gpsConsent", label: "I authorise GPS location validation during disruption events for fraud prevention." },
                   { key: "autopay", label: "Enable AutoPay — auto-deduct weekly premium from platform payout.", tag: "5% discount" },
                 ].map((item) => (
