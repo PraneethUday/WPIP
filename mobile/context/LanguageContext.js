@@ -4,6 +4,15 @@ import translations, { LANGUAGES } from "../lib/translations";
 
 const LANGUAGE_KEY = "gg_language";
 
+function humanizeFallbackKey(key) {
+  if (typeof key !== "string") return "";
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 const LanguageContext = createContext({
   language: "en",
   setLanguage: () => {},
@@ -31,7 +40,7 @@ export function LanguageProvider({ children }) {
 
   const t = (key) => {
     const dict = translations[language] || translations.en;
-    return dict[key] ?? translations.en[key] ?? key;
+    return dict[key] ?? translations.en[key] ?? humanizeFallbackKey(key);
   };
 
   return (

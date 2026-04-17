@@ -76,6 +76,19 @@ function formatDate(value) {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+function formatMetricValue(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "—";
+  const numeric = Number(value);
+  const display = Number.isFinite(numeric) ? numeric : value;
+  return `${display}${suffix}`;
+}
+function humanizeLabel(value) {
+  if (!value || typeof value !== "string") return "—";
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 function curfewLabel(confidence) {
   if (typeof confidence !== "number") return "—";
   if (confidence < 0.3) return "No signals";
@@ -425,25 +438,30 @@ const HomeScreen = ({ navigation }) => {
                 </View>
               </View>
               {weather ? (
-                <View style={styles.chipWrap}>
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>🌡 {weather.temperature ?? "—"}°C</Text>
-                  </View>
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>AQI {weather.aqi_index ?? "—"}</Text>
-                  </View>
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>🌧 {weather.rain_1h ?? 0} mm/h</Text>
-                  </View>
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>💧 {weather.humidity ?? "—"}%</Text>
-                  </View>
-                  {weather.weather_main ? (
-                    <View style={[styles.chip, { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.borderActive }]}>
-                      <Text style={[styles.chipText, { color: COLORS.primary }]}>{weather.weather_main}</Text>
+                <>
+                  <View style={styles.weatherGrid}>
+                    <View style={styles.weatherMetric}>
+                      <Text style={styles.weatherMetricLabel}>Temperature</Text>
+                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.temperature, "°C")}</Text>
                     </View>
-                  ) : null}
-                </View>
+                    <View style={styles.weatherMetric}>
+                      <Text style={styles.weatherMetricLabel}>AQI</Text>
+                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.aqi_index)}</Text>
+                    </View>
+                    <View style={styles.weatherMetric}>
+                      <Text style={styles.weatherMetricLabel}>Rainfall</Text>
+                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.rain_1h ?? 0, " mm/h")}</Text>
+                    </View>
+                    <View style={styles.weatherMetric}>
+                      <Text style={styles.weatherMetricLabel}>Humidity</Text>
+                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.humidity, "%")}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.weatherConditionChip}>
+                    <Ionicons name="cloud-outline" size={13} color={COLORS.primary} />
+                    <Text style={styles.weatherConditionText}>{weather.weather_main || "Condition unavailable"}</Text>
+                  </View>
+                </>
               ) : (
                 <Text style={styles.envSub}>{t("weather_unavailable")}</Text>
               )}
@@ -475,7 +493,7 @@ const HomeScreen = ({ navigation }) => {
                       <Text style={styles.chipText}>TTI {(trafficData.tti || 1).toFixed(2)}</Text>
                     </View>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>🚀 {Math.round(trafficData.current_speed_kmh || 0)} km/h</Text>
+                      <Text style={styles.chipText}>Speed {Math.round(trafficData.current_speed_kmh || 0)} km/h</Text>
                     </View>
                     <View style={styles.chip}>
                       <Text style={styles.chipText}>Free flow {Math.round(trafficData.free_flow_speed_kmh || 0)} km/h</Text>
@@ -485,12 +503,12 @@ const HomeScreen = ({ navigation }) => {
                     </View>
                     {trafficData.road_closure && (
                       <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
-                        <Text style={[styles.chipText, { color: COLORS.error }]}>⚠ Road Closure</Text>
+                        <Text style={[styles.chipText, { color: COLORS.error }]}>Road closure</Text>
                       </View>
                     )}
                     {trafficData.source ? (
                       <View style={styles.chip}>
-                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{trafficData.source}</Text>
+                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{humanizeLabel(trafficData.source)}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -529,18 +547,18 @@ const HomeScreen = ({ navigation }) => {
                     {curfewData.nlp_score > 0 && (
                       <View style={styles.chip}>
                         <Text style={styles.chipText}>
-                          NLP {curfewData.nlp_label} ({Math.round(curfewData.nlp_score * 100)}%)
+                          NLP {humanizeLabel(curfewData.nlp_label)} ({Math.round(curfewData.nlp_score * 100)}%)
                         </Text>
                       </View>
                     )}
                     {curfewData.fired && (
                       <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
-                        <Text style={[styles.chipText, { color: COLORS.error }]}>⚡ T-06 Trigger Active</Text>
+                        <Text style={[styles.chipText, { color: COLORS.error }]}>Trigger active</Text>
                       </View>
                     )}
                     {curfewData.source ? (
                       <View style={styles.chip}>
-                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{curfewData.source}</Text>
+                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{humanizeLabel(curfewData.source)}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -896,6 +914,40 @@ const createStyles = (COLORS, FONTS) =>
       borderWidth: 1, borderColor: COLORS.border,
     },
     chipText: { fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    weatherGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    weatherMetric: {
+      flexBasis: "48%",
+      flexGrow: 1,
+      backgroundColor: COLORS.surfaceHigh,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: SIZES.radius,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+    },
+    weatherMetricLabel: {
+      fontSize: 10,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textFaint,
+      marginBottom: 4,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    weatherMetricValue: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    weatherConditionChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "flex-start",
+      marginTop: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primaryContainer,
+      borderWidth: 1,
+      borderColor: COLORS.borderActive,
+    },
+    weatherConditionText: { fontSize: 11, fontFamily: FONTS.semiBold, color: COLORS.primary },
 
     // ── Quick Actions ────────────────────────────────────────
     sectionLabel: {

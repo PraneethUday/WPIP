@@ -55,6 +55,27 @@ function titleCase(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function humanizeToken(value) {
+  if (!value || typeof value !== "string") return "";
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function summarizeFraudFlags(flags) {
+  if (!Array.isArray(flags) || flags.length === 0) return "Risk checks failed";
+  const cleanFlags = flags
+    .filter((flag) => typeof flag === "string" && flag.trim().length > 0)
+    .map(humanizeToken);
+  if (cleanFlags.length === 0) return "Risk checks failed";
+  if (cleanFlags.length <= 2) return cleanFlags.join(" · ");
+  return `${cleanFlags.slice(0, 2).join(" · ")} +${cleanFlags.length - 2} more`;
+}
+
 // ─── filter options ──────────────────────────────────────────────────────────
 
 const FILTER_KEYS = [
@@ -338,12 +359,10 @@ export default function ClaimsScreen({ navigation }) {
                       </View>
                     )}
                     {claim._status === "rejected" && (
-                      <View style={[styles.cardFooter, { backgroundColor: COLORS.errorContainer }]}>
-                        <Ionicons name="alert-circle-outline" size={11} color={COLORS.error} />
-                        <Text style={[styles.cardFooterText, { color: COLORS.error }]}>
-                          {Array.isArray(claim.fraud_flags) && claim.fraud_flags.length > 0
-                            ? claim.fraud_flags.join(" · ")
-                            : t("rejected")}
+                      <View style={[styles.cardFooter, styles.cardFooterNeutral]}>
+                        <Ionicons name="information-circle-outline" size={11} color={COLORS.textMuted} />
+                        <Text style={[styles.cardFooterText, styles.cardFooterTextMuted]} numberOfLines={1}>
+                          {summarizeFraudFlags(claim.fraud_flags)}
                         </Text>
                       </View>
                     )}
@@ -581,4 +600,6 @@ const createStyles = (COLORS, FONTS) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: COLORS.border,
   },
   cardFooterText: { flex: 1, fontSize: 11, fontFamily: FONTS.semiBold, lineHeight: 15 },
+  cardFooterNeutral: { backgroundColor: COLORS.surfaceHigh },
+  cardFooterTextMuted: { color: COLORS.textMuted },
 });
