@@ -1066,9 +1066,9 @@ export default function DashboardPage() {
         <div className={styles.headerMain}>
           <div className={styles.brandBlock}>
             <div className={styles.brandLogo}>GG</div>
-            <span className={styles.brandText}>GigGuard Assurance</span>
+            <span className={styles.brandText}>WPIP</span>
           </div>
-          <label className={styles.headerSearch}>
+          <label className={styles.headerSearch} style={{visibility: 'hidden'}}>
             <svg
               className={styles.headerSearchIcon}
               width="15"
@@ -1254,7 +1254,7 @@ export default function DashboardPage() {
         {/* ── Left Sidebar ── */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarBrand}>
-            <h2 className={styles.sidebarBrandTitle}>GigGuard</h2>
+            <h2 className={styles.sidebarBrandTitle}>WPIP</h2>
             <p className={styles.sidebarBrandTag}>Worker Safety Command</p>
           </div>
 

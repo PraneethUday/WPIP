@@ -888,6 +888,68 @@ def get_worker_claims(worker_id: str):
         return {"count": 0, "error": str(e), "data": []}
 
 
+class ClaimUpdateRequest(BaseModel):
+    status: str  # approved, rejected, paid
+    admin_notes: str | None = None
+    approved_amount: float | None = None
+
+
+@app.patch("/api/claims/{claim_id}")
+def update_claim(claim_id: str, req: ClaimUpdateRequest):
+    """Admin endpoint: approve, reject, or mark a claim as paid."""
+    allowed = {"approved", "rejected", "paid"}
+    if req.status not in allowed:
+        return {"error": f"status must be one of {allowed}"}, 400
+
+    now = datetime.utcnow().isoformat()
+    update_payload: dict = {
+        "status": req.status,
+        "payout_status": req.status,
+        "reviewed_at": now,
+    }
+
+    if req.status == "approved":
+        if req.approved_amount is not None:
+            update_payload["payout_amount"] = req.approved_amount
+
+    if req.status == "paid":
+        import uuid as _uuid
+        update_payload["transaction_id"] = f"TXN_MOCK_{_uuid.uuid4().hex[:8].upper()}"
+        update_payload["paid_at"] = now
+
+    if req.status == "rejected":
+        update_payload["payout_amount"] = 0
+
+    try:
+        resp = (
+            supabase.table("claims")
+            .update(update_payload)
+            .eq("id", claim_id)
+            .execute()
+        )
+        if resp.data:
+            return {"claim": resp.data[0]}
+        return {"error": "Claim not found", "claim": None}
+    except Exception as e:
+        return {"error": str(e), "claim": None}
+
+
+@app.get("/api/claims/all")
+async def get_claims_all(limit: int = Query(200, ge=1, le=1000)):
+    """Admin-facing endpoint: returns all claims across all workers."""
+    try:
+        resp = (
+            supabase.table("claims")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"count": len(resp.data), "claims": resp.data, "data": resp.data}
+    except Exception as e:
+        return {"count": 0, "error": str(e), "claims": [], "data": []}
+
+
 class TestFireRequest(BaseModel):
     city: str = "Chennai"
     trigger_id: str = "T-01"

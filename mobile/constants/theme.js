@@ -1,4 +1,4 @@
-// GigGuard Design System — matches web app teal/green palette exactly
+// WPIP Design System — matches web app teal/green palette exactly
 // Primary: #0D9E88 · BG: #080E0C · Surface: #0D1512
 
 export const DARK_COLORS = {

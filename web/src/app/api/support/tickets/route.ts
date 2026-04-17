@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const supabase = createServerClient();
 
     const { data: profile } = await supabase
-      .from("users")
+      .from("registered_workers")
       .select("name, email, delivery_id")
       .eq("id", workerId)
       .maybeSingle();

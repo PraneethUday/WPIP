@@ -69,7 +69,7 @@ const LoginScreen = ({ navigation }) => {
             </View>
           </View>
           <Text style={styles.heading}>Welcome back</Text>
-          <Text style={styles.subheading}>Sign in to your GigGuard account</Text>
+          <Text style={styles.subheading}>Sign in to your WPIP account</Text>
 
           {/* error */}
           {!!error && (

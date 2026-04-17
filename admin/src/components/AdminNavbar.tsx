@@ -31,7 +31,7 @@ export default function AdminNavbar() {
         <div className={styles.brandWrap}>
           <div className={styles.brandBadge}>GG</div>
           <div className={styles.brandText}>
-            <p className={styles.brandTitle}>GigGuard Admin</p>
+            <p className={styles.brandTitle}>WPIP Admin</p>
             <p className={styles.brandSub}>Operations Console</p>
           </div>
         </div>

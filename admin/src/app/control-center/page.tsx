@@ -269,7 +269,7 @@ export default function ControlCenterPage() {
       )}
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>
+        <div style={{ padding: 40, textAlign: "center", color: "var(--faint)" }}>
           Loading backend data...
         </div>
       ) : (
@@ -295,7 +295,7 @@ export default function ControlCenterPage() {
               onClick={() =>
                 doAction("Generate Data", "/api/backend/admin/generate-data")
               }
-              color="#4f46e5"
+              color="var(--primary)"
             />
             <ActionCard
               title="Retrain Model"
@@ -433,7 +433,7 @@ export default function ControlCenterPage() {
                   <div
                     style={{
                       height: "100%",
-                      background: "linear-gradient(90deg, #4f46e5, #059669)",
+                      background: "linear-gradient(90deg, var(--primary), #059669)",
                       borderRadius: 4,
                       animation: "progress-slide 2s ease-in-out infinite",
                       width: "60%",
@@ -468,7 +468,7 @@ export default function ControlCenterPage() {
                   </div>
                 ))}
                 {retrainStatus === "running" && (
-                  <div style={{ color: "#4f46e5" }}>_</div>
+                  <div style={{ color: "var(--primary)" }}>_</div>
                 )}
               </div>
             </div>
@@ -524,7 +524,7 @@ export default function ControlCenterPage() {
                   style={{
                     fontSize: 13,
                     fontWeight: 600,
-                    color: "#C7C4D8",
+                    color: "var(--muted)",
                     marginBottom: 8,
                   }}
                 >
@@ -538,7 +538,7 @@ export default function ControlCenterPage() {
                   }}
                 >
                   <thead>
-                    <tr style={{ background: "#272935" }}>
+                    <tr style={{ background: "var(--elevated)" }}>
                       {[
                         "Tier",
                         "Rate",
@@ -552,8 +552,8 @@ export default function ControlCenterPage() {
                             padding: "8px 12px",
                             textAlign: "left",
                             fontWeight: 700,
-                            color: "#918FA1",
-                            borderBottom: "1px solid rgba(70,69,85,0.6)",
+                            color: "var(--faint)",
+                            borderBottom: "1px solid var(--border)",
                             fontSize: 11,
                             textTransform: "uppercase",
                           }}
@@ -568,14 +568,14 @@ export default function ControlCenterPage() {
                       <tr
                         key={tier}
                         style={{
-                          borderBottom: "1px solid rgba(70,69,85,0.4)",
+                          borderBottom: "1px solid var(--border)",
                         }}
                       >
                         <td
                           style={{
                             padding: "8px 12px",
                             fontWeight: 600,
-                            color: "#E1E1F2",
+                            color: "var(--white)",
                           }}
                         >
                           {tier.charAt(0).toUpperCase() + tier.slice(1)}
@@ -583,7 +583,7 @@ export default function ControlCenterPage() {
                         <td
                           style={{
                             padding: "8px 12px",
-                            color: "#C7C4D8",
+                            color: "var(--muted)",
                           }}
                         >
                           {(cfg.rate * 100).toFixed(1)}%
@@ -591,7 +591,7 @@ export default function ControlCenterPage() {
                         <td
                           style={{
                             padding: "8px 12px",
-                            color: "#C7C4D8",
+                            color: "var(--muted)",
                           }}
                         >
                           {cfg.min}
@@ -599,7 +599,7 @@ export default function ControlCenterPage() {
                         <td
                           style={{
                             padding: "8px 12px",
-                            color: "#C7C4D8",
+                            color: "var(--muted)",
                           }}
                         >
                           {cfg.max}
@@ -607,7 +607,7 @@ export default function ControlCenterPage() {
                         <td
                           style={{
                             padding: "8px 12px",
-                            color: "#C7C4D8",
+                            color: "var(--muted)",
                           }}
                         >
                           {cfg.max_payout}
@@ -650,7 +650,7 @@ export default function ControlCenterPage() {
                   }}
                 >
                   <thead>
-                    <tr style={{ background: "#272935" }}>
+                    <tr style={{ background: "var(--elevated)" }}>
                       {[
                         "Platform",
                         "Workers",
@@ -666,8 +666,8 @@ export default function ControlCenterPage() {
                             padding: "8px 12px",
                             textAlign: "left",
                             fontWeight: 700,
-                            color: "#918FA1",
-                            borderBottom: "1px solid rgba(70,69,85,0.6)",
+                            color: "var(--faint)",
+                            borderBottom: "1px solid var(--border)",
                             fontSize: 11,
                             textTransform: "uppercase",
                           }}
@@ -682,34 +682,34 @@ export default function ControlCenterPage() {
                       <tr
                         key={p.platform}
                         style={{
-                          borderBottom: "1px solid rgba(70,69,85,0.4)",
+                          borderBottom: "1px solid var(--border)",
                         }}
                       >
                         <td
                           style={{
                             padding: "8px 12px",
                             fontWeight: 600,
-                            color: "#E1E1F2",
+                            color: "var(--white)",
                           }}
                         >
                           {p.platform}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.worker_count}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.avg_earnings}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.min_earnings}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.max_earnings}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.avg_deliveries}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
                           {p.total_earnings}
                         </td>
                       </tr>
@@ -858,7 +858,7 @@ export default function ControlCenterPage() {
                   disabled={!!actionLoading}
                   style={{
                     ...btnStyle,
-                    background: "#4f46e5",
+                    background: "var(--primary)",
                     width: "100%",
                   }}
                 >
@@ -871,7 +871,7 @@ export default function ControlCenterPage() {
             {premiumResult && (
               <div
                 style={{
-                  background: "#1D1B45",
+                  background: "var(--primary-container)",
                   border: "1px solid rgba(108,99,255,0.3)",
                   borderRadius: 10,
                   padding: 20,
@@ -883,7 +883,7 @@ export default function ControlCenterPage() {
                     fontSize: 14,
                     fontWeight: 700,
                     marginBottom: 12,
-                    color: "#8B84FF",
+                    color: "var(--primary-dim)",
                   }}
                 >
                   Premium Result
@@ -943,7 +943,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
   fontWeight: 600,
-  color: "#918FA1",
+  color: "var(--faint)",
   marginBottom: 4,
 };
 const inputStyle: React.CSSProperties = {
@@ -951,11 +951,11 @@ const inputStyle: React.CSSProperties = {
   height: 38,
   padding: "0 10px",
   fontSize: 13,
-  border: "1px solid rgba(70,69,85,0.6)",
+  border: "1px solid var(--border)",
   borderRadius: 8,
   outline: "none",
-  background: "#323440",
-  color: "#E1E1F2",
+  background: "var(--input)",
+  color: "var(--white)",
 };
 const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
 const btnStyle: React.CSSProperties = {
@@ -979,9 +979,9 @@ function Section({
   return (
     <div
       style={{
-        background: "#1D1F2B",
+        background: "var(--card)",
         borderRadius: 12,
-        border: "1px solid rgba(70,69,85,0.6)",
+        border: "1px solid var(--border)",
         padding: 24,
         marginBottom: 24,
       }}
@@ -991,7 +991,7 @@ function Section({
           fontSize: 16,
           fontWeight: 700,
           marginBottom: 16,
-          color: "#E1E1F2",
+          color: "var(--white)",
         }}
       >
         {title}
@@ -1019,9 +1019,9 @@ function ActionCard({
   return (
     <div
       style={{
-        background: "#1D1F2B",
+        background: "var(--card)",
         borderRadius: 12,
-        border: "1px solid rgba(70,69,85,0.6)",
+        border: "1px solid var(--border)",
         padding: 20,
       }}
     >
@@ -1030,7 +1030,7 @@ function ActionCard({
           fontSize: 15,
           fontWeight: 700,
           marginBottom: 4,
-          color: "#E1E1F2",
+          color: "var(--white)",
         }}
       >
         {title}
@@ -1038,7 +1038,7 @@ function ActionCard({
       <p
         style={{
           fontSize: 12,
-          color: "#918FA1",
+          color: "var(--faint)",
           marginBottom: 14,
           lineHeight: 1.5,
         }}
@@ -1072,16 +1072,16 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
-        background: "#272935",
+        background: "var(--elevated)",
         borderRadius: 8,
         padding: "12px 16px",
-        border: "1px solid rgba(70,69,85,0.6)",
+        border: "1px solid var(--border)",
       }}
     >
       <div
         style={{
           fontSize: 11,
-          color: "#918FA1",
+          color: "var(--faint)",
           fontWeight: 600,
           textTransform: "uppercase",
           marginBottom: 4,
@@ -1089,7 +1089,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       >
         {label}
       </div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#E1E1F2" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)" }}>
         {value}
       </div>
     </div>
@@ -1099,10 +1099,10 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 function ResultItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "#918FA1", fontWeight: 500 }}>
+      <div style={{ fontSize: 11, color: "var(--faint)", fontWeight: 500 }}>
         {label}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: "#E1E1F2" }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--white)" }}>
         {value}
       </div>
     </div>

@@ -1,4 +1,4 @@
-// ─── GigGuard translations ───────────────────────────────────────────────────
+// ─── WPIP translations ───────────────────────────────────────────────────
 // Supported: en · hi · te · ta · ml
 
 export type Language = "en" | "hi" | "te" | "ta" | "ml";

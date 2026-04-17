@@ -258,3 +258,12 @@ export function gpsCheckin(worker_id, latitude, longitude) {
     body: JSON.stringify({ worker_id, latitude, longitude }),
   });
 }
+
+// Support / Escalation
+export function submitSupportTicket(token, payload) {
+  return request(`${WEB_URL}/api/support/tickets`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}

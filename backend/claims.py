@@ -75,7 +75,8 @@ def compute_payout(
         wage_coverage_pct = 1.00   # 100% of daily wage
 
     hourly_rate = daily_wage / 8.0
-    raw_payout = hourly_rate * disrupted_hours * severity
+    # Apply the plan's wage coverage percentage to their rate
+    raw_payout = hourly_rate * wage_coverage_pct * disrupted_hours * severity
     
     # Cap 1: Coverage % of their daily wage scaled by severity
     # Cap 2: Absolute tier mathematical ceiling scaled by severity

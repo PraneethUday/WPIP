@@ -158,7 +158,7 @@ export default function RegisterPage() {
           <div className={styles.logoMark}>GG</div>
           <h1 className={styles.title}>Create your account</h1>
           <p className={styles.subtitle}>
-            Register as a delivery partner on GigGuard (WPIP)
+            Register as a delivery partner on WPIP (WPIP)
           </p>
         </div>
 
