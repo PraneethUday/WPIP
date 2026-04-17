@@ -1895,6 +1895,24 @@
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+.claimActions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+.claimEscalateBtn {
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.claimEscalateBtn:hover {
+  background: rgba(245, 158, 11, 0.2);
+}
 .panelTitleSpaced {
   margin-bottom: 16px;
 }
@@ -1905,6 +1923,20 @@
   font-size: 11px;
   color: var(--faint);
   margin-top: 6px;
+}
+.supportClaimMeta {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.supportClaimMetaLine {
+  color: var(--muted);
+  font-size: 12px;
+}
+.supportClaimMetaLine + .supportClaimMetaLine {
+  margin-top: 4px;
 }
 .cardGrid {
   display: grid;

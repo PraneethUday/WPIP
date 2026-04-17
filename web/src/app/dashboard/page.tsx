@@ -322,6 +322,15 @@ function methodLabel(m: string): string {
   return "Credit Card";
 }
 
+function payoutStatusValue(value: unknown): string {
+  return String(value ?? "").toLowerCase();
+}
+
+function isSettledPayoutStatus(value: unknown): boolean {
+  const status = payoutStatusValue(value);
+  return status === "paid" || status === "approved";
+}
+
 function formatNotifTime(ts: string): string {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "";
@@ -553,6 +562,20 @@ export default function DashboardPage() {
     amount: number;
     txId: string;
   } | null>(null);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportMode, setSupportMode] = useState<
+    "support" | "claim_escalation"
+  >("support");
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportClaimContext, setSupportClaimContext] = useState<{
+    id: string;
+    claimNumber: string;
+    triggerType: string;
+  } | null>(null);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState("");
+  const [supportSuccess, setSupportSuccess] = useState("");
 
   // ── auth
   const logout = () => {
@@ -741,6 +764,97 @@ export default function DashboardPage() {
     setPayError("");
   };
 
+  const openSupportModal = (
+    mode: "support" | "claim_escalation",
+    claim?: Record<string, unknown>,
+  ) => {
+    const claimId = claim ? String(claim.id ?? "") : "";
+    const claimNumber = claim
+      ? String(claim.claim_number ?? claim.id ?? "")
+      : "";
+    const triggerType = claim ? String(claim.trigger_type ?? "") : "";
+
+    setSupportMode(mode);
+    setSupportClaimContext(
+      mode === "claim_escalation"
+        ? {
+            id: claimId,
+            claimNumber,
+            triggerType,
+          }
+        : null,
+    );
+    setSupportSubject(
+      mode === "claim_escalation"
+        ? claimNumber
+          ? `Escalation for claim ${claimNumber}`
+          : "Claim escalation"
+        : "Support request",
+    );
+    setSupportMessage("");
+    setSupportError("");
+    setSupportSuccess("");
+    setShowSupportModal(true);
+  };
+
+  const closeSupportModal = () => {
+    if (supportLoading) return;
+    setShowSupportModal(false);
+    setSupportError("");
+    setSupportSuccess("");
+  };
+
+  const handleSubmitSupportTicket = async () => {
+    if (!user) return;
+    setSupportError("");
+    setSupportSuccess("");
+
+    if (!supportSubject.trim()) {
+      setSupportError("Please add a subject for your issue.");
+      return;
+    }
+    if (!supportMessage.trim()) {
+      setSupportError("Please describe the issue before submitting.");
+      return;
+    }
+
+    setSupportLoading(true);
+    try {
+      const token = localStorage.getItem("gg_token");
+      const res = await fetch("/api/support/tickets", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ticket_type: supportMode,
+          subject: supportSubject.trim(),
+          message: supportMessage.trim(),
+          source_tab: tab,
+          worker_id: user.id,
+          delivery_id: user.delivery_id,
+          claim_id: supportClaimContext?.id || null,
+          claim_number: supportClaimContext?.claimNumber || null,
+          claim_trigger_type: supportClaimContext?.triggerType || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setSupportError(data.error || "Failed to submit ticket.");
+        return;
+      }
+
+      setSupportSuccess("Issue submitted successfully. Our team will review it.");
+      setSupportMessage("");
+    } catch {
+      setSupportError("Unable to submit right now. Please try again.");
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
   const handlePay = async () => {
     if (!user) return;
     setPayError("");
@@ -833,12 +947,18 @@ export default function DashboardPage() {
     payments.length > 0 &&
     new Date(payments[0].timestamp).toDateString() === today;
 
-  const claimsPaid = claims.filter((c) => c.payout_status === "paid");
-  const claimsUnderReview = claims.filter(
-    (c) => c.payout_status !== "paid" && c.payout_status !== "rejected",
+  const claimsSettled = claims.filter((c) =>
+    isSettledPayoutStatus(c.payout_status),
   );
-  const claimsRejected = claims.filter((c) => c.payout_status === "rejected");
-  const claimsTotalReceived = claimsPaid.reduce(
+  const claimsUnderReview = claims.filter(
+    (c) =>
+      !isSettledPayoutStatus(c.payout_status) &&
+      payoutStatusValue(c.payout_status) !== "rejected",
+  );
+  const claimsRejected = claims.filter(
+    (c) => payoutStatusValue(c.payout_status) === "rejected",
+  );
+  const claimsTotalReceived = claimsSettled.reduce(
     (sum, c) => sum + (Number(c.payout_amount) || 0),
     0,
   );
@@ -846,7 +966,7 @@ export default function DashboardPage() {
     claimsFilter === "all"
       ? claims
       : claimsFilter === "paid"
-        ? claimsPaid
+        ? claimsSettled
         : claimsFilter === "review"
           ? claimsUnderReview
           : claimsRejected;
@@ -883,15 +1003,19 @@ export default function DashboardPage() {
       /_/g,
       " ",
     );
-    if (c.payout_status === "paid") {
+    if (isSettledPayoutStatus(c.payout_status)) {
+      const settledStatus = payoutStatusValue(c.payout_status);
       allNotifs.push({
         id,
         type: "settled",
         title: "Claim Settled",
-        message: `₹${c.payout_amount ?? 0} payout processed for ${triggerName}.`,
+        message:
+          settledStatus === "approved"
+            ? `₹${c.payout_amount ?? 0} approved for ${triggerName}.`
+            : `₹${c.payout_amount ?? 0} payout processed for ${triggerName}.`,
         time: String(c.created_at ?? ""),
       });
-    } else if (c.payout_status === "rejected") {
+    } else if (payoutStatusValue(c.payout_status) === "rejected") {
       allNotifs.push({
         id,
         type: "rejected",
@@ -1191,7 +1315,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 className={styles.sidebarMetaLink}
-                onClick={() => setTab("claims")}
+                onClick={() => openSupportModal("support")}
               >
                 Support
               </button>
@@ -1674,7 +1798,7 @@ export default function DashboardPage() {
                             className={`${styles.claimsHeroStatDot} ${styles.dotGreen}`}
                           />
                           <span className={styles.claimsHeroStatNum}>
-                            {claimsPaid.length}
+                            {claimsSettled.length}
                           </span>
                           <span className={styles.claimsHeroStatLabel}>
                             {t("settled")}
@@ -1736,7 +1860,7 @@ export default function DashboardPage() {
                           {
                             key: "paid",
                             tKey: "settled",
-                            count: claimsPaid.length,
+                            count: claimsSettled.length,
                           },
                           {
                             key: "review",
@@ -1789,14 +1913,16 @@ export default function DashboardPage() {
                           </h4>
                           <span
                             className={
-                              c.payout_status === "paid"
+                              isSettledPayoutStatus(c.payout_status)
                                 ? styles.badgeGreen
-                                : c.payout_status === "rejected"
+                                : payoutStatusValue(c.payout_status) === "rejected"
                                   ? styles.badgeRed
                                   : styles.badgeAmber
                             }
                           >
-                            {String(c.payout_status ?? "").toUpperCase()}
+                            {isSettledPayoutStatus(c.payout_status)
+                              ? "SETTLED"
+                              : String(c.payout_status ?? "").toUpperCase()}
                           </span>
                         </div>
                         <div className={styles.claimBody}>
@@ -1825,13 +1951,22 @@ export default function DashboardPage() {
                                 : "–"
                             }
                           />
-                          {c.payout_status === "paid" && (
+                          {payoutStatusValue(c.payout_status) === "paid" && (
                             <ProfileRow
                               label="Transaction ID"
                               value={String(c.transaction_id ?? "–")}
                               mono
                             />
                           )}
+                        </div>
+                        <div className={styles.claimActions}>
+                          <button
+                            type="button"
+                            className={styles.claimEscalateBtn}
+                            onClick={() => openSupportModal("claim_escalation", c)}
+                          >
+                            Escalate Claim
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2072,6 +2207,85 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+
+      {/* ══ SUPPORT MODAL ══ */}
+      {showSupportModal && (
+        <div className={styles.modalOverlay} onClick={closeSupportModal}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 className={styles.modalTitle}>
+              {supportMode === "claim_escalation"
+                ? "Escalate Claim"
+                : "Support Request"}
+            </h2>
+            <p className={styles.modalSub}>
+              {supportMode === "claim_escalation"
+                ? "Escalation will be sent to the owner dashboard for review."
+                : "Describe your issue and our team will get back to you."}
+            </p>
+
+            {supportClaimContext && (
+              <div className={styles.supportClaimMeta}>
+                <div className={styles.supportClaimMetaLine}>
+                  <strong>Claim:</strong> {supportClaimContext.claimNumber || "–"}
+                </div>
+                <div className={styles.supportClaimMetaLine}>
+                  <strong>Type:</strong>{" "}
+                  {supportClaimContext.triggerType
+                    ? supportClaimContext.triggerType.replace(/_/g, " ")
+                    : "–"}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.modalField}>
+              <label className={styles.modalLabel}>Subject</label>
+              <input
+                className={styles.modalInput}
+                placeholder="Brief subject"
+                value={supportSubject}
+                maxLength={120}
+                onChange={(e) => setSupportSubject(e.target.value)}
+              />
+            </div>
+
+            <div className={styles.modalField}>
+              <label className={styles.modalLabel}>Issue Details</label>
+              <textarea
+                className={styles.modalTextarea}
+                placeholder="Explain what happened and what help you need"
+                value={supportMessage}
+                rows={5}
+                maxLength={1000}
+                onChange={(e) => setSupportMessage(e.target.value)}
+              />
+            </div>
+
+            {supportError && <div className={styles.modalError}>{supportError}</div>}
+            {supportSuccess && (
+              <div className={styles.modalSuccess}>{supportSuccess}</div>
+            )}
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalCancelBtn}
+                onClick={closeSupportModal}
+                disabled={supportLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.modalPayBtn}
+                onClick={handleSubmitSupportTicket}
+                disabled={supportLoading}
+              >
+                {supportLoading ? "Submitting..." : "Submit Issue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ PAYMENT MODAL ══ */}
       {showPayModal && (

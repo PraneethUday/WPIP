@@ -17,6 +17,25 @@ type Claim = {
   created_at: string;
 };
 
+type SupportTicket = {
+  id: string;
+  worker_id: string;
+  worker_name: string | null;
+  worker_email: string | null;
+  delivery_id: string | null;
+  ticket_type: "support" | "claim_escalation";
+  subject: string;
+  message: string;
+  claim_id: string | null;
+  claim_number: string | null;
+  claim_trigger_type: string | null;
+  source_tab: string | null;
+  status: "open" | "in_progress" | "resolved";
+  owner_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type Worker = {
   id: string;
   name: string;
@@ -78,10 +97,16 @@ export default function AdminPage() {
     {},
   );
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("all");
+  const [ticketNotice, setTicketNotice] = useState("");
+  const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWorkers();
     fetchClaims();
+    fetchSupportTickets();
   }, []);
 
   const fetchClaims = () => {
@@ -93,6 +118,48 @@ export default function AdminPage() {
       })
       .catch(() => {})
       .finally(() => setClaimsLoading(false));
+  };
+
+  const fetchSupportTickets = () => {
+    setTicketsLoading(true);
+    fetch("/api/support/tickets")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.tickets) setTickets(data.tickets);
+      })
+      .catch(() => {})
+      .finally(() => setTicketsLoading(false));
+  };
+
+  const updateSupportTicket = async (
+    ticketId: string,
+    status: "open" | "in_progress" | "resolved",
+  ) => {
+    setUpdatingTicketId(ticketId);
+    setTicketNotice("");
+    setError("");
+
+    try {
+      const res = await fetch(`/api/support/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to update ticket.");
+        return;
+      }
+
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, ...data.ticket } : t)),
+      );
+      setTicketNotice(`Ticket moved to ${status.replace("_", " ")}.`);
+    } catch {
+      setError("Failed to update ticket.");
+    } finally {
+      setUpdatingTicketId(null);
+    }
   };
 
   const updateClaim = async (
@@ -163,6 +230,11 @@ export default function AdminPage() {
       .length,
     active: workers.filter((w) => w.is_active).length,
   };
+
+  const filteredTickets = tickets.filter(
+    (ticket) =>
+      ticketStatusFilter === "all" || ticket.status === ticketStatusFilter,
+  );
 
   const updateWorker = async (
     workerId: string,
@@ -381,7 +453,7 @@ export default function AdminPage() {
             ))}
           </div>
 
-          {(notice || claimNotice) && (
+          {(notice || claimNotice || ticketNotice) && (
             <div
               style={{
                 marginBottom: 12,
@@ -394,7 +466,7 @@ export default function AdminPage() {
                 padding: "8px 12px",
               }}
             >
-              {notice || claimNotice}
+              {notice || claimNotice || ticketNotice}
             </div>
           )}
 
@@ -842,7 +914,10 @@ export default function AdminPage() {
                   </select>
                   <button
                     type="button"
-                    onClick={fetchClaims}
+                    onClick={() => {
+                      fetchClaims();
+                      fetchSupportTickets();
+                    }}
                     style={{
                       height: 36,
                       padding: "0 14px",
@@ -1259,6 +1334,284 @@ export default function AdminPage() {
                   )}
                 </div>
               )}
+
+              <div style={{ marginTop: 24 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      margin: 0,
+                      color: "#E1E1F2",
+                    }}
+                  >
+                    Support & Escalation Tickets
+                  </h3>
+                  <div
+                    style={{ display: "flex", gap: 8, alignItems: "center" }}
+                  >
+                    <select
+                      value={ticketStatusFilter}
+                      onChange={(e) => setTicketStatusFilter(e.target.value)}
+                      style={{
+                        height: 36,
+                        padding: "0 12px",
+                        fontSize: 13,
+                        border: "1px solid rgba(70,69,85,0.6)",
+                        borderRadius: 8,
+                        outline: "none",
+                        cursor: "pointer",
+                        background: "#323440",
+                        color: "#E1E1F2",
+                      }}
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="open">Open</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={fetchSupportTickets}
+                      style={{
+                        height: 36,
+                        padding: "0 14px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: "#1D1F2B",
+                        color: "#918FA1",
+                        border: "1px solid rgba(70,69,85,0.6)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {ticketsLoading ? (
+                  <div
+                    style={{ padding: 28, textAlign: "center", color: "#918FA1" }}
+                  >
+                    Loading support tickets...
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      background: "#1D1F2B",
+                      borderRadius: 12,
+                      border: "1px solid rgba(70,69,85,0.6)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {filteredTickets.length === 0 ? (
+                      <div
+                        style={{
+                          padding: 28,
+                          textAlign: "center",
+                          color: "#918FA1",
+                        }}
+                      >
+                        No support tickets found.
+                      </div>
+                    ) : (
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: 13,
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#272935" }}>
+                            {[
+                              "Worker",
+                              "Type",
+                              "Issue",
+                              "Claim",
+                              "Status",
+                              "Created",
+                              "Actions",
+                            ].map((h) => (
+                              <th
+                                key={h}
+                                style={{
+                                  padding: "10px 14px",
+                                  textAlign: "left",
+                                  fontWeight: 700,
+                                  color: "#918FA1",
+                                  borderBottom:
+                                    "1px solid rgba(70,69,85,0.6)",
+                                  fontSize: 11,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTickets.map((ticket) => (
+                            <tr
+                              key={ticket.id}
+                              style={{
+                                borderBottom: "1px solid rgba(70,69,85,0.4)",
+                              }}
+                            >
+                              <td style={{ padding: "12px 14px" }}>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: "#E1E1F2",
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  {ticket.worker_name || ticket.delivery_id || "Unknown"}
+                                </div>
+                                <div style={{ fontSize: 12, color: "#918FA1" }}>
+                                  {ticket.worker_email || ticket.worker_id}
+                                </div>
+                              </td>
+                              <td style={{ padding: "12px 14px" }}>
+                                <span
+                                  style={{
+                                    padding: "3px 8px",
+                                    borderRadius: 6,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    background:
+                                      ticket.ticket_type === "claim_escalation"
+                                        ? "#2A1A0A"
+                                        : "#0a1a3a",
+                                    color:
+                                      ticket.ticket_type === "claim_escalation"
+                                        ? "#F59E0B"
+                                        : "#60A5FA",
+                                    border:
+                                      ticket.ticket_type === "claim_escalation"
+                                        ? "1px solid rgba(245,158,11,0.3)"
+                                        : "1px solid rgba(96,165,250,0.3)",
+                                  }}
+                                >
+                                  {ticket.ticket_type === "claim_escalation"
+                                    ? "Escalation"
+                                    : "Support"}
+                                </span>
+                              </td>
+                              <td style={{ padding: "12px 14px", maxWidth: 320 }}>
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: "#E1E1F2",
+                                    marginBottom: 2,
+                                  }}
+                                >
+                                  {ticket.subject}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    color: "#918FA1",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                  title={ticket.message}
+                                >
+                                  {ticket.message}
+                                </div>
+                              </td>
+                              <td style={{ padding: "12px 14px", color: "#C7C4D8" }}>
+                                {ticket.claim_number || "—"}
+                              </td>
+                              <td style={{ padding: "12px 14px" }}>
+                                <SupportTicketBadge status={ticket.status} />
+                              </td>
+                              <td
+                                style={{
+                                  padding: "12px 14px",
+                                  color: "#918FA1",
+                                  fontSize: 12,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {new Date(ticket.created_at).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </td>
+                              <td style={{ padding: "12px 14px" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 4,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  {ticket.status === "open" && (
+                                    <ActionBtn
+                                      label="In Progress"
+                                      bg="#eff6ff"
+                                      border="#bfdbfe"
+                                      color="#2563eb"
+                                      disabled={updatingTicketId === ticket.id}
+                                      onClick={() =>
+                                        updateSupportTicket(
+                                          ticket.id,
+                                          "in_progress",
+                                        )
+                                      }
+                                    />
+                                  )}
+                                  {ticket.status !== "resolved" && (
+                                    <ActionBtn
+                                      label="Resolve"
+                                      bg="#f0fdf4"
+                                      border="#86efac"
+                                      color="#166534"
+                                      disabled={updatingTicketId === ticket.id}
+                                      onClick={() =>
+                                        updateSupportTicket(ticket.id, "resolved")
+                                      }
+                                    />
+                                  )}
+                                  {ticket.status === "resolved" && (
+                                    <ActionBtn
+                                      label="Reopen"
+                                      bg="#fffbeb"
+                                      border="#fde68a"
+                                      color="#92400e"
+                                      disabled={updatingTicketId === ticket.id}
+                                      onClick={() =>
+                                        updateSupportTicket(ticket.id, "open")
+                                      }
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1303,6 +1656,45 @@ function ClaimBadge({ status }: { status: string }) {
     paid: "Paid",
   };
   const s = styles[status] || styles.pending;
+  return (
+    <span
+      style={{
+        ...s,
+        padding: "3px 8px",
+        borderRadius: 6,
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      {labels[status] || status}
+    </span>
+  );
+}
+
+function SupportTicketBadge({ status }: { status: string }) {
+  const styles: Record<string, React.CSSProperties> = {
+    open: {
+      background: "#2A1A0A",
+      color: "#F59E0B",
+      border: "1px solid rgba(245,158,11,0.3)",
+    },
+    in_progress: {
+      background: "#0a1a3a",
+      color: "#60A5FA",
+      border: "1px solid rgba(96,165,250,0.3)",
+    },
+    resolved: {
+      background: "#0A2E18",
+      color: "#22C55E",
+      border: "1px solid rgba(34,197,94,0.3)",
+    },
+  };
+  const labels: Record<string, string> = {
+    open: "Open",
+    in_progress: "In Progress",
+    resolved: "Resolved",
+  };
+  const s = styles[status] || styles.open;
   return (
     <span
       style={{
