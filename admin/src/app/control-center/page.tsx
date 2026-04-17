@@ -221,125 +221,19 @@ export default function ControlCenterPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#11131E",
-        display: "flex",
-        flexDirection: "column",
-        fontFamily: '"Inter", -apple-system, sans-serif',
-        color: "#E1E1F2",
-      }}
-    >
-      <header
-        style={{
-          background: "#0C0E18",
-          padding: "0 24px",
-          height: 60,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: "1px solid rgba(70,69,85,0.6)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              background: "#4f46e5",
-              borderRadius: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              fontWeight: 800,
-              color: "#fff",
-            }}
-          >
-            WP
-          </div>
-          <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>
-            WPIP
-          </span>
-          <span
-            style={{
-              background: "#059669",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "3px 10px",
-              borderRadius: 6,
-              marginLeft: 4,
-            }}
-          >
-            Control Center
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <a
-            href="/disruptions"
-            style={{
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "6px 14px",
-              background: "#dc2626",
-              borderRadius: 6,
-            }}
-          >
-            Disruptions
-          </a>
-          <a
-            href="/admin"
-            style={{
-              color: "#94a3b8",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "6px 14px",
-              border: "1px solid #334155",
-              borderRadius: 6,
-            }}
-          >
-            Admin Dashboard
-          </a>
-          <button
-            type="button"
-            onClick={refresh}
-            style={{
-              background: "#1e293b",
-              color: "#94a3b8",
-              border: "1px solid #334155",
-              borderRadius: 6,
-              padding: "6px 14px",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Refresh
-          </button>
-        </div>
-      </header>
-
-      <main style={{ flex: 1, padding: 32 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              marginBottom: 4,
-              color: "#E1E1F2",
-            }}
-          >
-            Backend Control Center
-          </h1>
-          <p style={{ color: "#918FA1", fontSize: 14, marginBottom: 24 }}>
-            Monitor data, adjust income parameters, retrain the ML model, and
-            test premium predictions.
+    <section className="admin-page">
+      <div className="admin-page-head">
+        <div>
+          <h1 className="admin-page-title">Backend Control Center</h1>
+          <p className="admin-page-subtitle">
+            Monitor generated data, tune income multipliers, retrain models,
+            and validate premium predictions in one place.
           </p>
+        </div>
+        <button type="button" className="admin-page-action" onClick={refresh}>
+          Refresh Metrics
+        </button>
+      </div>
 
           {actionMsg && (
             <div
@@ -1064,9 +958,7 @@ export default function ControlCenterPage() {
               </Section>
             </>
           )}
-        </div>
-      </main>
-    </div>
+    </section>
   );
 }
 

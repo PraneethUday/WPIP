@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AdminNavbar from "@/components/AdminNavbar";
 
 export const metadata: Metadata = {
   title: "Worker Protection Insurance Platoform (WPIP) Admin",
@@ -25,7 +26,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <div className="adminRoot">
+          <AdminNavbar />
+          <div className="adminViewport">{children}</div>
+        </div>
+      </body>
     </html>
   );
 }

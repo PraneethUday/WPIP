@@ -88,16 +88,16 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: "#fef3c7", text: "#92400e" },
 };
 
-const WEATHER_EMOJI: Record<string, string> = {
-  Clear: "☀️",
-  Clouds: "☁️",
-  Rain: "🌧️",
-  Drizzle: "🌦️",
-  Thunderstorm: "⛈️",
-  Snow: "❄️",
-  Mist: "🌫️",
-  Haze: "🌫️",
-  Fog: "🌫️",
+const WEATHER_MARKER: Record<string, string> = {
+  Clear: "CLR",
+  Clouds: "CLD",
+  Rain: "RAN",
+  Drizzle: "DRZ",
+  Thunderstorm: "THN",
+  Snow: "SNW",
+  Mist: "MST",
+  Haze: "HAZ",
+  Fog: "FOG",
 };
 
 /* ─── Page ─── */
@@ -159,7 +159,7 @@ export default function DisruptionsPage() {
         setActionErr(data.error);
       } else {
         setActionMsg(
-          `🚨 Trigger ${data.trigger_id} fired in ${data.city} — ${data.claims_created} claims auto-created`,
+          `Trigger ${data.trigger_id} fired in ${data.city}. ${data.claims_created} claims were auto-created.`,
         );
         refresh();
       }
@@ -184,116 +184,19 @@ export default function DisruptionsPage() {
   );
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Header */}
-      <header
-        style={{
-          background: "#0f172a",
-          padding: "0 24px",
-          height: 60,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              background: "#4f46e5",
-              borderRadius: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              fontWeight: 800,
-              color: "#fff",
-            }}
-          >
-            WP
-          </div>
-          <span style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>
-            WPIP
-          </span>
-          <span
-            style={{
-              background: "#dc2626",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "3px 10px",
-              borderRadius: 6,
-              marginLeft: 4,
-            }}
-          >
-            Disruptions
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <a
-            href="/admin"
-            style={{
-              color: "#94a3b8",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "6px 14px",
-              border: "1px solid #334155",
-              borderRadius: 6,
-            }}
-          >
-            Admin
-          </a>
-          <a
-            href="/control-center"
-            style={{
-              color: "#94a3b8",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "6px 14px",
-              border: "1px solid #334155",
-              borderRadius: 6,
-            }}
-          >
-            Control Center
-          </a>
-          <button
-            type="button"
-            onClick={refresh}
-            style={{
-              background: "#1e293b",
-              color: "#94a3b8",
-              border: "1px solid #334155",
-              borderRadius: 6,
-              padding: "6px 14px",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            ↻ Refresh
-          </button>
-        </div>
-      </header>
-
-      <main style={{ flex: 1, padding: 32 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto" }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-            Parametric Trigger Monitor
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 14, marginBottom: 24 }}>
+    <section className="admin-page">
+      <div className="admin-page-head">
+        <div>
+          <h1 className="admin-page-title">Parametric Trigger Monitor</h1>
+          <p className="admin-page-subtitle">
             Real-time weather monitoring, disruption events, and automated
-            claims dashboard.
+            claims supervision.
           </p>
+        </div>
+        <button type="button" className="admin-page-action" onClick={refresh}>
+          Refresh Monitor
+        </button>
+      </div>
 
           {actionMsg && (
             <div
@@ -346,25 +249,25 @@ export default function DisruptionsPage() {
                 <SummaryCard
                   label="Monitored Cities"
                   value={cities.length.toString()}
-                  icon="🏙️"
+                  icon="CT"
                   color="#4f46e5"
                 />
                 <SummaryCard
                   label="Active Disruptions"
                   value={activeCities.length.toString()}
-                  icon="🚨"
+                  icon="AD"
                   color={activeCities.length > 0 ? "#dc2626" : "#059669"}
                 />
                 <SummaryCard
                   label="Total Claims"
                   value={totalClaims.toString()}
-                  icon="📋"
+                  icon="CL"
                   color="#d97706"
                 />
                 <SummaryCard
                   label="Total Payout"
                   value={`₹${totalPayout.toLocaleString("en-IN")}`}
-                  icon="💰"
+                  icon="PY"
                   color="#059669"
                 />
               </div>
@@ -431,7 +334,7 @@ export default function DisruptionsPage() {
                       {cities.map((city) => {
                         const cs = triggerStatus[city];
                         const w = cs.weather;
-                        const emoji = WEATHER_EMOJI[w.weather_main] || "🌤️";
+                        const marker = WEATHER_MARKER[w.weather_main] || "WTH";
                         return (
                           <div
                             key={city}
@@ -462,7 +365,7 @@ export default function DisruptionsPage() {
                                   borderRadius: "0 10px 0 10px",
                                 }}
                               >
-                                ⚠ ALERT
+                                ALERT
                               </div>
                             )}
                             <div
@@ -473,7 +376,20 @@ export default function DisruptionsPage() {
                                 marginBottom: 10,
                               }}
                             >
-                              <span style={{ fontSize: 28 }}>{emoji}</span>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.08em",
+                                  border: "1px solid #d1d5db",
+                                  borderRadius: 7,
+                                  padding: "6px 8px",
+                                  color: "#334155",
+                                  background: "#f8fafc",
+                                }}
+                              >
+                                {marker}
+                              </span>
                               <div>
                                 <div
                                   style={{
@@ -568,7 +484,7 @@ export default function DisruptionsPage() {
                         color: "#0f172a",
                       }}
                     >
-                      🧪 Test Fire Trigger
+                      Test Fire Trigger
                     </h3>
                     <p
                       style={{
@@ -885,7 +801,7 @@ export default function DisruptionsPage() {
                                       marginLeft: 4,
                                     }}
                                   >
-                                    ⚠
+                                    FLAG
                                   </span>
                                 )}
                               </td>
@@ -911,9 +827,7 @@ export default function DisruptionsPage() {
               )}
             </>
           )}
-        </div>
-      </main>
-    </div>
+    </section>
   );
 }
 

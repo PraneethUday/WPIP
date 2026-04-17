@@ -24,6 +24,89 @@
 body {
   margin: 0;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: var(--surface);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(108, 99, 255, 0.12), transparent 36%),
+    radial-gradient(circle at 90% 0%, rgba(34, 197, 94, 0.1), transparent 28%),
+    var(--surface);
   color: var(--white);
+}
+
+.adminRoot {
+  min-height: 100vh;
+}
+
+.adminViewport {
+  width: min(1440px, 100% - 48px);
+  margin: 0 auto;
+  padding: 28px 0 34px;
+}
+
+.admin-page {
+  background: linear-gradient(160deg, rgba(30, 33, 52, 0.78), rgba(18, 21, 36, 0.78));
+  border: 1px solid rgba(86, 83, 122, 0.48);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 18px 42px rgba(7, 8, 18, 0.32);
+}
+
+.admin-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.admin-page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #eef0ff;
+}
+
+.admin-page-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #a6a3c5;
+  max-width: 760px;
+  line-height: 1.5;
+}
+
+.admin-page-action {
+  border: 1px solid rgba(108, 99, 255, 0.48);
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.9), rgba(59, 130, 246, 0.82));
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-page-action:hover {
+  filter: brightness(1.06);
+}
+
+@media (max-width: 860px) {
+  .adminViewport {
+    width: min(1440px, 100% - 24px);
+    padding-top: 16px;
+  }
+
+  .admin-page {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .admin-page-head {
+    flex-direction: column;
+    margin-bottom: 18px;
+  }
+
+  .admin-page-action {
+    width: 100%;
+  }
 }
