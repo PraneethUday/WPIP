@@ -14,7 +14,9 @@ function normalizeTicketType(value: unknown): "support" | "claim_escalation" {
 }
 
 function normalizeText(value: unknown, maxLength: number): string {
-  return String(value ?? "").trim().slice(0, maxLength);
+  return String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
 }
 
 export async function POST(req: NextRequest) {

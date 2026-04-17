@@ -1399,7 +1399,11 @@ export default function AdminPage() {
 
                 {ticketsLoading ? (
                   <div
-                    style={{ padding: 28, textAlign: "center", color: "#918FA1" }}
+                    style={{
+                      padding: 28,
+                      textAlign: "center",
+                      color: "#918FA1",
+                    }}
                   >
                     Loading support tickets...
                   </div>
@@ -1448,8 +1452,7 @@ export default function AdminPage() {
                                   textAlign: "left",
                                   fontWeight: 700,
                                   color: "#918FA1",
-                                  borderBottom:
-                                    "1px solid rgba(70,69,85,0.6)",
+                                  borderBottom: "1px solid rgba(70,69,85,0.6)",
                                   fontSize: 11,
                                   textTransform: "uppercase",
                                   letterSpacing: "0.05em",
@@ -1477,7 +1480,9 @@ export default function AdminPage() {
                                     marginBottom: 2,
                                   }}
                                 >
-                                  {ticket.worker_name || ticket.delivery_id || "Unknown"}
+                                  {ticket.worker_name ||
+                                    ticket.delivery_id ||
+                                    "Unknown"}
                                 </div>
                                 <div style={{ fontSize: 12, color: "#918FA1" }}>
                                   {ticket.worker_email || ticket.worker_id}
@@ -1509,7 +1514,9 @@ export default function AdminPage() {
                                     : "Support"}
                                 </span>
                               </td>
-                              <td style={{ padding: "12px 14px", maxWidth: 320 }}>
+                              <td
+                                style={{ padding: "12px 14px", maxWidth: 320 }}
+                              >
                                 <div
                                   style={{
                                     fontWeight: 600,
@@ -1532,7 +1539,12 @@ export default function AdminPage() {
                                   {ticket.message}
                                 </div>
                               </td>
-                              <td style={{ padding: "12px 14px", color: "#C7C4D8" }}>
+                              <td
+                                style={{
+                                  padding: "12px 14px",
+                                  color: "#C7C4D8",
+                                }}
+                              >
                                 {ticket.claim_number || "—"}
                               </td>
                               <td style={{ padding: "12px 14px" }}>
@@ -1586,7 +1598,10 @@ export default function AdminPage() {
                                       color="#166534"
                                       disabled={updatingTicketId === ticket.id}
                                       onClick={() =>
-                                        updateSupportTicket(ticket.id, "resolved")
+                                        updateSupportTicket(
+                                          ticket.id,
+                                          "resolved",
+                                        )
                                       }
                                     />
                                   )}

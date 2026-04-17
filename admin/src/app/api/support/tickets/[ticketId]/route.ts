@@ -5,7 +5,9 @@ const ALLOWED_STATUSES = ["open", "in_progress", "resolved"] as const;
 type TicketStatus = (typeof ALLOWED_STATUSES)[number];
 
 function normalizeText(value: unknown, maxLength: number): string | null {
-  const text = String(value ?? "").trim().slice(0, maxLength);
+  const text = String(value ?? "")
+    .trim()
+    .slice(0, maxLength);
   return text || null;
 }
 

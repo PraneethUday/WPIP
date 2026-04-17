@@ -846,7 +846,9 @@ export default function DashboardPage() {
         return;
       }
 
-      setSupportSuccess("Issue submitted successfully. Our team will review it.");
+      setSupportSuccess(
+        "Issue submitted successfully. Our team will review it.",
+      );
       setSupportMessage("");
     } catch {
       setSupportError("Unable to submit right now. Please try again.");
@@ -1915,7 +1917,8 @@ export default function DashboardPage() {
                             className={
                               isSettledPayoutStatus(c.payout_status)
                                 ? styles.badgeGreen
-                                : payoutStatusValue(c.payout_status) === "rejected"
+                                : payoutStatusValue(c.payout_status) ===
+                                    "rejected"
                                   ? styles.badgeRed
                                   : styles.badgeAmber
                             }
@@ -1963,7 +1966,9 @@ export default function DashboardPage() {
                           <button
                             type="button"
                             className={styles.claimEscalateBtn}
-                            onClick={() => openSupportModal("claim_escalation", c)}
+                            onClick={() =>
+                              openSupportModal("claim_escalation", c)
+                            }
                           >
                             Escalate Claim
                           </button>
@@ -2226,7 +2231,8 @@ export default function DashboardPage() {
             {supportClaimContext && (
               <div className={styles.supportClaimMeta}>
                 <div className={styles.supportClaimMetaLine}>
-                  <strong>Claim:</strong> {supportClaimContext.claimNumber || "–"}
+                  <strong>Claim:</strong>{" "}
+                  {supportClaimContext.claimNumber || "–"}
                 </div>
                 <div className={styles.supportClaimMetaLine}>
                   <strong>Type:</strong>{" "}
@@ -2260,7 +2266,9 @@ export default function DashboardPage() {
               />
             </div>
 
-            {supportError && <div className={styles.modalError}>{supportError}</div>}
+            {supportError && (
+              <div className={styles.modalError}>{supportError}</div>
+            )}
             {supportSuccess && (
               <div className={styles.modalSuccess}>{supportSuccess}</div>
             )}
