@@ -9,7 +9,7 @@ const NAV = [
   { id: "claims", label: "Claims History", href: "/dashboard" },
   { id: "payments", label: "Payments", href: "/dashboard" },
   { id: "profile", label: "Profile", href: "/dashboard" },
-  { id: "simulator", label: "Simulator", href: "/simulator" },
+  { id: "simulator", label: "Simulator (Demo)", href: "/simulator" },
 ];
 
 export default function SimulatorPage() {

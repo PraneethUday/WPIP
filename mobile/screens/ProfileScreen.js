@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 function labelTier(tier) {
   if (tier === "basic") return "Basic Shield";
@@ -47,6 +48,7 @@ const rowStyle = (COLORS) => ({
 export default function ProfileScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
   const { COLORS, FONTS, isDark, toggleTheme } = useTheme();
+  const { t, language, setLanguage, languages } = useLanguage();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -73,7 +75,7 @@ export default function ProfileScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle}>{t("profile")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -89,28 +91,28 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.protectedBadge}>
             <Ionicons name="shield-checkmark" size={14} color={COLORS.success} />
             <Text style={styles.protectedText}>
-              {user?.verification_status === "verified" ? "Income Protected" : "Verification Pending"}
+              {user?.verification_status === "verified" ? t("income_protected") : t("verification_pending")}
             </Text>
           </View>
         </View>
 
         {/* Personal Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          <Row icon="person-outline" label="Full Name" value={user?.name || "—"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="call-outline" label="Phone" value={user?.phone || "—"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="mail-outline" label="Email" value={user?.email || "—"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="location-outline" label="City" value={user?.city || "—"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="map-outline" label="Area / Zone" value={user?.area || "—"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="card-outline" label="Delivery Partner ID" value={user?.delivery_id || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Text style={styles.sectionTitle}>{t("section_personal")}</Text>
+          <Row icon="person-outline" label={t("row_name")} value={user?.name || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="call-outline" label={t("row_phone")} value={user?.phone || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="mail-outline" label={t("row_email")} value={user?.email || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="location-outline" label={t("row_city")} value={user?.city || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="map-outline" label={t("row_area")} value={user?.area || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="card-outline" label={t("row_delivery_id")} value={user?.delivery_id || "—"} COLORS={COLORS} FONTS={FONTS} />
         </View>
 
         {/* Connected Platforms */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Connected Platforms</Text>
+          <Text style={styles.sectionTitle}>{t("section_platforms")}</Text>
           {(user?.platforms || []).length === 0 && (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No platforms linked yet.</Text>
+              <Text style={styles.emptyText}>{t("no_platforms")}</Text>
             </View>
           )}
           {(user?.platforms || []).map((platform) => (
@@ -121,11 +123,13 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <View>
                   <Text style={styles.platformName}>{platform}</Text>
-                  <Text style={styles.platformId}>Delivery ID: {user?.delivery_id || "—"}</Text>
+                  <Text style={styles.platformId}>{t("delivery_id_label")}: {user?.delivery_id || "—"}</Text>
                 </View>
               </View>
               <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>{user?.verification_status === "verified" ? "Verified ✓" : "Pending"}</Text>
+                <Text style={styles.verifiedText}>
+                  {user?.verification_status === "verified" ? t("verified") : t("pending")}
+                </Text>
               </View>
             </View>
           ))}
@@ -133,16 +137,16 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Coverage Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Coverage Settings</Text>
-          <Row icon="shield-outline" label="Current Plan" value={labelTier(user?.tier)} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="repeat-outline" label="AutoPay" value={user?.autopay ? "Enabled (5% discount)" : "Disabled"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="checkmark-done-outline" label="Verification" value={user?.verification_status || "pending"} COLORS={COLORS} FONTS={FONTS} />
-          <Row icon="wallet-outline" label="UPI ID" value={user?.upi || "—"} COLORS={COLORS} FONTS={FONTS} />
+          <Text style={styles.sectionTitle}>{t("section_coverage")}</Text>
+          <Row icon="shield-outline" label={t("row_plan")} value={labelTier(user?.tier)} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="repeat-outline" label={t("row_autopay")} value={user?.autopay ? t("autopay_on") : t("autopay_off")} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="checkmark-done-outline" label={t("row_verification")} value={user?.verification_status || "pending"} COLORS={COLORS} FONTS={FONTS} />
+          <Row icon="wallet-outline" label={t("row_upi")} value={user?.upi || "—"} COLORS={COLORS} FONTS={FONTS} />
         </View>
 
         {/* Appearance — Theme Toggle */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
+          <Text style={styles.sectionTitle}>{t("section_appearance")}</Text>
           <View style={styles.themeRow}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
               <View style={[styles.themeIconWrap, { backgroundColor: isDark ? COLORS.primaryContainer : COLORS.amberContainer }]}>
@@ -153,8 +157,8 @@ export default function ProfileScreen({ navigation }) {
                 />
               </View>
               <View>
-                <Text style={styles.themeLabel}>{isDark ? "Dark Mode" : "Light Mode"}</Text>
-                <Text style={styles.themeSubLabel}>{isDark ? "Prussian Blue theme" : "Ivory theme"}</Text>
+                <Text style={styles.themeLabel}>{isDark ? t("dark_mode") : t("light_mode")}</Text>
+                <Text style={styles.themeSubLabel}>{isDark ? t("theme_dark_sub") : t("theme_light_sub")}</Text>
               </View>
             </View>
             <Switch
@@ -176,9 +180,42 @@ export default function ProfileScreen({ navigation }) {
               color={isDark ? COLORS.primary : COLORS.amber}
             />
             <Text style={[styles.themeToggleBtnText, { color: isDark ? COLORS.primary : COLORS.amber }]}>
-              Switch to {isDark ? "Light" : "Dark"} Theme
+              {isDark ? t("switch_to_light") : t("switch_to_dark")}
             </Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ── Language ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t("section_language")}</Text>
+          <View style={styles.langGrid}>
+            {languages.map((lang) => {
+              const active = language === lang.code;
+              return (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.langBtn,
+                    active && { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.primary },
+                  ]}
+                  onPress={() => setLanguage(lang.code)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.langNative, active && { color: COLORS.primary }]}>
+                    {lang.native}
+                  </Text>
+                  <Text style={[styles.langLabel, active && { color: COLORS.primary }]}>
+                    {lang.label}
+                  </Text>
+                  {active && (
+                    <View style={styles.langCheck}>
+                      <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
         {/* Actions */}
@@ -188,12 +225,12 @@ export default function ProfileScreen({ navigation }) {
           ) : (
             <Ionicons name="refresh" size={18} color="#FFFDFB" />
           )}
-          <Text style={styles.refreshProfileText}>Refresh Profile</Text>
+          <Text style={styles.refreshProfileText}>{t("refresh_profile")}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={18} color={COLORS.error} />
-          <Text style={styles.logoutText}>Sign Out</Text>
+          <Text style={styles.logoutText}>{t("sign_out")}</Text>
         </TouchableOpacity>
 
         <Text style={styles.footer}>GigGuard v1.0.0 · IRDAI Registered</Text>
@@ -291,4 +328,27 @@ const createStyles = (COLORS, FONTS) =>
     },
     logoutText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.error },
     footer: { textAlign: "center", fontSize: 11, fontFamily: FONTS.regular, color: COLORS.textFaint, paddingBottom: SIZES.padding },
+
+    // Language picker
+    langGrid: {
+      flexDirection: "row", flexWrap: "wrap", gap: 8,
+      padding: SIZES.padding * 0.75,
+    },
+    langBtn: {
+      flex: 1, minWidth: "44%", position: "relative",
+      borderRadius: SIZES.radius, borderWidth: 1, borderColor: COLORS.border,
+      backgroundColor: COLORS.surfaceHigh,
+      paddingVertical: 12, paddingHorizontal: 10,
+      alignItems: "center",
+    },
+    langNative: {
+      fontSize: 16, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 2,
+    },
+    langLabel: {
+      fontSize: 10, fontFamily: FONTS.medium, color: COLORS.textFaint,
+      textTransform: "uppercase", letterSpacing: 0.5,
+    },
+    langCheck: {
+      position: "absolute", top: 6, right: 6,
+    },
   });

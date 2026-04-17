@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
+import { LANGUAGES, Language, makeT } from "@/lib/translations";
 
 // ─── Platform logos ───────────────────────────────────────────────────────────
 import {
@@ -139,11 +140,11 @@ const PLAN_DETAILS: Record<
 };
 
 const NAV = [
-  { id: "home", label: "Dashboard" },
-  { id: "claims", label: "Claims History" },
-  { id: "payments", label: "Payments" },
-  { id: "profile", label: "Profile" },
-  { id: "simulator", label: "Simulator" },
+  { id: "home",      tKey: "nav_dashboard" },
+  { id: "claims",    tKey: "nav_claims"    },
+  { id: "payments",  tKey: "nav_payments"  },
+  { id: "profile",   tKey: "nav_profile"   },
+  { id: "simulator", tKey: "nav_simulator" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -157,9 +158,6 @@ function planStorageKey(userId: string) {
   return `gg_next_week_plan_${userId}`;
 }
 
-function paymentsStorageKey(userId: string) {
-  return `gg_payments_${userId}`;
-}
 
 function getNextWeekWindow(): { label: string } {
   const now = new Date();
@@ -325,12 +323,30 @@ export default function DashboardPage() {
   const [planMessage, setPlanMessage] = useState("");
   const [claims, setClaims] = useState<Record<string, unknown>[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(false);
+  const [claimsFilter, setClaimsFilter] = useState<"all" | "paid" | "review" | "rejected">("all");
 
   // traffic & curfew
   const [trafficData, setTrafficData] = useState<TrafficData | null>(null);
   const [curfewData, setCurfewData] = useState<CurfewData | null>(null);
   const [loadingTraffic, setLoadingTraffic] = useState(false);
   const [loadingCurfew, setLoadingCurfew] = useState(false);
+
+  // language
+  const [language, setLanguageState] = useState<Language>("en");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("gg_language") as Language | null;
+    if (stored && ["en", "hi", "te", "ta", "ml"].includes(stored)) {
+      setLanguageState(stored);
+    }
+  }, []);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem("gg_language", lang);
+  };
+
+  const t = makeT(language);
 
   // theme
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -433,13 +449,7 @@ export default function DashboardPage() {
       fetchTraffic(user.city);
       fetchCurfew(user.city);
     }
-    // load stored payments
-    try {
-      const stored = localStorage.getItem(paymentsStorageKey(user.id));
-      if (stored) setPayments(JSON.parse(stored));
-    } catch {
-      /* ignore */
-    }
+    fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.tier]);
 
@@ -484,6 +494,27 @@ export default function DashboardPage() {
       /* silently fail */
     } finally {
       setLoadingCurfew(false);
+    }
+  };
+
+  const fetchPayments = async () => {
+    const token = localStorage.getItem("gg_token");
+    if (!token) return;
+    try {
+      const res = await fetch("/api/payment/history", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.payments) {
+        setPayments(
+          // server returns transaction_id; map to id for table key/display
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.payments.map((p: any) => ({ ...p, id: p.transaction_id })),
+        );
+      }
+    } catch {
+      /* silently fail */
     }
   };
 
@@ -600,21 +631,7 @@ export default function DashboardPage() {
       }
 
       setPaySuccess({ amount: data.amount, txId: data.transaction_id });
-
-      const record: PaymentRecord = {
-        id: data.transaction_id,
-        amount: data.amount,
-        method: payMethod,
-        status: "success",
-        timestamp: new Date().toISOString(),
-        tier: user.tier,
-      };
-      const updated = [record, ...payments];
-      setPayments(updated);
-      localStorage.setItem(
-        paymentsStorageKey(user.id),
-        JSON.stringify(updated),
-      );
+      await fetchPayments();
     } catch {
       setPayError("Something went wrong. Please try again.");
     } finally {
@@ -649,6 +666,24 @@ export default function DashboardPage() {
     payments.length > 0 &&
     new Date(payments[0].timestamp).toDateString() === today;
 
+  const claimsPaid = claims.filter((c) => c.payout_status === "paid");
+  const claimsUnderReview = claims.filter(
+    (c) => c.payout_status !== "paid" && c.payout_status !== "rejected",
+  );
+  const claimsRejected = claims.filter((c) => c.payout_status === "rejected");
+  const claimsTotalReceived = claimsPaid.reduce(
+    (sum, c) => sum + (Number(c.payout_amount) || 0),
+    0,
+  );
+  const claimsFiltered =
+    claimsFilter === "all"
+      ? claims
+      : claimsFilter === "paid"
+        ? claimsPaid
+        : claimsFilter === "review"
+          ? claimsUnderReview
+          : claimsRejected;
+
   return (
     <div className={styles.pageRoot}>
       {/* ── Header ── */}
@@ -675,7 +710,7 @@ export default function DashboardPage() {
                }}
                className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
              >
-               {item.label}
+               {t(item.tKey)}
              </button>
           ))}
         </nav>
@@ -796,92 +831,59 @@ export default function DashboardPage() {
                   {/* Greeting */}
                   <div className={styles.pageGreeting}>
                     <h1 className={styles.greetTitle}>
-                      Good {greeting()}, {user.name.split(" ")[0]}.
+                      {t(`greeting_${greeting()}`)}, {user.name.split(" ")[0]}.
                     </h1>
                     <p className={styles.greetSub}>
-                      {coveredNow
-                        ? "Your coverage is active this week"
-                        : "Coverage is not active this week"}{" "}
+                      {coveredNow ? t("coverage_on") : t("coverage_off")}{" "}
                       · {user.city}
                     </p>
                   </div>
 
                   <div className={styles.grid4}>
-                    <MetricCard
-                      label="Current plan"
-                      value={tierLabel}
-                      tone="blue"
-                    />
-                    <MetricCard
-                      label="Weekly premium"
-                      value={money(currentWeeklyPremium)}
-                      tone="green"
-                    />
-                    <MetricCard
-                      label="Max payout"
-                      value={money(currentPremium?.max_payout)}
-                      tone="amber"
-                    />
-                    <MetricCard
-                      label="City"
-                      value={user.city || "–"}
-                      tone="ink"
-                    />
+                    <MetricCard label={t("current_plan")} value={tierLabel} tone="blue" />
+                    <MetricCard label={t("weekly_premium")} value={money(currentWeeklyPremium)} tone="green" />
+                    <MetricCard label={t("max_payout")} value={money(currentPremium?.max_payout)} tone="amber" />
+                    <MetricCard label={t("city")} value={user.city || "–"} tone="ink" />
                   </div>
 
                   {/* Coverage this week */}
                   <section className={styles.panel}>
                     <div className={styles.panelHead}>
-                      <h3 className={styles.panelTitle}>Coverage this week</h3>
+                      <h3 className={styles.panelTitle}>{t("cover_this_week")}</h3>
                       <p className={styles.panelSub}>
-                        Active plan: {PLAN_DETAILS[currentTier].label}. Coverage
-                        requires verification and a computed premium.
+                        {t("active_plan_prefix")}: {PLAN_DETAILS[currentTier].label}. {t("coverage_needs_note")}
                       </p>
                     </div>
 
                     {loadingCurrent ? (
-                      <div className={styles.muted}>
-                        Calculating current-week premium…
-                      </div>
+                      <div className={styles.muted}>{t("loading_premium")}</div>
                     ) : premiumError ? (
                       <div className={styles.errorText}>{premiumError}</div>
                     ) : currentPremium ? (
                       <div className={styles.coverageGrid}>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>Status</div>
+                          <div className={styles.coverageLabel}>{t("status")}</div>
                           <div className={styles.coverageValue}>
-                            {coveredNow
-                              ? "Active coverage"
-                              : "Coverage unavailable"}
+                            {coveredNow ? t("active_coverage") : t("coverage_unavailable")}
                           </div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>
-                            Weekly premium
-                          </div>
-                          <div className={styles.coverageValue}>
-                            {money(currentWeeklyPremium)}
-                          </div>
+                          <div className={styles.coverageLabel}>{t("weekly_premium_label")}</div>
+                          <div className={styles.coverageValue}>{money(currentWeeklyPremium)}</div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>
-                            Max payout per claim
-                          </div>
-                          <div className={styles.coverageValue}>
-                            {money(currentPremium.max_payout)}
-                          </div>
+                          <div className={styles.coverageLabel}>{t("max_payout_per_claim")}</div>
+                          <div className={styles.coverageValue}>{money(currentPremium.max_payout)}</div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>Risk level</div>
+                          <div className={styles.coverageLabel}>{t("risk_level")}</div>
                           <div className={styles.coverageValue}>
                             {riskLabel(currentPremium.weather_risk)}
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className={styles.muted}>
-                        Current plan data is not available.
-                      </div>
+                      <div className={styles.muted}>{t("no_plan_data")}</div>
                     )}
 
                     {currentPremium?.weather && (
@@ -1009,11 +1011,10 @@ export default function DashboardPage() {
                   <section className={styles.panel}>
                     <div className={styles.panelHead}>
                       <h3 className={styles.panelTitle}>
-                        Insurance for next week
+                        {t("insurance_next_week")}
                       </h3>
                       <p className={styles.panelSub}>
-                        {nextWindow.label} · select a plan to schedule it for
-                        next week.
+                        {nextWindow.label} · {t("select_plan_note")}
                       </p>
                     </div>
 
@@ -1042,20 +1043,14 @@ export default function DashboardPage() {
                                   )}
                             </div>
                             <div className={styles.planPayout}>
-                              Max payout: {money(quote?.max_payout)}
+                              {t("max_payout")}: {money(quote?.max_payout)}
                             </div>
                             <button
                               type="button"
-                              className={
-                                selected
-                                  ? styles.planBtnSelected
-                                  : styles.planBtn
-                              }
+                              className={selected ? styles.planBtnSelected : styles.planBtn}
                               onClick={() => applyNextWeekPlan(tier)}
                             >
-                              {selected
-                                ? "Scheduled for next week"
-                                : "Choose for next week"}
+                              {selected ? t("scheduled_next_week") : t("choose_next_week")}
                             </button>
                           </div>
                         );
@@ -1064,29 +1059,17 @@ export default function DashboardPage() {
 
                     <div className={styles.nextWeekSummary}>
                       <div>
-                        <div className={styles.coverageLabel}>
-                          Scheduled plan
-                        </div>
-                        <div className={styles.coverageValue}>
-                          {PLAN_DETAILS[nextWeekTier].label}
-                        </div>
+                        <div className={styles.coverageLabel}>{t("scheduled_plan")}</div>
+                        <div className={styles.coverageValue}>{PLAN_DETAILS[nextWeekTier].label}</div>
                       </div>
                       <div>
-                        <div className={styles.coverageLabel}>
-                          Projected premium
-                        </div>
-                        <div className={styles.coverageValue}>
-                          {money(nextWeeklyPremium)}
-                        </div>
+                        <div className={styles.coverageLabel}>{t("projected_premium")}</div>
+                        <div className={styles.coverageValue}>{money(nextWeeklyPremium)}</div>
                       </div>
                       <div>
-                        <div className={styles.coverageLabel}>
-                          Coverage state
-                        </div>
+                        <div className={styles.coverageLabel}>{t("coverage_state")}</div>
                         <div className={styles.coverageValue}>
-                          {coveredNextWeek
-                            ? "Will be covered"
-                            : "Not covered yet"}
+                          {coveredNextWeek ? t("will_be_covered") : t("not_covered_yet")}
                         </div>
                       </div>
                     </div>
@@ -1104,7 +1087,7 @@ export default function DashboardPage() {
 
                   {/* Platforms */}
                   <section className={styles.panel}>
-                    <h3 className={styles.panelTitle}>Connected platforms</h3>
+                    <h3 className={styles.panelTitle}>{t("connected_platforms")}</h3>
                     <div className={styles.platformWrap}>
                       {user.platforms.map((p) => {
                         const meta = PLATFORM_META[p] ?? {
@@ -1128,68 +1111,42 @@ export default function DashboardPage() {
                   </section>
 
                   {!verified && (
-                    <div className={styles.warningBox}>
-                      Your account is pending verification. Insurance remains
-                      inactive until verification completes.
-                    </div>
+                    <div className={styles.warningBox}>{t("verification_warning")}</div>
                   )}
                 </div>
 
                 {/* ── Right aside ── */}
                 <aside className={styles.homeAside}>
                   <div className={styles.asideCard}>
-                    <div className={styles.asideCardLabel}>
-                      UPCOMING PREMIUM
-                    </div>
-                    <div className={styles.asideCardAmount}>
-                      {money(currentWeeklyPremium)}
-                    </div>
-                    <div className={styles.asideCardMeta}>
-                      {tierLabel} · per week
-                    </div>
+                    <div className={styles.asideCardLabel}>{t("upcoming_premium")}</div>
+                    <div className={styles.asideCardAmount}>{money(currentWeeklyPremium)}</div>
+                    <div className={styles.asideCardMeta}>{tierLabel} · {t("per_week")}</div>
                     <div className={styles.asideCardMeta}>{user.city}</div>
                     {paidToday ? (
-                      <div className={styles.asidePaidBadge}>✓ Paid today</div>
+                      <div className={styles.asidePaidBadge}>{t("paid_today")}</div>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.asidePayBtn}
-                        onClick={openPayModal}
-                        disabled={!currentPremium}
-                      >
-                        Pay Premium →
+                      <button type="button" className={styles.asidePayBtn} onClick={openPayModal} disabled={!currentPremium}>
+                        {t("pay_premium")}
                       </button>
                     )}
                   </div>
 
                   <div className={styles.asideCard}>
-                    <div className={styles.asideCardLabel}>QUICK ACTIONS</div>
+                    <div className={styles.asideCardLabel}>{t("quick_actions")}</div>
                     <ul className={styles.quickActions}>
                       <li>
-                        <button
-                          type="button"
-                          className={styles.quickActionItem}
-                          onClick={() => setTab("payments")}
-                        >
-                          Pay This Week&apos;s Premium
+                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("payments")}>
+                          {t("pay_this_weeks_premium")}
                         </button>
                       </li>
                       <li>
-                        <button
-                          type="button"
-                          className={styles.quickActionItem}
-                          onClick={() => setTab("claims")}
-                        >
-                          View Claims History
+                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("claims")}>
+                          {t("view_claims_history")}
                         </button>
                       </li>
                       <li>
-                        <button
-                          type="button"
-                          className={styles.quickActionItem}
-                          onClick={() => setTab("profile")}
-                        >
-                          Update Profile
+                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("profile")}>
+                          {t("update_profile")}
                         </button>
                       </li>
                     </ul>
@@ -1200,7 +1157,7 @@ export default function DashboardPage() {
                       className={`${styles.asideCard} ${styles.asideRiskCard}`}
                     >
                       <div className={styles.asideCardLabel}>
-                        WEATHER & RISK
+                        {t("weather_risk")}
                       </div>
                       <div className={styles.riskBadge}>
                         {riskLabel(currentPremium.weather_risk)} Risk
@@ -1220,21 +1177,132 @@ export default function DashboardPage() {
             {/* ══ CLAIMS TAB ══ */}
             {tab === "claims" && (
               <div>
-                <h1 className={styles.profileTitle}>Claims History</h1>
-                <p className={`${styles.muted} ${styles.claimsIntro}`}>
-                  Claims are automatically generated during severe weather
-                  disruptions.
-                </p>
+                <h1 className={styles.profileTitle}>{t("claims_history")}</h1>
+
+                {!loadingClaims && (
+                  <>
+                    {/* ── Hero dashboard card ── */}
+                    <div className={styles.claimsHeroCard}>
+                      <div className={styles.claimsHeroGlow} />
+                      <div className={styles.claimsHeroTop}>
+                        <div>
+                          <div className={styles.claimsHeroEyebrow}>
+                            {t("total_received")}
+                          </div>
+                          <div className={styles.claimsHeroAmount}>
+                            ₹{Math.round(claimsTotalReceived).toLocaleString(
+                              "en-IN",
+                            )}
+                          </div>
+                        </div>
+                        <div className={styles.claimsHeroBadge}>
+                          <div className={styles.claimsHeroBadgeNum}>
+                            {claims.length}
+                          </div>
+                          <div className={styles.claimsHeroBadgeLabel}>
+                            {t("claims_badge")}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.claimsHeroStats}>
+                        <div className={styles.claimsHeroStat}>
+                          <div
+                            className={`${styles.claimsHeroStatDot} ${styles.dotGreen}`}
+                          />
+                          <span className={styles.claimsHeroStatNum}>
+                            {claimsPaid.length}
+                          </span>
+                          <span className={styles.claimsHeroStatLabel}>
+                            {t("settled")}
+                          </span>
+                        </div>
+                        <div className={styles.claimsHeroStatSep} />
+                        <div className={styles.claimsHeroStat}>
+                          <div
+                            className={`${styles.claimsHeroStatDot} ${styles.dotAmber}`}
+                          />
+                          <span className={styles.claimsHeroStatNum}>
+                            {claimsUnderReview.length}
+                          </span>
+                          <span className={styles.claimsHeroStatLabel}>
+                            {t("review")}
+                          </span>
+                        </div>
+                        <div className={styles.claimsHeroStatSep} />
+                        <div className={styles.claimsHeroStat}>
+                          <div
+                            className={`${styles.claimsHeroStatDot} ${styles.dotRed}`}
+                          />
+                          <span className={styles.claimsHeroStatNum}>
+                            {claimsRejected.length}
+                          </span>
+                          <span className={styles.claimsHeroStatLabel}>
+                            {t("rejected")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Auto-claim note ── */}
+                    <div className={styles.claimsNoteRow}>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={styles.claimsNoteIcon}
+                      >
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <polyline points="9 12 11 14 15 10" />
+                      </svg>
+                      <span className={styles.claimsNoteText}>
+                        {t("auto_claim_note")}
+                      </span>
+                    </div>
+
+                    {/* ── Filter tabs ── */}
+                    <div className={styles.claimsFilterTabs}>
+                      {(
+                        [
+                          { key: "all",      tKey: "all",      count: claims.length           },
+                          { key: "paid",     tKey: "settled",  count: claimsPaid.length       },
+                          { key: "review",   tKey: "review",   count: claimsUnderReview.length},
+                          { key: "rejected", tKey: "rejected", count: claimsRejected.length   },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={`${styles.claimsFilterTab} ${claimsFilter === opt.key ? styles.claimsFilterTabActive : ""}`}
+                          onClick={() => setClaimsFilter(opt.key)}
+                        >
+                          {t(opt.tKey)}
+                          <span
+                            className={`${styles.claimsFilterBadge} ${claimsFilter === opt.key ? styles.claimsFilterBadgeActive : ""}`}
+                          >
+                            {opt.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 {loadingClaims ? (
-                  <div className={styles.muted}>Loading claims…</div>
-                ) : claims.length === 0 ? (
+                  <div className={styles.muted}>{t("loading_claims")}</div>
+                ) : claimsFiltered.length === 0 ? (
                   <div className={styles.emptyState}>
-                    No claims yet. Claims appear automatically when a disruption
-                    event is detected in your city.
+                    {claimsFilter === "all"
+                      ? "No claims yet. Claims appear automatically when a disruption event is detected in your city."
+                      : `No ${claimsFilter === "paid" ? "settled" : claimsFilter === "review" ? "under review" : "rejected"} claims found.`}
                   </div>
                 ) : (
                   <div className={styles.claimsList}>
-                    {claims.map((c) => (
+                    {claimsFiltered.map((c) => (
                       <div
                         key={String(c.id)}
                         className={`${styles.panel} ${styles.claimPanel}`}
@@ -1301,11 +1369,8 @@ export default function DashboardPage() {
               <div>
                 <div className={styles.tabHeader}>
                   <div>
-                    <h1 className={styles.profileTitle}>Payments</h1>
-                    <p className={styles.muted}>
-                      Pay your weekly premium securely and view your payment
-                      history.
-                    </p>
+                    <h1 className={styles.profileTitle}>{t("payments")}</h1>
+                    <p className={styles.muted}>{t("payments_sub")}</p>
                   </div>
                   {paidToday ? (
                     <div className={styles.paidBadge}>✓ Paid today</div>
@@ -1325,7 +1390,7 @@ export default function DashboardPage() {
                 <div className={styles.payBanner}>
                   <div>
                     <div className={styles.payBannerTitle}>
-                      This week&apos;s premium due
+                      {t("this_weeks_due")}
                     </div>
                     <div className={styles.payBannerAmount}>
                       {money(currentWeeklyPremium)}
@@ -1354,13 +1419,10 @@ export default function DashboardPage() {
                   <h3
                     className={`${styles.panelTitle} ${styles.panelTitleSpaced}`}
                   >
-                    Payment History
+                    {t("payment_history")}
                   </h3>
                   {payments.length === 0 ? (
-                    <div className={styles.emptyState}>
-                      No payments yet. Use the &ldquo;Pay Now&rdquo; button
-                      above to pay your weekly premium.
-                    </div>
+                    <div className={styles.emptyState}>{t("no_payments")}</div>
                   ) : (
                     <table className={styles.dataTable}>
                       <thead>
@@ -1421,51 +1483,76 @@ export default function DashboardPage() {
             {/* ══ PROFILE TAB ══ */}
             {tab === "profile" && (
               <div>
-                <h1 className={styles.profileTitle}>Profile</h1>
+                <h1 className={styles.profileTitle}>{t("profile")}</h1>
                 <div className={styles.profileGrid}>
                   <div className={styles.panel}>
-                    <h3 className={styles.panelTitle}>Personal information</h3>
-                    <ProfileRow label="Name" value={user.name} />
-                    <ProfileRow label="Email" value={user.email} />
-                    <ProfileRow label="Phone" value={user.phone || "–"} />
-                    <ProfileRow label="City" value={user.city || "–"} />
-                    <ProfileRow label="Area" value={user.area || "–"} />
-                    <ProfileRow label="Account UUID" value={user.id} mono />
+                    <h3 className={styles.panelTitle}>{t("section_personal")}</h3>
+                    <ProfileRow label={t("row_name")} value={user.name} />
+                    <ProfileRow label={t("row_email")} value={user.email} />
+                    <ProfileRow label={t("row_phone")} value={user.phone || "–"} />
+                    <ProfileRow label={t("row_city")} value={user.city || "–"} />
+                    <ProfileRow label={t("row_area")} value={user.area || "–"} />
+                    <ProfileRow label={t("row_account_id")} value={user.id} mono />
                     <ProfileRow
-                      label="Delivery Partner ID"
+                      label={t("row_delivery_id")}
                       value={user.delivery_id || "–"}
                       mono
                     />
                   </div>
                   <div className={styles.panel}>
-                    <h3 className={styles.panelTitle}>Insurance details</h3>
-                    <ProfileRow label="Current plan" value={tierLabel} />
+                    <h3 className={styles.panelTitle}>{t("section_insurance")}</h3>
+                    <ProfileRow label={t("row_plan")} value={tierLabel} />
                     <ProfileRow
-                      label="Next week plan"
+                      label={t("row_next_plan")}
                       value={PLAN_DETAILS[nextWeekTier].label}
                     />
                     <ProfileRow
-                      label="Current premium"
+                      label={t("row_premium")}
                       value={money(currentWeeklyPremium)}
                     />
                     <ProfileRow
-                      label="Next week premium"
+                      label={t("row_next_premium")}
                       value={money(nextWeeklyPremium)}
                     />
                     <ProfileRow
-                      label="Verification"
-                      value={verified ? "Verified" : "Pending"}
+                      label={t("row_verification")}
+                      value={verified ? t("verified") : t("pending")}
                     />
                     <ProfileRow
-                      label="AutoPay"
-                      value={user.autopay ? "Enabled" : "Disabled"}
+                      label={t("row_autopay")}
+                      value={user.autopay ? t("autopay_on") : t("autopay_off")}
                     />
                     <ProfileRow
-                      label="Platforms"
+                      label={t("row_platforms")}
                       value={user.platforms
                         .map((p) => PLATFORM_META[p]?.name || p)
                         .join(", ")}
                     />
+                  </div>
+                </div>
+
+                {/* ── Language selector ── */}
+                <div className={`${styles.panel} ${styles.langPanel}`}>
+                  <h3 className={styles.panelTitle}>{t("section_language")}</h3>
+                  <p className={styles.panelSub}>{t("select_language")}</p>
+                  <div className={styles.langGrid}>
+                    {LANGUAGES.map((lang) => {
+                      const active = language === lang.code;
+                      return (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          className={`${styles.langBtn} ${active ? styles.langBtnActive : ""}`}
+                          onClick={() => setLanguage(lang.code)}
+                        >
+                          <span className={styles.langNative}>{lang.native}</span>
+                          <span className={styles.langLabel}>{lang.label}</span>
+                          {active && (
+                            <span className={styles.langCheck}>✓</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

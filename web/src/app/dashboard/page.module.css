@@ -84,10 +84,10 @@
   gap: 6px;
   padding: 7px 12px;
   border-radius: 999px;
-  /* explicit colors — never tied to CSS theme variables */
-  border: 1.5px solid rgba(13, 158, 136, 0.4);
-  background: rgba(13, 158, 136, 0.12);
-  color: #12B8A0;
+  /* dark green — consistent across light and dark themes */
+  border: 1.5px solid #0D6B5B;
+  background: #081C15;
+  color: #5CD4BE;
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -109,9 +109,9 @@
   flex-shrink: 0;
 }
 .themeBtn:hover {
-  background: #0D9E88;
+  background: #0A2820;
   border-color: #0D9E88;
-  color: #fff;
+  color: #7FFFD4;
   box-shadow: 0 4px 14px rgba(13, 158, 136, 0.4);
   transform: translateY(-1px);
 }
@@ -120,19 +120,19 @@
   box-shadow: none;
 }
 .themeBtn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.3);
+  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.35);
 }
-/* light-mode button state — explicit amber, not CSS vars */
+/* same dark green in light mode */
 .themeBtnLight {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.13);
-  color: #d97706;
+  border-color: #0D6B5B;
+  background: #081C15;
+  color: #5CD4BE;
 }
 .themeBtnLight:hover {
-  background: #f59e0b;
-  border-color: #f59e0b;
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+  background: #0A2820;
+  border-color: #0D9E88;
+  color: #7FFFD4;
+  box-shadow: 0 4px 14px rgba(13, 158, 136, 0.4);
 }
 
 .logoutBtn {
@@ -1523,4 +1523,253 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+/* ── Claims Hero Dashboard ────────────────────────────────── */
+.claimsHeroCard {
+  position: relative;
+  background: var(--card);
+  border: 1.5px solid var(--border-active);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 28px rgba(13, 158, 136, 0.14);
+}
+.claimsHeroGlow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.04;
+  top: -130px;
+  right: -80px;
+  pointer-events: none;
+}
+.claimsHeroTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.claimsHeroEyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--faint);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.claimsHeroAmount {
+  font-size: 42px;
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+.claimsHeroBadge {
+  background: var(--primary-container);
+  border: 1px solid var(--border-active);
+  border-radius: 14px;
+  padding: 12px 18px;
+  text-align: center;
+  min-width: 76px;
+}
+.claimsHeroBadgeNum {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1;
+}
+.claimsHeroBadgeLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.claimsHeroStats {
+  display: flex;
+  align-items: center;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.claimsHeroStat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.claimsHeroStatDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dotGreen { background: var(--success); }
+.dotAmber { background: var(--amber); }
+.dotRed   { background: var(--error); }
+.claimsHeroStatNum {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--white);
+}
+.claimsHeroStatLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.claimsHeroStatSep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Claims note row ─────────────────────────────────────── */
+.claimsNoteRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  margin-bottom: 4px;
+}
+.claimsNoteIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.claimsNoteText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* ── Claims filter tabs ───────────────────────────────────── */
+.claimsFilterTabs {
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 16px;
+  gap: 2px;
+}
+.claimsFilterTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 6px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--faint);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.14s;
+  white-space: nowrap;
+}
+.claimsFilterTab:hover {
+  color: var(--muted);
+}
+.claimsFilterTabActive {
+  background: var(--elevated);
+  color: var(--white);
+}
+.claimsFilterBadge {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--elevated);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--faint);
+}
+.claimsFilterBadgeActive {
+  background: var(--primary-container);
+  color: var(--primary);
+}
+
+/* ── Language selector (Profile tab) ─────────────────────── */
+.langPanel {
+  margin-top: 12px;
+}
+.langGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (max-width: 900px) {
+  .langGrid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .langGrid { grid-template-columns: repeat(2, 1fr); }
+}
+.langBtn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--elevated);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+  text-align: center;
+}
+.langBtn:hover {
+  border-color: var(--border-active);
+  background: var(--primary-container);
+}
+.langBtnActive {
+  border-color: var(--primary) !important;
+  background: var(--primary-container) !important;
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.langNative {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1.3;
+}
+.langLabel {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.langBtnActive .langNative {
+  color: var(--primary);
+}
+.langBtnActive .langLabel {
+  color: var(--primary);
+}
+.langCheck {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1;
 }
