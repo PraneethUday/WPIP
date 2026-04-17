@@ -85,9 +85,9 @@
   padding: 7px 12px;
   border-radius: 999px;
   /* dark green — consistent across light and dark themes */
-  border: 1.5px solid #0D6B5B;
-  background: #081C15;
-  color: #5CD4BE;
+  border: 1.5px solid #0d6b5b;
+  background: #081c15;
+  color: #5cd4be;
   font-size: 12px;
   font-weight: 700;
   font-family: inherit;
@@ -109,9 +109,9 @@
   flex-shrink: 0;
 }
 .themeBtn:hover {
-  background: #0A2820;
-  border-color: #0D9E88;
-  color: #7FFFD4;
+  background: #0a2820;
+  border-color: #0d9e88;
+  color: #7fffd4;
   box-shadow: 0 4px 14px rgba(13, 158, 136, 0.4);
   transform: translateY(-1px);
 }
@@ -124,14 +124,14 @@
 }
 /* same dark green in light mode */
 .themeBtnLight {
-  border-color: #0D6B5B;
-  background: #081C15;
-  color: #5CD4BE;
+  border-color: #0d6b5b;
+  background: #081c15;
+  color: #5cd4be;
 }
 .themeBtnLight:hover {
-  background: #0A2820;
-  border-color: #0D9E88;
-  color: #7FFFD4;
+  background: #0a2820;
+  border-color: #0d9e88;
+  color: #7fffd4;
   box-shadow: 0 4px 14px rgba(13, 158, 136, 0.4);
 }
 
@@ -1611,9 +1611,15 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.dotGreen { background: var(--success); }
-.dotAmber { background: var(--amber); }
-.dotRed   { background: var(--error); }
+.dotGreen {
+  background: var(--success);
+}
+.dotAmber {
+  background: var(--amber);
+}
+.dotRed {
+  background: var(--error);
+}
 .claimsHeroStatNum {
   font-size: 15px;
   font-weight: 800;
@@ -1713,10 +1719,14 @@
   margin-top: 14px;
 }
 @media (max-width: 900px) {
-  .langGrid { grid-template-columns: repeat(3, 1fr); }
+  .langGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 @media (max-width: 640px) {
-  .langGrid { grid-template-columns: repeat(2, 1fr); }
+  .langGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .langBtn {
   position: relative;
@@ -1731,7 +1741,10 @@
   background: var(--elevated);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.14s, background 0.14s, box-shadow 0.14s;
+  transition:
+    border-color 0.14s,
+    background 0.14s,
+    box-shadow 0.14s;
   text-align: center;
 }
 .langBtn:hover {

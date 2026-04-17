@@ -140,10 +140,10 @@ const PLAN_DETAILS: Record<
 };
 
 const NAV = [
-  { id: "home",      tKey: "nav_dashboard" },
-  { id: "claims",    tKey: "nav_claims"    },
-  { id: "payments",  tKey: "nav_payments"  },
-  { id: "profile",   tKey: "nav_profile"   },
+  { id: "home", tKey: "nav_dashboard" },
+  { id: "claims", tKey: "nav_claims" },
+  { id: "payments", tKey: "nav_payments" },
+  { id: "profile", tKey: "nav_profile" },
   { id: "simulator", tKey: "nav_simulator" },
 ];
 
@@ -157,7 +157,6 @@ function normalizeTier(tier: string | undefined): Tier {
 function planStorageKey(userId: string) {
   return `gg_next_week_plan_${userId}`;
 }
-
 
 function getNextWeekWindow(): { label: string } {
   const now = new Date();
@@ -323,7 +322,9 @@ export default function DashboardPage() {
   const [planMessage, setPlanMessage] = useState("");
   const [claims, setClaims] = useState<Record<string, unknown>[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(false);
-  const [claimsFilter, setClaimsFilter] = useState<"all" | "paid" | "review" | "rejected">("all");
+  const [claimsFilter, setClaimsFilter] = useState<
+    "all" | "paid" | "review" | "rejected"
+  >("all");
 
   // traffic & curfew
   const [trafficData, setTrafficData] = useState<TrafficData | null>(null);
@@ -699,19 +700,19 @@ export default function DashboardPage() {
         <nav className={styles.headerNavTabs}>
           {NAV.map((item) => (
             <button
-               type="button"
-               key={item.id}
-               onClick={() => {
-                 if (item.id === "simulator") {
-                   router.push("/simulator");
-                 } else {
-                   setTab(item.id);
-                 }
-               }}
-               className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
-             >
-               {t(item.tKey)}
-             </button>
+              type="button"
+              key={item.id}
+              onClick={() => {
+                if (item.id === "simulator") {
+                  router.push("/simulator");
+                } else {
+                  setTab(item.id);
+                }
+              }}
+              className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
+            >
+              {t(item.tKey)}
+            </button>
           ))}
         </nav>
 
@@ -834,24 +835,44 @@ export default function DashboardPage() {
                       {t(`greeting_${greeting()}`)}, {user.name.split(" ")[0]}.
                     </h1>
                     <p className={styles.greetSub}>
-                      {coveredNow ? t("coverage_on") : t("coverage_off")}{" "}
-                      · {user.city}
+                      {coveredNow ? t("coverage_on") : t("coverage_off")} ·{" "}
+                      {user.city}
                     </p>
                   </div>
 
                   <div className={styles.grid4}>
-                    <MetricCard label={t("current_plan")} value={tierLabel} tone="blue" />
-                    <MetricCard label={t("weekly_premium")} value={money(currentWeeklyPremium)} tone="green" />
-                    <MetricCard label={t("max_payout")} value={money(currentPremium?.max_payout)} tone="amber" />
-                    <MetricCard label={t("city")} value={user.city || "–"} tone="ink" />
+                    <MetricCard
+                      label={t("current_plan")}
+                      value={tierLabel}
+                      tone="blue"
+                    />
+                    <MetricCard
+                      label={t("weekly_premium")}
+                      value={money(currentWeeklyPremium)}
+                      tone="green"
+                    />
+                    <MetricCard
+                      label={t("max_payout")}
+                      value={money(currentPremium?.max_payout)}
+                      tone="amber"
+                    />
+                    <MetricCard
+                      label={t("city")}
+                      value={user.city || "–"}
+                      tone="ink"
+                    />
                   </div>
 
                   {/* Coverage this week */}
                   <section className={styles.panel}>
                     <div className={styles.panelHead}>
-                      <h3 className={styles.panelTitle}>{t("cover_this_week")}</h3>
+                      <h3 className={styles.panelTitle}>
+                        {t("cover_this_week")}
+                      </h3>
                       <p className={styles.panelSub}>
-                        {t("active_plan_prefix")}: {PLAN_DETAILS[currentTier].label}. {t("coverage_needs_note")}
+                        {t("active_plan_prefix")}:{" "}
+                        {PLAN_DETAILS[currentTier].label}.{" "}
+                        {t("coverage_needs_note")}
                       </p>
                     </div>
 
@@ -862,21 +883,35 @@ export default function DashboardPage() {
                     ) : currentPremium ? (
                       <div className={styles.coverageGrid}>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>{t("status")}</div>
+                          <div className={styles.coverageLabel}>
+                            {t("status")}
+                          </div>
                           <div className={styles.coverageValue}>
-                            {coveredNow ? t("active_coverage") : t("coverage_unavailable")}
+                            {coveredNow
+                              ? t("active_coverage")
+                              : t("coverage_unavailable")}
                           </div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>{t("weekly_premium_label")}</div>
-                          <div className={styles.coverageValue}>{money(currentWeeklyPremium)}</div>
+                          <div className={styles.coverageLabel}>
+                            {t("weekly_premium_label")}
+                          </div>
+                          <div className={styles.coverageValue}>
+                            {money(currentWeeklyPremium)}
+                          </div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>{t("max_payout_per_claim")}</div>
-                          <div className={styles.coverageValue}>{money(currentPremium.max_payout)}</div>
+                          <div className={styles.coverageLabel}>
+                            {t("max_payout_per_claim")}
+                          </div>
+                          <div className={styles.coverageValue}>
+                            {money(currentPremium.max_payout)}
+                          </div>
                         </div>
                         <div className={styles.coverageCard}>
-                          <div className={styles.coverageLabel}>{t("risk_level")}</div>
+                          <div className={styles.coverageLabel}>
+                            {t("risk_level")}
+                          </div>
                           <div className={styles.coverageValue}>
                             {riskLabel(currentPremium.weather_risk)}
                           </div>
@@ -1047,10 +1082,16 @@ export default function DashboardPage() {
                             </div>
                             <button
                               type="button"
-                              className={selected ? styles.planBtnSelected : styles.planBtn}
+                              className={
+                                selected
+                                  ? styles.planBtnSelected
+                                  : styles.planBtn
+                              }
                               onClick={() => applyNextWeekPlan(tier)}
                             >
-                              {selected ? t("scheduled_next_week") : t("choose_next_week")}
+                              {selected
+                                ? t("scheduled_next_week")
+                                : t("choose_next_week")}
                             </button>
                           </div>
                         );
@@ -1059,17 +1100,29 @@ export default function DashboardPage() {
 
                     <div className={styles.nextWeekSummary}>
                       <div>
-                        <div className={styles.coverageLabel}>{t("scheduled_plan")}</div>
-                        <div className={styles.coverageValue}>{PLAN_DETAILS[nextWeekTier].label}</div>
-                      </div>
-                      <div>
-                        <div className={styles.coverageLabel}>{t("projected_premium")}</div>
-                        <div className={styles.coverageValue}>{money(nextWeeklyPremium)}</div>
-                      </div>
-                      <div>
-                        <div className={styles.coverageLabel}>{t("coverage_state")}</div>
+                        <div className={styles.coverageLabel}>
+                          {t("scheduled_plan")}
+                        </div>
                         <div className={styles.coverageValue}>
-                          {coveredNextWeek ? t("will_be_covered") : t("not_covered_yet")}
+                          {PLAN_DETAILS[nextWeekTier].label}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.coverageLabel}>
+                          {t("projected_premium")}
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {money(nextWeeklyPremium)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className={styles.coverageLabel}>
+                          {t("coverage_state")}
+                        </div>
+                        <div className={styles.coverageValue}>
+                          {coveredNextWeek
+                            ? t("will_be_covered")
+                            : t("not_covered_yet")}
                         </div>
                       </div>
                     </div>
@@ -1087,7 +1140,9 @@ export default function DashboardPage() {
 
                   {/* Platforms */}
                   <section className={styles.panel}>
-                    <h3 className={styles.panelTitle}>{t("connected_platforms")}</h3>
+                    <h3 className={styles.panelTitle}>
+                      {t("connected_platforms")}
+                    </h3>
                     <div className={styles.platformWrap}>
                       {user.platforms.map((p) => {
                         const meta = PLATFORM_META[p] ?? {
@@ -1111,41 +1166,70 @@ export default function DashboardPage() {
                   </section>
 
                   {!verified && (
-                    <div className={styles.warningBox}>{t("verification_warning")}</div>
+                    <div className={styles.warningBox}>
+                      {t("verification_warning")}
+                    </div>
                   )}
                 </div>
 
                 {/* ── Right aside ── */}
                 <aside className={styles.homeAside}>
                   <div className={styles.asideCard}>
-                    <div className={styles.asideCardLabel}>{t("upcoming_premium")}</div>
-                    <div className={styles.asideCardAmount}>{money(currentWeeklyPremium)}</div>
-                    <div className={styles.asideCardMeta}>{tierLabel} · {t("per_week")}</div>
+                    <div className={styles.asideCardLabel}>
+                      {t("upcoming_premium")}
+                    </div>
+                    <div className={styles.asideCardAmount}>
+                      {money(currentWeeklyPremium)}
+                    </div>
+                    <div className={styles.asideCardMeta}>
+                      {tierLabel} · {t("per_week")}
+                    </div>
                     <div className={styles.asideCardMeta}>{user.city}</div>
                     {paidToday ? (
-                      <div className={styles.asidePaidBadge}>{t("paid_today")}</div>
+                      <div className={styles.asidePaidBadge}>
+                        {t("paid_today")}
+                      </div>
                     ) : (
-                      <button type="button" className={styles.asidePayBtn} onClick={openPayModal} disabled={!currentPremium}>
+                      <button
+                        type="button"
+                        className={styles.asidePayBtn}
+                        onClick={openPayModal}
+                        disabled={!currentPremium}
+                      >
                         {t("pay_premium")}
                       </button>
                     )}
                   </div>
 
                   <div className={styles.asideCard}>
-                    <div className={styles.asideCardLabel}>{t("quick_actions")}</div>
+                    <div className={styles.asideCardLabel}>
+                      {t("quick_actions")}
+                    </div>
                     <ul className={styles.quickActions}>
                       <li>
-                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("payments")}>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("payments")}
+                        >
                           {t("pay_this_weeks_premium")}
                         </button>
                       </li>
                       <li>
-                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("claims")}>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("claims")}
+                        >
                           {t("view_claims_history")}
                         </button>
                       </li>
                       <li>
-                        <button type="button" className={styles.quickActionItem} onClick={() => setTab("profile")}>
+                        <button
+                          type="button"
+                          className={styles.quickActionItem}
+                          onClick={() => setTab("profile")}
+                        >
                           {t("update_profile")}
                         </button>
                       </li>
@@ -1190,7 +1274,8 @@ export default function DashboardPage() {
                             {t("total_received")}
                           </div>
                           <div className={styles.claimsHeroAmount}>
-                            ₹{Math.round(claimsTotalReceived).toLocaleString(
+                            ₹
+                            {Math.round(claimsTotalReceived).toLocaleString(
                               "en-IN",
                             )}
                           </div>
@@ -1268,10 +1353,22 @@ export default function DashboardPage() {
                     <div className={styles.claimsFilterTabs}>
                       {(
                         [
-                          { key: "all",      tKey: "all",      count: claims.length           },
-                          { key: "paid",     tKey: "settled",  count: claimsPaid.length       },
-                          { key: "review",   tKey: "review",   count: claimsUnderReview.length},
-                          { key: "rejected", tKey: "rejected", count: claimsRejected.length   },
+                          { key: "all", tKey: "all", count: claims.length },
+                          {
+                            key: "paid",
+                            tKey: "settled",
+                            count: claimsPaid.length,
+                          },
+                          {
+                            key: "review",
+                            tKey: "review",
+                            count: claimsUnderReview.length,
+                          },
+                          {
+                            key: "rejected",
+                            tKey: "rejected",
+                            count: claimsRejected.length,
+                          },
                         ] as const
                       ).map((opt) => (
                         <button
@@ -1486,13 +1583,28 @@ export default function DashboardPage() {
                 <h1 className={styles.profileTitle}>{t("profile")}</h1>
                 <div className={styles.profileGrid}>
                   <div className={styles.panel}>
-                    <h3 className={styles.panelTitle}>{t("section_personal")}</h3>
+                    <h3 className={styles.panelTitle}>
+                      {t("section_personal")}
+                    </h3>
                     <ProfileRow label={t("row_name")} value={user.name} />
                     <ProfileRow label={t("row_email")} value={user.email} />
-                    <ProfileRow label={t("row_phone")} value={user.phone || "–"} />
-                    <ProfileRow label={t("row_city")} value={user.city || "–"} />
-                    <ProfileRow label={t("row_area")} value={user.area || "–"} />
-                    <ProfileRow label={t("row_account_id")} value={user.id} mono />
+                    <ProfileRow
+                      label={t("row_phone")}
+                      value={user.phone || "–"}
+                    />
+                    <ProfileRow
+                      label={t("row_city")}
+                      value={user.city || "–"}
+                    />
+                    <ProfileRow
+                      label={t("row_area")}
+                      value={user.area || "–"}
+                    />
+                    <ProfileRow
+                      label={t("row_account_id")}
+                      value={user.id}
+                      mono
+                    />
                     <ProfileRow
                       label={t("row_delivery_id")}
                       value={user.delivery_id || "–"}
@@ -1500,7 +1612,9 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div className={styles.panel}>
-                    <h3 className={styles.panelTitle}>{t("section_insurance")}</h3>
+                    <h3 className={styles.panelTitle}>
+                      {t("section_insurance")}
+                    </h3>
                     <ProfileRow label={t("row_plan")} value={tierLabel} />
                     <ProfileRow
                       label={t("row_next_plan")}
@@ -1545,7 +1659,9 @@ export default function DashboardPage() {
                           className={`${styles.langBtn} ${active ? styles.langBtnActive : ""}`}
                           onClick={() => setLanguage(lang.code)}
                         >
-                          <span className={styles.langNative}>{lang.native}</span>
+                          <span className={styles.langNative}>
+                            {lang.native}
+                          </span>
                           <span className={styles.langLabel}>{lang.label}</span>
                           {active && (
                             <span className={styles.langCheck}>✓</span>
