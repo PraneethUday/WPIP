@@ -226,8 +226,8 @@ export default function ControlCenterPage() {
         <div>
           <h1 className="admin-page-title">Backend Control Center</h1>
           <p className="admin-page-subtitle">
-            Monitor generated data, tune income multipliers, retrain models,
-            and validate premium predictions in one place.
+            Monitor generated data, tune income multipliers, retrain models, and
+            validate premium predictions in one place.
           </p>
         </div>
         <button type="button" className="admin-page-action" onClick={refresh}>
@@ -235,729 +235,706 @@ export default function ControlCenterPage() {
         </button>
       </div>
 
-          {actionMsg && (
-            <div
-              style={{
-                marginBottom: 12,
-                background: "#0A2E18",
-                border: "1px solid rgba(34,197,94,0.3)",
-                color: "#22C55E",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: "8px 12px",
-              }}
-            >
-              {actionMsg}
-            </div>
-          )}
-          {actionErr && (
-            <div
-              style={{
-                marginBottom: 12,
-                background: "#2E0A0A",
-                border: "1px solid rgba(239,68,68,0.3)",
-                color: "#EF4444",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: "8px 12px",
-              }}
-            >
-              {actionErr}
-            </div>
-          )}
+      {actionMsg && (
+        <div
+          style={{
+            marginBottom: 12,
+            background: "#0A2E18",
+            border: "1px solid rgba(34,197,94,0.3)",
+            color: "#22C55E",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {actionMsg}
+        </div>
+      )}
+      {actionErr && (
+        <div
+          style={{
+            marginBottom: 12,
+            background: "#2E0A0A",
+            border: "1px solid rgba(239,68,68,0.3)",
+            color: "#EF4444",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {actionErr}
+        </div>
+      )}
 
-          {loading ? (
-            <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>
-              Loading backend data...
-            </div>
-          ) : (
-            <>
-              {/* Quick Actions */}
+      {loading ? (
+        <div style={{ padding: 40, textAlign: "center", color: "#918FA1" }}>
+          Loading backend data...
+        </div>
+      ) : (
+        <>
+          {/* Quick Actions */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 16,
+              marginBottom: 28,
+            }}
+          >
+            <ActionCard
+              title="Generate Data"
+              desc="Trigger one cycle of synthetic data generation for all platforms."
+              btnLabel={
+                actionLoading === "Generate Data"
+                  ? "Generating..."
+                  : "Generate Now"
+              }
+              disabled={!!actionLoading}
+              onClick={() =>
+                doAction("Generate Data", "/api/backend/admin/generate-data")
+              }
+              color="#4f46e5"
+            />
+            <ActionCard
+              title="Retrain Model"
+              desc="Retrain the XGBoost model on latest data. Takes 10-30 seconds."
+              btnLabel={
+                actionLoading === "Retrain Model"
+                  ? "Training..."
+                  : "Retrain Now"
+              }
+              disabled={!!actionLoading}
+              onClick={handleRetrain}
+              color="#059669"
+            />
+            <ActionCard
+              title="Refresh All"
+              desc="Reload data summary and model status from the backend."
+              btnLabel="Refresh"
+              disabled={!!actionLoading}
+              onClick={refresh}
+              color="#0f172a"
+            />
+          </div>
+
+          {/* Retrain Log Panel */}
+          {retrainStatus !== "idle" && (
+            <div
+              style={{
+                background: "#0f172a",
+                borderRadius: 12,
+                border: "1px solid #1e293b",
+                padding: 20,
+                marginBottom: 28,
+              }}
+            >
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 16,
-                  marginBottom: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
                 }}
               >
-                <ActionCard
-                  title="Generate Data"
-                  desc="Trigger one cycle of synthetic data generation for all platforms."
-                  btnLabel={
-                    actionLoading === "Generate Data"
-                      ? "Generating..."
-                      : "Generate Now"
-                  }
-                  disabled={!!actionLoading}
-                  onClick={() =>
-                    doAction(
-                      "Generate Data",
-                      "/api/backend/admin/generate-data",
-                    )
-                  }
-                  color="#4f46e5"
-                />
-                <ActionCard
-                  title="Retrain Model"
-                  desc="Retrain the XGBoost model on latest data. Takes 10-30 seconds."
-                  btnLabel={
-                    actionLoading === "Retrain Model"
-                      ? "Training..."
-                      : "Retrain Now"
-                  }
-                  disabled={!!actionLoading}
-                  onClick={handleRetrain}
-                  color="#059669"
-                />
-                <ActionCard
-                  title="Refresh All"
-                  desc="Reload data summary and model status from the backend."
-                  btnLabel="Refresh"
-                  disabled={!!actionLoading}
-                  onClick={refresh}
-                  color="#0f172a"
-                />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#f8fafc",
+                    }}
+                  >
+                    Retrain Logs
+                  </span>
+                  {retrainStatus === "running" && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        gap: 4,
+                        alignItems: "center",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "#4ade80",
+                          animation: "pulse 1.5s infinite",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#4ade80",
+                          fontWeight: 600,
+                        }}
+                      >
+                        RUNNING
+                      </span>
+                    </span>
+                  )}
+                  {retrainStatus === "done" && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#4ade80",
+                        fontWeight: 600,
+                        background: "#14532d",
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                      }}
+                    >
+                      DONE
+                    </span>
+                  )}
+                  {retrainStatus === "error" && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#f87171",
+                        fontWeight: 600,
+                        background: "#450a0a",
+                        padding: "2px 8px",
+                        borderRadius: 4,
+                      }}
+                    >
+                      ERROR
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRetrainStatus("idle")}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
               </div>
-
-              {/* Retrain Log Panel */}
-              {retrainStatus !== "idle" && (
+              {retrainStatus === "running" && (
                 <div
                   style={{
-                    background: "#0f172a",
-                    borderRadius: 12,
-                    border: "1px solid #1e293b",
-                    padding: 20,
-                    marginBottom: 28,
+                    height: 4,
+                    background: "#1e293b",
+                    borderRadius: 4,
+                    marginBottom: 12,
+                    overflow: "hidden",
                   }}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 12,
+                      height: "100%",
+                      background: "linear-gradient(90deg, #4f46e5, #059669)",
+                      borderRadius: 4,
+                      animation: "progress-slide 2s ease-in-out infinite",
+                      width: "60%",
                     }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "#f8fafc",
-                        }}
-                      >
-                        Retrain Logs
-                      </span>
-                      {retrainStatus === "running" && (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            gap: 4,
-                            alignItems: "center",
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: "#4ade80",
-                              animation: "pulse 1.5s infinite",
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: 11,
-                              color: "#4ade80",
-                              fontWeight: 600,
-                            }}
-                          >
-                            RUNNING
-                          </span>
-                        </span>
-                      )}
-                      {retrainStatus === "done" && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "#4ade80",
-                            fontWeight: 600,
-                            background: "#14532d",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          DONE
-                        </span>
-                      )}
-                      {retrainStatus === "error" && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "#f87171",
-                            fontWeight: 600,
-                            background: "#450a0a",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          ERROR
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRetrainStatus("idle")}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#64748b",
-                        cursor: "pointer",
-                        fontSize: 18,
-                        lineHeight: 1,
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  {retrainStatus === "running" && (
-                    <div
-                      style={{
-                        height: 4,
-                        background: "#1e293b",
-                        borderRadius: 4,
-                        marginBottom: 12,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          background:
-                            "linear-gradient(90deg, #4f46e5, #059669)",
-                          borderRadius: 4,
-                          animation: "progress-slide 2s ease-in-out infinite",
-                          width: "60%",
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      fontFamily: "monospace",
-                      fontSize: 12,
-                      color: "#94a3b8",
-                      maxHeight: 260,
-                      overflowY: "auto",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    {retrainLogs.map((line, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          color: line.includes("ERROR")
-                            ? "#f87171"
-                            : line.includes("Done") || line.includes("better")
-                              ? "#4ade80"
-                              : "#94a3b8",
-                        }}
-                      >
-                        {line}
-                      </div>
-                    ))}
-                    {retrainStatus === "running" && (
-                      <div style={{ color: "#4f46e5" }}>_</div>
-                    )}
-                  </div>
+                  />
                 </div>
               )}
-              <style>{`
+              <div
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  color: "#94a3b8",
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                {retrainLogs.map((line, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      color: line.includes("ERROR")
+                        ? "#f87171"
+                        : line.includes("Done") || line.includes("better")
+                          ? "#4ade80"
+                          : "#94a3b8",
+                    }}
+                  >
+                    {line}
+                  </div>
+                ))}
+                {retrainStatus === "running" && (
+                  <div style={{ color: "#4f46e5" }}>_</div>
+                )}
+              </div>
+            </div>
+          )}
+          <style>{`
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
                 @keyframes progress-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
               `}</style>
 
-              {/* Model Status */}
-              <Section title="ML Model Status">
-                {modelStatus ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(4, 1fr)",
-                      gap: 16,
-                    }}
-                  >
-                    <InfoCard
-                      label="Model Loaded"
-                      value={
-                        modelStatus.model_loaded
-                          ? "Yes"
-                          : "No (using formula fallback)"
-                      }
-                    />
-                    <InfoCard
-                      label="RMSE"
-                      value={
-                        modelStatus.metadata
-                          ? `${modelStatus.metadata.rmse.toFixed(2)}`
-                          : "N/A"
-                      }
-                    />
-                    <InfoCard
-                      label="Training Samples"
-                      value={
-                        modelStatus.metadata?.n_samples?.toString() || "N/A"
-                      }
-                    />
-                    <InfoCard
-                      label="Last Trained"
-                      value={modelStatus.metadata?.trained_at || "Never"}
-                    />
-                  </div>
-                ) : (
-                  <p style={{ color: "#64748b", fontSize: 13 }}>
-                    Could not load model status.
-                  </p>
-                )}
-                {modelStatus?.tiers && (
-                  <div style={{ marginTop: 16 }}>
-                    <h4
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: "#C7C4D8",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Tier Configuration
-                    </h4>
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: 13,
-                      }}
-                    >
-                      <thead>
-                        <tr style={{ background: "#272935" }}>
-                          {[
-                            "Tier",
-                            "Rate",
-                            "Min Premium",
-                            "Max Premium",
-                            "Max Payout",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              style={{
-                                padding: "8px 12px",
-                                textAlign: "left",
-                                fontWeight: 700,
-                                color: "#918FA1",
-                                borderBottom: "1px solid rgba(70,69,85,0.6)",
-                                fontSize: 11,
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(modelStatus.tiers).map(
-                          ([tier, cfg]) => (
-                            <tr
-                              key={tier}
-                              style={{
-                                borderBottom: "1px solid rgba(70,69,85,0.4)",
-                              }}
-                            >
-                              <td
-                                style={{
-                                  padding: "8px 12px",
-                                  fontWeight: 600,
-                                  color: "#E1E1F2",
-                                }}
-                              >
-                                {tier.charAt(0).toUpperCase() + tier.slice(1)}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px 12px",
-                                  color: "#C7C4D8",
-                                }}
-                              >
-                                {(cfg.rate * 100).toFixed(1)}%
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px 12px",
-                                  color: "#C7C4D8",
-                                }}
-                              >
-                                {cfg.min}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px 12px",
-                                  color: "#C7C4D8",
-                                }}
-                              >
-                                {cfg.max}
-                              </td>
-                              <td
-                                style={{
-                                  padding: "8px 12px",
-                                  color: "#C7C4D8",
-                                }}
-                              >
-                                {cfg.max_payout}
-                              </td>
-                            </tr>
-                          ),
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Section>
+          {/* Model Status */}
+          <Section title="ML Model Status">
+            {modelStatus ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 16,
+                }}
+              >
+                <InfoCard
+                  label="Model Loaded"
+                  value={
+                    modelStatus.model_loaded
+                      ? "Yes"
+                      : "No (using formula fallback)"
+                  }
+                />
+                <InfoCard
+                  label="RMSE"
+                  value={
+                    modelStatus.metadata
+                      ? `${modelStatus.metadata.rmse.toFixed(2)}`
+                      : "N/A"
+                  }
+                />
+                <InfoCard
+                  label="Training Samples"
+                  value={modelStatus.metadata?.n_samples?.toString() || "N/A"}
+                />
+                <InfoCard
+                  label="Last Trained"
+                  value={modelStatus.metadata?.trained_at || "Never"}
+                />
+              </div>
+            ) : (
+              <p style={{ color: "#64748b", fontSize: 13 }}>
+                Could not load model status.
+              </p>
+            )}
+            {modelStatus?.tiers && (
+              <div style={{ marginTop: 16 }}>
+                <h4
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#C7C4D8",
+                    marginBottom: 8,
+                  }}
+                >
+                  Tier Configuration
+                </h4>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 13,
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "#272935" }}>
+                      {[
+                        "Tier",
+                        "Rate",
+                        "Min Premium",
+                        "Max Premium",
+                        "Max Payout",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "#918FA1",
+                            borderBottom: "1px solid rgba(70,69,85,0.6)",
+                            fontSize: 11,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(modelStatus.tiers).map(([tier, cfg]) => (
+                      <tr
+                        key={tier}
+                        style={{
+                          borderBottom: "1px solid rgba(70,69,85,0.4)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            fontWeight: 600,
+                            color: "#E1E1F2",
+                          }}
+                        >
+                          {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            color: "#C7C4D8",
+                          }}
+                        >
+                          {(cfg.rate * 100).toFixed(1)}%
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            color: "#C7C4D8",
+                          }}
+                        >
+                          {cfg.min}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            color: "#C7C4D8",
+                          }}
+                        >
+                          {cfg.max}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            color: "#C7C4D8",
+                          }}
+                        >
+                          {cfg.max_payout}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
 
-              {/* Data Summary */}
-              <Section title="Platform Data Summary (Today)">
-                {dataSummary ? (
-                  <>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, 1fr)",
-                        gap: 16,
-                        marginBottom: 16,
-                      }}
-                    >
-                      <InfoCard label="Date" value={dataSummary.date} />
-                      <InfoCard
-                        label="Total Workers (Today)"
-                        value={dataSummary.total_workers.toString()}
-                      />
-                      <InfoCard
-                        label="Overall Avg Earnings"
-                        value={`${dataSummary.overall_avg_earnings}`}
-                      />
-                    </div>
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: 13,
-                      }}
-                    >
-                      <thead>
-                        <tr style={{ background: "#272935" }}>
-                          {[
-                            "Platform",
-                            "Workers",
-                            "Avg Earnings",
-                            "Min",
-                            "Max",
-                            "Avg Deliveries",
-                            "Total Earnings",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              style={{
-                                padding: "8px 12px",
-                                textAlign: "left",
-                                fontWeight: 700,
-                                color: "#918FA1",
-                                borderBottom: "1px solid rgba(70,69,85,0.6)",
-                                fontSize: 11,
-                                textTransform: "uppercase",
-                              }}
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dataSummary.platforms.map((p) => (
-                          <tr
-                            key={p.platform}
-                            style={{
-                              borderBottom: "1px solid rgba(70,69,85,0.4)",
-                            }}
-                          >
-                            <td
-                              style={{
-                                padding: "8px 12px",
-                                fontWeight: 600,
-                                color: "#E1E1F2",
-                              }}
-                            >
-                              {p.platform}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.worker_count}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.avg_earnings}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.min_earnings}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.max_earnings}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.avg_deliveries}
-                            </td>
-                            <td
-                              style={{ padding: "8px 12px", color: "#C7C4D8" }}
-                            >
-                              {p.total_earnings}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </>
-                ) : (
-                  <p style={{ color: "#64748b", fontSize: 13 }}>
-                    No data available. Generate data first.
-                  </p>
-                )}
-              </Section>
+          {/* Data Summary */}
+          <Section title="Platform Data Summary (Today)">
+            {dataSummary ? (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 16,
+                    marginBottom: 16,
+                  }}
+                >
+                  <InfoCard label="Date" value={dataSummary.date} />
+                  <InfoCard
+                    label="Total Workers (Today)"
+                    value={dataSummary.total_workers.toString()}
+                  />
+                  <InfoCard
+                    label="Overall Avg Earnings"
+                    value={`${dataSummary.overall_avg_earnings}`}
+                  />
+                </div>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 13,
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "#272935" }}>
+                      {[
+                        "Platform",
+                        "Workers",
+                        "Avg Earnings",
+                        "Min",
+                        "Max",
+                        "Avg Deliveries",
+                        "Total Earnings",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "8px 12px",
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "#918FA1",
+                            borderBottom: "1px solid rgba(70,69,85,0.6)",
+                            fontSize: 11,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataSummary.platforms.map((p) => (
+                      <tr
+                        key={p.platform}
+                        style={{
+                          borderBottom: "1px solid rgba(70,69,85,0.4)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "8px 12px",
+                            fontWeight: 600,
+                            color: "#E1E1F2",
+                          }}
+                        >
+                          {p.platform}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.worker_count}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.avg_earnings}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.min_earnings}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.max_earnings}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.avg_deliveries}
+                        </td>
+                        <td style={{ padding: "8px 12px", color: "#C7C4D8" }}>
+                          {p.total_earnings}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <p style={{ color: "#64748b", fontSize: 13 }}>
+                No data available. Generate data first.
+              </p>
+            )}
+          </Section>
 
-              {/* Adjust Income */}
-              <Section title="Adjust Income Data">
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-                  Multiply today&apos;s earnings/deliveries for a platform to
-                  test how the ML model responds. Use this to verify the model
-                  produces different premiums for different income levels.
-                </p>
+          {/* Adjust Income */}
+          <Section title="Adjust Income Data">
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Multiply today&apos;s earnings/deliveries for a platform to test
+              how the ML model responds. Use this to verify the model produces
+              different premiums for different income levels.
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <label style={labelStyle}>Platform (empty = all)</label>
+                <select
+                  value={adjPlatform}
+                  onChange={(e) => setAdjPlatform(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">All platforms</option>
+                  {PLATFORMS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Earnings Multiplier</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="10"
+                  value={adjEarnings}
+                  onChange={(e) => setAdjEarnings(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Deliveries Multiplier</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  max="10"
+                  value={adjDeliveries}
+                  onChange={(e) => setAdjDeliveries(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={handleAdjustIncome}
+                  disabled={!!actionLoading}
+                  style={{
+                    ...btnStyle,
+                    background: "#d97706",
+                    width: "100%",
+                  }}
+                >
+                  {actionLoading === "Adjust Income"
+                    ? "Applying..."
+                    : "Apply Adjustment"}
+                </button>
+              </div>
+            </div>
+            <p style={{ fontSize: 12, color: "#94a3b8" }}>
+              Example: Set earnings to 0.3x to simulate low-income scenario, or
+              3.0x for high-income. Then retrain and check premium predictions.
+            </p>
+          </Section>
+
+          {/* Test Premium */}
+          <Section title="Test Premium Prediction">
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Enter a worker ID from the data above and compute their predicted
+              premium to verify the model is working.
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <label style={labelStyle}>Worker ID</label>
+                <input
+                  type="text"
+                  placeholder="UUID from platform data"
+                  value={testWorkerId}
+                  onChange={(e) => setTestWorkerId(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>City</label>
+                <select
+                  value={testCity}
+                  onChange={(e) => setTestCity(e.target.value)}
+                  style={selectStyle}
+                >
+                  {CITIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Tier</label>
+                <select
+                  value={testTier}
+                  onChange={(e) => setTestTier(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="basic">Basic</option>
+                  <option value="standard">Standard</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={handleTestPremium}
+                  disabled={!!actionLoading}
+                  style={{
+                    ...btnStyle,
+                    background: "#4f46e5",
+                    width: "100%",
+                  }}
+                >
+                  {actionLoading === "Test Premium"
+                    ? "Computing..."
+                    : "Compute Premium"}
+                </button>
+              </div>
+            </div>
+            {premiumResult && (
+              <div
+                style={{
+                  background: "#1D1B45",
+                  border: "1px solid rgba(108,99,255,0.3)",
+                  borderRadius: 10,
+                  padding: 20,
+                  marginTop: 8,
+                }}
+              >
+                <h4
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    marginBottom: 12,
+                    color: "#8B84FF",
+                  }}
+                >
+                  Premium Result
+                </h4>
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(4, 1fr)",
                     gap: 12,
-                    marginBottom: 16,
+                    fontSize: 13,
                   }}
                 >
-                  <div>
-                    <label style={labelStyle}>Platform (empty = all)</label>
-                    <select
-                      value={adjPlatform}
-                      onChange={(e) => setAdjPlatform(e.target.value)}
-                      style={selectStyle}
-                    >
-                      <option value="">All platforms</option>
-                      {PLATFORMS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Earnings Multiplier</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="10"
-                      value={adjEarnings}
-                      onChange={(e) => setAdjEarnings(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Deliveries Multiplier</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="10"
-                      value={adjDeliveries}
-                      onChange={(e) => setAdjDeliveries(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={handleAdjustIncome}
-                      disabled={!!actionLoading}
-                      style={{
-                        ...btnStyle,
-                        background: "#d97706",
-                        width: "100%",
-                      }}
-                    >
-                      {actionLoading === "Adjust Income"
-                        ? "Applying..."
-                        : "Apply Adjustment"}
-                    </button>
-                  </div>
+                  <ResultItem
+                    label="Weekly Premium"
+                    value={`${premiumResult.weekly_premium}`}
+                  />
+                  <ResultItem
+                    label="With AutoPay"
+                    value={`${premiumResult.weekly_premium_autopay}`}
+                  />
+                  <ResultItem
+                    label="Raw Prediction"
+                    value={`${premiumResult.raw_prediction}`}
+                  />
+                  <ResultItem label="Tier" value={premiumResult.tier} />
+                  <ResultItem
+                    label="Max Payout"
+                    value={`${premiumResult.max_payout}`}
+                  />
+                  <ResultItem
+                    label="Weather Risk"
+                    value={`${(premiumResult.weather_risk * 100).toFixed(1)}%`}
+                  />
+                  <ResultItem
+                    label="City Risk"
+                    value={`${premiumResult.city_risk}`}
+                  />
+                  <ResultItem
+                    label="Weekly Earnings Est"
+                    value={`${premiumResult.weekly_earnings_est}`}
+                  />
+                  <ResultItem
+                    label="History Days"
+                    value={`${premiumResult.history_days}`}
+                  />
                 </div>
-                <p style={{ fontSize: 12, color: "#94a3b8" }}>
-                  Example: Set earnings to 0.3x to simulate low-income scenario,
-                  or 3.0x for high-income. Then retrain and check premium
-                  predictions.
-                </p>
-              </Section>
-
-              {/* Test Premium */}
-              <Section title="Test Premium Prediction">
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-                  Enter a worker ID from the data above and compute their
-                  predicted premium to verify the model is working.
-                </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: 12,
-                    marginBottom: 16,
-                  }}
-                >
-                  <div>
-                    <label style={labelStyle}>Worker ID</label>
-                    <input
-                      type="text"
-                      placeholder="UUID from platform data"
-                      value={testWorkerId}
-                      onChange={(e) => setTestWorkerId(e.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>City</label>
-                    <select
-                      value={testCity}
-                      onChange={(e) => setTestCity(e.target.value)}
-                      style={selectStyle}
-                    >
-                      {CITIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Tier</label>
-                    <select
-                      value={testTier}
-                      onChange={(e) => setTestTier(e.target.value)}
-                      style={selectStyle}
-                    >
-                      <option value="basic">Basic</option>
-                      <option value="standard">Standard</option>
-                      <option value="pro">Pro</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={handleTestPremium}
-                      disabled={!!actionLoading}
-                      style={{
-                        ...btnStyle,
-                        background: "#4f46e5",
-                        width: "100%",
-                      }}
-                    >
-                      {actionLoading === "Test Premium"
-                        ? "Computing..."
-                        : "Compute Premium"}
-                    </button>
-                  </div>
-                </div>
-                {premiumResult && (
-                  <div
-                    style={{
-                      background: "#1D1B45",
-                      border: "1px solid rgba(108,99,255,0.3)",
-                      borderRadius: 10,
-                      padding: 20,
-                      marginTop: 8,
-                    }}
-                  >
-                    <h4
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        marginBottom: 12,
-                        color: "#8B84FF",
-                      }}
-                    >
-                      Premium Result
-                    </h4>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(4, 1fr)",
-                        gap: 12,
-                        fontSize: 13,
-                      }}
-                    >
-                      <ResultItem
-                        label="Weekly Premium"
-                        value={`${premiumResult.weekly_premium}`}
-                      />
-                      <ResultItem
-                        label="With AutoPay"
-                        value={`${premiumResult.weekly_premium_autopay}`}
-                      />
-                      <ResultItem
-                        label="Raw Prediction"
-                        value={`${premiumResult.raw_prediction}`}
-                      />
-                      <ResultItem label="Tier" value={premiumResult.tier} />
-                      <ResultItem
-                        label="Max Payout"
-                        value={`${premiumResult.max_payout}`}
-                      />
-                      <ResultItem
-                        label="Weather Risk"
-                        value={`${(premiumResult.weather_risk * 100).toFixed(1)}%`}
-                      />
-                      <ResultItem
-                        label="City Risk"
-                        value={`${premiumResult.city_risk}`}
-                      />
-                      <ResultItem
-                        label="Weekly Earnings Est"
-                        value={`${premiumResult.weekly_earnings_est}`}
-                      />
-                      <ResultItem
-                        label="History Days"
-                        value={`${premiumResult.history_days}`}
-                      />
-                    </div>
-                  </div>
-                )}
-              </Section>
-            </>
-          )}
+              </div>
+            )}
+          </Section>
+        </>
+      )}
     </section>
   );
 }

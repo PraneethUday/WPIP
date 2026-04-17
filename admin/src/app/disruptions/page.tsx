@@ -198,635 +198,628 @@ export default function DisruptionsPage() {
         </button>
       </div>
 
-          {actionMsg && (
-            <div
-              style={{
-                marginBottom: 12,
-                background: "#f0fdf4",
-                border: "1px solid #86efac",
-                color: "#166534",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              {actionMsg}
-            </div>
-          )}
-          {actionErr && (
-            <div
-              style={{
-                marginBottom: 12,
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
-                color: "#dc2626",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: "10px 14px",
-              }}
-            >
-              {actionErr}
-            </div>
-          )}
+      {actionMsg && (
+        <div
+          style={{
+            marginBottom: 12,
+            background: "#f0fdf4",
+            border: "1px solid #86efac",
+            color: "#166534",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 8,
+            padding: "10px 14px",
+          }}
+        >
+          {actionMsg}
+        </div>
+      )}
+      {actionErr && (
+        <div
+          style={{
+            marginBottom: 12,
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            color: "#dc2626",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 8,
+            padding: "10px 14px",
+          }}
+        >
+          {actionErr}
+        </div>
+      )}
 
-          {loading ? (
-            <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>
-              Loading trigger data...
-            </div>
-          ) : (
-            <>
-              {/* Summary Cards */}
-              <div
+      {loading ? (
+        <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>
+          Loading trigger data...
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: 16,
+              marginBottom: 28,
+            }}
+          >
+            <SummaryCard
+              label="Monitored Cities"
+              value={cities.length.toString()}
+              icon="CT"
+              color="#4f46e5"
+            />
+            <SummaryCard
+              label="Active Disruptions"
+              value={activeCities.length.toString()}
+              icon="AD"
+              color={activeCities.length > 0 ? "#dc2626" : "#059669"}
+            />
+            <SummaryCard
+              label="Total Claims"
+              value={totalClaims.toString()}
+              icon="CL"
+              color="#d97706"
+            />
+            <SummaryCard
+              label="Total Payout"
+              value={`₹${totalPayout.toLocaleString("en-IN")}`}
+              icon="PY"
+              color="#059669"
+            />
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
+            {(["overview", "claims"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: 16,
-                  marginBottom: 28,
+                  padding: "10px 24px",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "1px solid #e2e8f0",
+                  borderBottom:
+                    activeTab === tab
+                      ? "2px solid #4f46e5"
+                      : "1px solid #e2e8f0",
+                  background: activeTab === tab ? "#fff" : "#f8fafc",
+                  color: activeTab === tab ? "#4f46e5" : "#64748b",
+                  borderRadius: tab === "overview" ? "8px 0 0 0" : "0 8px 0 0",
                 }}
               >
-                <SummaryCard
-                  label="Monitored Cities"
-                  value={cities.length.toString()}
-                  icon="CT"
-                  color="#4f46e5"
-                />
-                <SummaryCard
-                  label="Active Disruptions"
-                  value={activeCities.length.toString()}
-                  icon="AD"
-                  color={activeCities.length > 0 ? "#dc2626" : "#059669"}
-                />
-                <SummaryCard
-                  label="Total Claims"
-                  value={totalClaims.toString()}
-                  icon="CL"
-                  color="#d97706"
-                />
-                <SummaryCard
-                  label="Total Payout"
-                  value={`₹${totalPayout.toLocaleString("en-IN")}`}
-                  icon="PY"
-                  color="#059669"
-                />
-              </div>
+                {tab === "overview"
+                  ? " Weather & Triggers"
+                  : ` Claims (${totalClaims})`}
+              </button>
+            ))}
+          </div>
 
-              {/* Tabs */}
-              <div style={{ display: "flex", gap: 0, marginBottom: 24 }}>
-                {(["overview", "claims"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    style={{
-                      padding: "10px 24px",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      border: "1px solid #e2e8f0",
-                      borderBottom:
-                        activeTab === tab
-                          ? "2px solid #4f46e5"
-                          : "1px solid #e2e8f0",
-                      background: activeTab === tab ? "#fff" : "#f8fafc",
-                      color: activeTab === tab ? "#4f46e5" : "#64748b",
-                      borderRadius:
-                        tab === "overview" ? "8px 0 0 0" : "0 8px 0 0",
-                    }}
-                  >
-                    {tab === "overview"
-                      ? " Weather & Triggers"
-                      : ` Claims (${totalClaims})`}
-                  </button>
-                ))}
-              </div>
-
-              {activeTab === "overview" && (
-                <>
-                  {/* Live Weather Grid */}
-                  <div
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      padding: 24,
-                      marginBottom: 24,
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        marginBottom: 16,
-                        color: "#0f172a",
-                      }}
-                    >
-                      Live Weather & Trigger Status
-                    </h3>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, 1fr)",
-                        gap: 16,
-                      }}
-                    >
-                      {cities.map((city) => {
-                        const cs = triggerStatus[city];
-                        const w = cs.weather;
-                        const marker = WEATHER_MARKER[w.weather_main] || "WTH";
-                        return (
-                          <div
-                            key={city}
-                            style={{
-                              borderRadius: 12,
-                              border: cs.has_active_disruption
-                                ? "2px solid #dc2626"
-                                : "1px solid #e2e8f0",
-                              padding: 16,
-                              background: cs.has_active_disruption
-                                ? "#fef2f2"
-                                : "#f8fafc",
-                              position: "relative",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {cs.has_active_disruption && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  right: 0,
-                                  background: "#dc2626",
-                                  color: "#fff",
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  padding: "3px 10px",
-                                  borderRadius: "0 10px 0 10px",
-                                }}
-                              >
-                                ALERT
-                              </div>
-                            )}
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                marginBottom: 10,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  letterSpacing: "0.08em",
-                                  border: "1px solid #d1d5db",
-                                  borderRadius: 7,
-                                  padding: "6px 8px",
-                                  color: "#334155",
-                                  background: "#f8fafc",
-                                }}
-                              >
-                                {marker}
-                              </span>
-                              <div>
-                                <div
-                                  style={{
-                                    fontSize: 15,
-                                    fontWeight: 700,
-                                    color: "#0f172a",
-                                  }}
-                                >
-                                  {city}
-                                </div>
-                                <div style={{ fontSize: 12, color: "#64748b" }}>
-                                  {w.weather_main} • {w.temperature}°C
-                                </div>
-                              </div>
-                            </div>
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(2, 1fr)",
-                                gap: 6,
-                                fontSize: 12,
-                              }}
-                            >
-                              <MiniStat
-                                label="Rain 1h"
-                                value={`${w.rain_1h}mm`}
-                                warn={w.rain_1h > 20}
-                              />
-                              <MiniStat
-                                label="Rain 3h"
-                                value={`${w.rain_3h}mm`}
-                                warn={w.rain_3h > 64.5}
-                              />
-                              <MiniStat
-                                label="AQI"
-                                value={w.aqi_index.toString()}
-                                warn={w.aqi_index >= 300}
-                              />
-                              <MiniStat
-                                label="Wind"
-                                value={`${w.wind_speed} m/s`}
-                                warn={w.wind_speed > 20}
-                              />
-                            </div>
-                            {cs.triggers_fired.length > 0 && (
-                              <div style={{ marginTop: 10 }}>
-                                {cs.triggers_fired.map((t) => (
-                                  <div
-                                    key={t.trigger_id}
-                                    style={{
-                                      background:
-                                        SEVERITY_COLORS[t.severity]?.bg ||
-                                        "#fef3c7",
-                                      color:
-                                        SEVERITY_COLORS[t.severity]?.text ||
-                                        "#92400e",
-                                      border: `1px solid ${SEVERITY_COLORS[t.severity]?.border || "#fde68a"}`,
-                                      fontSize: 11,
-                                      fontWeight: 600,
-                                      padding: "4px 8px",
-                                      borderRadius: 6,
-                                      marginTop: 4,
-                                    }}
-                                  >
-                                    {t.trigger_id}: {t.description} [
-                                    {t.severity.toUpperCase()}]
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Test Fire */}
-                  <div
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      padding: 24,
-                      marginBottom: 24,
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        marginBottom: 12,
-                        color: "#0f172a",
-                      }}
-                    >
-                      Test Fire Trigger
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: 13,
-                        color: "#64748b",
-                        marginBottom: 16,
-                      }}
-                    >
-                      Simulate a parametric disruption for testing. This creates
-                      a mock disruption event and auto-generates claims for all
-                      workers in that city.
-                    </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 12,
-                        alignItems: "flex-end",
-                      }}
-                    >
-                      <div>
-                        <label style={labelStyle}>City</label>
-                        <select
-                          value={testCity}
-                          onChange={(e) => setTestCity(e.target.value)}
-                          style={selectStyle}
-                        >
-                          {[
-                            "Chennai",
-                            "Bangalore",
-                            "Hyderabad",
-                            "Mumbai",
-                            "Delhi",
-                            "Pune",
-                          ].map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Trigger</label>
-                        <select
-                          value={testTrigger}
-                          onChange={(e) => setTestTrigger(e.target.value)}
-                          style={selectStyle}
-                        >
-                          <option value="T-01">T-01: Heavy Rain</option>
-                          <option value="T-02">T-02: Extreme Heat</option>
-                          <option value="T-03">T-03: Severe AQI</option>
-                          <option value="T-04">T-04: Flood</option>
-                        </select>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleTestFire}
-                        disabled={firing}
-                        style={{
-                          height: 38,
-                          background: "#dc2626",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: 8,
-                          padding: "0 24px",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          cursor: firing ? "not-allowed" : "pointer",
-                          opacity: firing ? 0.6 : 1,
-                        }}
-                      >
-                        {firing ? "Firing..." : "Fire Trigger"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Disruption Events Table */}
-                  <div
-                    style={{
-                      background: "#fff",
-                      borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      padding: 24,
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        marginBottom: 16,
-                        color: "#0f172a",
-                      }}
-                    >
-                      Disruption Events History
-                    </h3>
-                    {disruptions.length === 0 ? (
-                      <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                        No disruption events yet. Use the test fire above or
-                        wait for real weather triggers.
-                      </p>
-                    ) : (
-                      <div style={{ overflowX: "auto" }}>
-                        <table
-                          style={{
-                            width: "100%",
-                            borderCollapse: "collapse",
-                            fontSize: 13,
-                          }}
-                        >
-                          <thead>
-                            <tr style={{ background: "#f8fafc" }}>
-                              {[
-                                "Trigger",
-                                "Type",
-                                "City",
-                                "Severity",
-                                "Status",
-                                "Temp",
-                                "Rain 1h",
-                                "Rain 3h",
-                                "AQI",
-                                "Date",
-                              ].map((h) => (
-                                <th key={h} style={thStyle}>
-                                  {h}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {disruptions.map((d) => (
-                              <tr
-                                key={d.id}
-                                style={{ borderBottom: "1px solid #f1f5f9" }}
-                              >
-                                <td style={tdStyle}>
-                                  <span style={{ fontWeight: 700 }}>
-                                    {d.trigger_id}
-                                  </span>
-                                </td>
-                                <td style={tdStyle}>{d.trigger_type}</td>
-                                <td style={tdStyle}>
-                                  <span style={{ fontWeight: 600 }}>
-                                    {d.city}
-                                  </span>
-                                </td>
-                                <td style={tdStyle}>
-                                  <Badge
-                                    color={SEVERITY_COLORS[d.severity]}
-                                    text={d.severity.toUpperCase()}
-                                  />
-                                </td>
-                                <td style={tdStyle}>
-                                  <Badge
-                                    color={STATUS_COLORS[d.status]}
-                                    text={d.status}
-                                  />
-                                </td>
-                                <td style={tdStyle}>
-                                  {d.temperature ?? "-"}°C
-                                </td>
-                                <td style={tdStyle}>{d.rain_1h ?? "-"}mm</td>
-                                <td style={tdStyle}>{d.rain_3h ?? "-"}mm</td>
-                                <td style={tdStyle}>{d.aqi_index ?? "-"}</td>
-                                <td style={tdStyle}>{d.event_date}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {activeTab === "claims" && (
-                <div
+          {activeTab === "overview" && (
+            <>
+              {/* Live Weather Grid */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                  padding: 24,
+                  marginBottom: 24,
+                }}
+              >
+                <h3
                   style={{
-                    background: "#fff",
-                    borderRadius: 12,
-                    border: "1px solid #e2e8f0",
-                    padding: 24,
+                    fontSize: 16,
+                    fontWeight: 700,
+                    marginBottom: 16,
+                    color: "#0f172a",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 16,
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: "#0f172a",
-                      }}
-                    >
-                      Auto-Generated Claims
-                    </h3>
-                    <div style={{ display: "flex", gap: 12 }}>
-                      <StatPill
-                        label="Pending"
-                        value={pendingClaims.toString()}
-                        color="#d97706"
-                      />
-                      <StatPill
-                        label="Total Payout"
-                        value={`₹${totalPayout.toLocaleString("en-IN")}`}
-                        color="#059669"
-                      />
-                    </div>
-                  </div>
-                  {claims.length === 0 ? (
-                    <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                      No claims yet. Fire a test trigger to see auto-generated
-                      claims.
-                    </p>
-                  ) : (
-                    <div style={{ overflowX: "auto" }}>
-                      <table
+                  Live Weather & Trigger Status
+                </h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 16,
+                  }}
+                >
+                  {cities.map((city) => {
+                    const cs = triggerStatus[city];
+                    const w = cs.weather;
+                    const marker = WEATHER_MARKER[w.weather_main] || "WTH";
+                    return (
+                      <div
+                        key={city}
                         style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          fontSize: 13,
+                          borderRadius: 12,
+                          border: cs.has_active_disruption
+                            ? "2px solid #dc2626"
+                            : "1px solid #e2e8f0",
+                          padding: 16,
+                          background: cs.has_active_disruption
+                            ? "#fef2f2"
+                            : "#f8fafc",
+                          position: "relative",
+                          overflow: "hidden",
                         }}
                       >
-                        <thead>
-                          <tr style={{ background: "#f8fafc" }}>
-                            {[
-                              "Claim #",
-                              "Worker ID",
-                              "Platform",
-                              "City",
-                              "Trigger",
-                              "Payout",
-                              "Daily Wage",
-                              "Fraud Score",
-                              "Status",
-                              "Payout Status",
-                            ].map((h) => (
-                              <th key={h} style={thStyle}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {claims.map((c) => (
-                            <tr
-                              key={c.id}
-                              style={{ borderBottom: "1px solid #f1f5f9" }}
+                        {cs.has_active_disruption && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              right: 0,
+                              background: "#dc2626",
+                              color: "#fff",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: "3px 10px",
+                              borderRadius: "0 10px 0 10px",
+                            }}
+                          >
+                            ALERT
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            marginBottom: 10,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              border: "1px solid #d1d5db",
+                              borderRadius: 7,
+                              padding: "6px 8px",
+                              color: "#334155",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            {marker}
+                          </span>
+                          <div>
+                            <div
+                              style={{
+                                fontSize: 15,
+                                fontWeight: 700,
+                                color: "#0f172a",
+                              }}
                             >
-                              <td style={tdStyle}>
-                                <span
-                                  style={{
-                                    fontFamily: "monospace",
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {c.claim_number}
-                                </span>
-                              </td>
-                              <td style={tdStyle}>
-                                <span
-                                  style={{
-                                    fontFamily: "monospace",
-                                    fontSize: 11,
-                                  }}
-                                >
-                                  {c.worker_id.slice(0, 8)}...
-                                </span>
-                              </td>
-                              <td style={tdStyle}>{c.platform}</td>
-                              <td style={tdStyle}>{c.city}</td>
-                              <td style={tdStyle}>
-                                <span style={{ fontWeight: 600 }}>
-                                  {c.trigger_id}
-                                </span>{" "}
-                                <span style={{ color: "#94a3b8" }}>
-                                  {c.trigger_type}
-                                </span>
-                              </td>
-                              <td style={tdStyle}>
-                                <span
-                                  style={{ fontWeight: 700, color: "#059669" }}
-                                >
-                                  ₹{c.payout_amount?.toFixed(2)}
-                                </span>
-                              </td>
-                              <td style={tdStyle}>
-                                ₹{c.daily_wage_est?.toFixed(2) ?? "-"}
-                              </td>
-                              <td style={tdStyle}>
-                                <span
-                                  style={{
-                                    fontWeight: 700,
-                                    color:
-                                      c.fraud_score >= 0.75
-                                        ? "#dc2626"
-                                        : c.fraud_score >= 0.5
-                                          ? "#d97706"
-                                          : "#059669",
-                                  }}
-                                >
-                                  {(c.fraud_score * 100).toFixed(0)}%
-                                </span>
-                                {c.fraud_flags?.length > 0 && (
-                                  <span
-                                    style={{
-                                      fontSize: 10,
-                                      color: "#dc2626",
-                                      marginLeft: 4,
-                                    }}
-                                  >
-                                    FLAG
-                                  </span>
-                                )}
-                              </td>
-                              <td style={tdStyle}>
-                                <Badge
-                                  color={STATUS_COLORS[c.status]}
-                                  text={c.status}
-                                />
-                              </td>
-                              <td style={tdStyle}>
-                                <Badge
-                                  color={STATUS_COLORS[c.payout_status]}
-                                  text={c.payout_status}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                              {city}
+                            </div>
+                            <div style={{ fontSize: 12, color: "#64748b" }}>
+                              {w.weather_main} • {w.temperature}°C
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, 1fr)",
+                            gap: 6,
+                            fontSize: 12,
+                          }}
+                        >
+                          <MiniStat
+                            label="Rain 1h"
+                            value={`${w.rain_1h}mm`}
+                            warn={w.rain_1h > 20}
+                          />
+                          <MiniStat
+                            label="Rain 3h"
+                            value={`${w.rain_3h}mm`}
+                            warn={w.rain_3h > 64.5}
+                          />
+                          <MiniStat
+                            label="AQI"
+                            value={w.aqi_index.toString()}
+                            warn={w.aqi_index >= 300}
+                          />
+                          <MiniStat
+                            label="Wind"
+                            value={`${w.wind_speed} m/s`}
+                            warn={w.wind_speed > 20}
+                          />
+                        </div>
+                        {cs.triggers_fired.length > 0 && (
+                          <div style={{ marginTop: 10 }}>
+                            {cs.triggers_fired.map((t) => (
+                              <div
+                                key={t.trigger_id}
+                                style={{
+                                  background:
+                                    SEVERITY_COLORS[t.severity]?.bg ||
+                                    "#fef3c7",
+                                  color:
+                                    SEVERITY_COLORS[t.severity]?.text ||
+                                    "#92400e",
+                                  border: `1px solid ${SEVERITY_COLORS[t.severity]?.border || "#fde68a"}`,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {t.trigger_id}: {t.description} [
+                                {t.severity.toUpperCase()}]
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+
+              {/* Test Fire */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                  padding: 24,
+                  marginBottom: 24,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    marginBottom: 12,
+                    color: "#0f172a",
+                  }}
+                >
+                  Test Fire Trigger
+                </h3>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "#64748b",
+                    marginBottom: 16,
+                  }}
+                >
+                  Simulate a parametric disruption for testing. This creates a
+                  mock disruption event and auto-generates claims for all
+                  workers in that city.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <div>
+                    <label style={labelStyle}>City</label>
+                    <select
+                      value={testCity}
+                      onChange={(e) => setTestCity(e.target.value)}
+                      style={selectStyle}
+                    >
+                      {[
+                        "Chennai",
+                        "Bangalore",
+                        "Hyderabad",
+                        "Mumbai",
+                        "Delhi",
+                        "Pune",
+                      ].map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Trigger</label>
+                    <select
+                      value={testTrigger}
+                      onChange={(e) => setTestTrigger(e.target.value)}
+                      style={selectStyle}
+                    >
+                      <option value="T-01">T-01: Heavy Rain</option>
+                      <option value="T-02">T-02: Extreme Heat</option>
+                      <option value="T-03">T-03: Severe AQI</option>
+                      <option value="T-04">T-04: Flood</option>
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTestFire}
+                    disabled={firing}
+                    style={{
+                      height: 38,
+                      background: "#dc2626",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      padding: "0 24px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: firing ? "not-allowed" : "pointer",
+                      opacity: firing ? 0.6 : 1,
+                    }}
+                  >
+                    {firing ? "Firing..." : "Fire Trigger"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Disruption Events Table */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                  padding: 24,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    marginBottom: 16,
+                    color: "#0f172a",
+                  }}
+                >
+                  Disruption Events History
+                </h3>
+                {disruptions.length === 0 ? (
+                  <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                    No disruption events yet. Use the test fire above or wait
+                    for real weather triggers.
+                  </p>
+                ) : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: 13,
+                      }}
+                    >
+                      <thead>
+                        <tr style={{ background: "#f8fafc" }}>
+                          {[
+                            "Trigger",
+                            "Type",
+                            "City",
+                            "Severity",
+                            "Status",
+                            "Temp",
+                            "Rain 1h",
+                            "Rain 3h",
+                            "AQI",
+                            "Date",
+                          ].map((h) => (
+                            <th key={h} style={thStyle}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {disruptions.map((d) => (
+                          <tr
+                            key={d.id}
+                            style={{ borderBottom: "1px solid #f1f5f9" }}
+                          >
+                            <td style={tdStyle}>
+                              <span style={{ fontWeight: 700 }}>
+                                {d.trigger_id}
+                              </span>
+                            </td>
+                            <td style={tdStyle}>{d.trigger_type}</td>
+                            <td style={tdStyle}>
+                              <span style={{ fontWeight: 600 }}>{d.city}</span>
+                            </td>
+                            <td style={tdStyle}>
+                              <Badge
+                                color={SEVERITY_COLORS[d.severity]}
+                                text={d.severity.toUpperCase()}
+                              />
+                            </td>
+                            <td style={tdStyle}>
+                              <Badge
+                                color={STATUS_COLORS[d.status]}
+                                text={d.status}
+                              />
+                            </td>
+                            <td style={tdStyle}>{d.temperature ?? "-"}°C</td>
+                            <td style={tdStyle}>{d.rain_1h ?? "-"}mm</td>
+                            <td style={tdStyle}>{d.rain_3h ?? "-"}mm</td>
+                            <td style={tdStyle}>{d.aqi_index ?? "-"}</td>
+                            <td style={tdStyle}>{d.event_date}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </>
           )}
+
+          {activeTab === "claims" && (
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                padding: 24,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#0f172a",
+                  }}
+                >
+                  Auto-Generated Claims
+                </h3>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <StatPill
+                    label="Pending"
+                    value={pendingClaims.toString()}
+                    color="#d97706"
+                  />
+                  <StatPill
+                    label="Total Payout"
+                    value={`₹${totalPayout.toLocaleString("en-IN")}`}
+                    color="#059669"
+                  />
+                </div>
+              </div>
+              {claims.length === 0 ? (
+                <p style={{ color: "#94a3b8", fontSize: 13 }}>
+                  No claims yet. Fire a test trigger to see auto-generated
+                  claims.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontSize: 13,
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ background: "#f8fafc" }}>
+                        {[
+                          "Claim #",
+                          "Worker ID",
+                          "Platform",
+                          "City",
+                          "Trigger",
+                          "Payout",
+                          "Daily Wage",
+                          "Fraud Score",
+                          "Status",
+                          "Payout Status",
+                        ].map((h) => (
+                          <th key={h} style={thStyle}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {claims.map((c) => (
+                        <tr
+                          key={c.id}
+                          style={{ borderBottom: "1px solid #f1f5f9" }}
+                        >
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                fontFamily: "monospace",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {c.claim_number}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                fontFamily: "monospace",
+                                fontSize: 11,
+                              }}
+                            >
+                              {c.worker_id.slice(0, 8)}...
+                            </span>
+                          </td>
+                          <td style={tdStyle}>{c.platform}</td>
+                          <td style={tdStyle}>{c.city}</td>
+                          <td style={tdStyle}>
+                            <span style={{ fontWeight: 600 }}>
+                              {c.trigger_id}
+                            </span>{" "}
+                            <span style={{ color: "#94a3b8" }}>
+                              {c.trigger_type}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <span style={{ fontWeight: 700, color: "#059669" }}>
+                              ₹{c.payout_amount?.toFixed(2)}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            ₹{c.daily_wage_est?.toFixed(2) ?? "-"}
+                          </td>
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color:
+                                  c.fraud_score >= 0.75
+                                    ? "#dc2626"
+                                    : c.fraud_score >= 0.5
+                                      ? "#d97706"
+                                      : "#059669",
+                              }}
+                            >
+                              {(c.fraud_score * 100).toFixed(0)}%
+                            </span>
+                            {c.fraud_flags?.length > 0 && (
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  color: "#dc2626",
+                                  marginLeft: 4,
+                                }}
+                              >
+                                FLAG
+                              </span>
+                            )}
+                          </td>
+                          <td style={tdStyle}>
+                            <Badge
+                              color={STATUS_COLORS[c.status]}
+                              text={c.status}
+                            />
+                          </td>
+                          <td style={tdStyle}>
+                            <Badge
+                              color={STATUS_COLORS[c.payout_status]}
+                              text={c.payout_status}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

@@ -3,7 +3,11 @@
   top: 0;
   z-index: 30;
   backdrop-filter: blur(14px);
-  background: linear-gradient(120deg, rgba(11, 14, 26, 0.95), rgba(18, 21, 37, 0.92));
+  background: linear-gradient(
+    120deg,
+    rgba(11, 14, 26, 0.95),
+    rgba(18, 21, 37, 0.92)
+  );
   border-bottom: 1px solid rgba(120, 118, 153, 0.35);
 }
 
@@ -89,7 +93,11 @@
 .navLinkActive {
   color: #ffffff;
   border-color: rgba(122, 116, 208, 0.72);
-  background: linear-gradient(135deg, rgba(108, 99, 255, 0.92), rgba(124, 58, 237, 0.9));
+  background: linear-gradient(
+    135deg,
+    rgba(108, 99, 255, 0.92),
+    rgba(124, 58, 237, 0.9)
+  );
   box-shadow: 0 8px 24px rgba(70, 56, 180, 0.34);
 }
 
