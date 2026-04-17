@@ -226,6 +226,31 @@ export function getPaymentHistory(token) {
   });
 }
 
+// Traffic & Curfew routes
+export async function getCityTraffic(city) {
+  try {
+    return await request(
+      `${WEB_URL}/api/backend/traffic/${encodeURIComponent(city)}`,
+    );
+  } catch {
+    return request(
+      `${BACKEND_URL}/api/traffic/${encodeURIComponent(city)}`,
+    );
+  }
+}
+
+export async function getCityCurfew(city) {
+  try {
+    return await request(
+      `${WEB_URL}/api/backend/curfew/${encodeURIComponent(city)}`,
+    );
+  } catch {
+    return request(
+      `${BACKEND_URL}/api/curfew/${encodeURIComponent(city)}`,
+    );
+  }
+}
+
 // GPS route (direct backend)
 export function gpsCheckin(worker_id, latitude, longitude) {
   return request(`${BACKEND_URL}/api/gps/checkin`, {

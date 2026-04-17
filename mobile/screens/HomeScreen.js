@@ -76,6 +76,20 @@ function formatDate(value) {
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+function curfewLabel(confidence) {
+  if (typeof confidence !== "number") return "—";
+  if (confidence < 0.3) return "No signals";
+  if (confidence < 0.6) return "Low activity";
+  if (confidence < 0.8) return "Elevated risk";
+  return "Active alert";
+}
+function curfewColor(confidence, COLORS) {
+  if (typeof confidence !== "number") return COLORS.textMuted;
+  if (confidence < 0.3) return COLORS.success;
+  if (confidence < 0.6) return COLORS.amber;
+  return COLORS.error;
+}
+
 function getStatusTone(status, COLORS) {
   if (status === "paid")                               return { color: COLORS.success, label: "Paid" };
   if (status === "approved" || status === "pending")  return { color: COLORS.amber, label: "Processing" };
@@ -95,6 +109,8 @@ const HomeScreen = ({ navigation }) => {
   const [premium, setPremium]           = useState(null);
   const [claims, setClaims]             = useState([]);
   const [triggerStatus, setTriggerStatus] = useState({});
+  const [trafficLive, setTrafficLive]   = useState(null);
+  const [curfewLive, setCurfewLive]     = useState(null);
 
   // Payment modal state
   const [showPayModal, setShowPayModal] = useState(false);
@@ -121,15 +137,19 @@ const HomeScreen = ({ navigation }) => {
     setError("");
     try {
       if (isRefresh) await refreshUser();
-      const [premiumRes, claimsRes, triggersRes] = await Promise.allSettled([
+      const [premiumRes, claimsRes, triggersRes, trafficRes, curfewRes] = await Promise.allSettled([
         api.predictPremium(deliveryId, userCity, userTier),
         api.getWorkerClaims(token, deliveryId),
         api.getTriggerStatus(),
+        userCity ? api.getCityTraffic(userCity) : Promise.resolve(null),
+        userCity ? api.getCityCurfew(userCity)  : Promise.resolve(null),
       ]);
       if (premiumRes.status  === "fulfilled") setPremium(premiumRes.value);
       if (claimsRes.status   === "fulfilled") setClaims(claimsRes.value?.data || []);
       else setClaims([]);
       if (triggersRes.status === "fulfilled") setTriggerStatus(triggersRes.value || {});
+      if (trafficRes.status  === "fulfilled") setTrafficLive(trafficRes.value?.traffic || null);
+      if (curfewRes.status   === "fulfilled") setCurfewLive(curfewRes.value?.curfew || null);
       if (premiumRes.status  === "rejected" && claimsRes.status === "rejected")
         setError("Unable to load live data right now.");
     } catch {
@@ -216,9 +236,10 @@ const HomeScreen = ({ navigation }) => {
     } finally { setPaying(false); }
   }
 
-  const cityData      = useMemo(() => (user?.city ? triggerStatus?.[user.city] || null : null), [triggerStatus, user?.city]);
-  const weather       = cityData?.weather || premium?.weather || null;
-  const trafficData   = cityData?.traffic || null;
+  const cityData       = useMemo(() => (user?.city ? triggerStatus?.[user.city] || null : null), [triggerStatus, user?.city]);
+  const weather        = cityData?.weather || premium?.weather || null;
+  const trafficData    = trafficLive || cityData?.traffic || null;
+  const curfewData     = curfewLive || null;
   const activeTriggers = cityData?.triggers_fired || [];
 
   const currentPremium    = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
@@ -381,46 +402,153 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* ── Environment strip ── */}
+        {/* ── Live Conditions Card ── */}
         <View style={styles.envCard}>
+
+          {/* Card header */}
+          <View style={styles.envCardHeader}>
+            <Ionicons name="analytics-outline" size={14} color={COLORS.primary} />
+            <Text style={styles.envCardTitle}>Live Conditions</Text>
+            <Text style={styles.envCardCity}>{user?.city || "—"}</Text>
+          </View>
+
+          {/* ── Weather row ── */}
           <View style={styles.envRow}>
-            <View style={styles.envIconWrap}>
+            <View style={[styles.envIconWrap, { backgroundColor: COLORS.primaryContainer }]}>
               <Ionicons name="partly-sunny-outline" size={18} color={COLORS.primary} />
             </View>
-            <View style={styles.envTextWrap}>
-              <Text style={styles.envTitle}>{user?.city || "Your city"}</Text>
-              <Text style={styles.envSub} numberOfLines={1}>
-                {weather
-                  ? `${weather.temperature ?? "—"}°C · AQI ${weather.aqi_index ?? "—"} · Rain ${weather.rain_1h ?? 0}mm/h`
-                  : t("weather_unavailable")}
-              </Text>
-            </View>
-            <View style={styles.riskPill}>
-              <Text style={styles.riskPillText}>{riskLabel(premium?.weather_risk)}</Text>
+            <View style={styles.envRowBody}>
+              <View style={styles.envRowTitleBar}>
+                <Text style={styles.envTitle}>Weather</Text>
+                <View style={styles.riskPill}>
+                  <Text style={styles.riskPillText}>{riskLabel(premium?.weather_risk)}</Text>
+                </View>
+              </View>
+              {weather ? (
+                <View style={styles.chipWrap}>
+                  <View style={styles.chip}>
+                    <Text style={styles.chipText}>🌡 {weather.temperature ?? "—"}°C</Text>
+                  </View>
+                  <View style={styles.chip}>
+                    <Text style={styles.chipText}>AQI {weather.aqi_index ?? "—"}</Text>
+                  </View>
+                  <View style={styles.chip}>
+                    <Text style={styles.chipText}>🌧 {weather.rain_1h ?? 0} mm/h</Text>
+                  </View>
+                  <View style={styles.chip}>
+                    <Text style={styles.chipText}>💧 {weather.humidity ?? "—"}%</Text>
+                  </View>
+                  {weather.weather_main ? (
+                    <View style={[styles.chip, { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.borderActive }]}>
+                      <Text style={[styles.chipText, { color: COLORS.primary }]}>{weather.weather_main}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.envSub}>{t("weather_unavailable")}</Text>
+              )}
             </View>
           </View>
-          {trafficData && (
+
+          {/* ── Traffic row ── */}
+          {trafficData ? (
             <>
               <View style={styles.envSeparator} />
               <View style={styles.envRow}>
-                <View style={styles.envIconWrap}>
+                <View style={[styles.envIconWrap, { backgroundColor: ttiColor(trafficData.tti, COLORS) + "18" }]}>
                   <Ionicons name="car-outline" size={18} color={ttiColor(trafficData.tti, COLORS)} />
                 </View>
-                <View style={styles.envTextWrap}>
-                  <Text style={styles.envTitle}>Traffic · TTI {(trafficData.tti || 1).toFixed(2)}</Text>
-                  <Text style={styles.envSub}>{Math.round(trafficData.current_speed_kmh || 0)} km/h current speed</Text>
-                </View>
-                <View style={[styles.riskPill, {
-                  backgroundColor: ttiColor(trafficData.tti, COLORS) + "18",
-                  borderColor: ttiColor(trafficData.tti, COLORS) + "40",
-                }]}>
-                  <Text style={[styles.riskPillText, { color: ttiColor(trafficData.tti, COLORS) }]}>
-                    {ttiLabel(trafficData.tti)}
-                  </Text>
+                <View style={styles.envRowBody}>
+                  <View style={styles.envRowTitleBar}>
+                    <Text style={styles.envTitle}>Traffic</Text>
+                    <View style={[styles.riskPill, {
+                      backgroundColor: ttiColor(trafficData.tti, COLORS) + "18",
+                      borderColor: ttiColor(trafficData.tti, COLORS) + "40",
+                    }]}>
+                      <Text style={[styles.riskPillText, { color: ttiColor(trafficData.tti, COLORS) }]}>
+                        {ttiLabel(trafficData.tti)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.chipWrap}>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>TTI {(trafficData.tti || 1).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>🚀 {Math.round(trafficData.current_speed_kmh || 0)} km/h</Text>
+                    </View>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>Free flow {Math.round(trafficData.free_flow_speed_kmh || 0)} km/h</Text>
+                    </View>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>Risk {Math.round((trafficData.traffic_risk || 0) * 100)}%</Text>
+                    </View>
+                    {trafficData.road_closure && (
+                      <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
+                        <Text style={[styles.chipText, { color: COLORS.error }]}>⚠ Road Closure</Text>
+                      </View>
+                    )}
+                    {trafficData.source ? (
+                      <View style={styles.chip}>
+                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{trafficData.source}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
               </View>
             </>
-          )}
+          ) : null}
+
+          {/* ── Curfew / Unrest row ── */}
+          {curfewData ? (
+            <>
+              <View style={styles.envSeparator} />
+              <View style={styles.envRow}>
+                <View style={[styles.envIconWrap, { backgroundColor: curfewColor(curfewData.confidence, COLORS) + "18" }]}>
+                  <Ionicons name="shield-outline" size={18} color={curfewColor(curfewData.confidence, COLORS)} />
+                </View>
+                <View style={styles.envRowBody}>
+                  <View style={styles.envRowTitleBar}>
+                    <Text style={styles.envTitle}>Unrest / Curfew</Text>
+                    <View style={[styles.riskPill, {
+                      backgroundColor: curfewColor(curfewData.confidence, COLORS) + "18",
+                      borderColor: curfewColor(curfewData.confidence, COLORS) + "40",
+                    }]}>
+                      <Text style={[styles.riskPillText, { color: curfewColor(curfewData.confidence, COLORS) }]}>
+                        {curfewLabel(curfewData.confidence)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.chipWrap}>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>Confidence {Math.round((curfewData.confidence || 0) * 100)}%</Text>
+                    </View>
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>GDELT {curfewData.gdelt_events ?? 0} events</Text>
+                    </View>
+                    {curfewData.nlp_score > 0 && (
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>
+                          NLP {curfewData.nlp_label} ({Math.round(curfewData.nlp_score * 100)}%)
+                        </Text>
+                      </View>
+                    )}
+                    {curfewData.fired && (
+                      <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
+                        <Text style={[styles.chipText, { color: COLORS.error }]}>⚡ T-06 Trigger Active</Text>
+                      </View>
+                    )}
+                    {curfewData.source ? (
+                      <View style={styles.chip}>
+                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{curfewData.source}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : null}
+
         </View>
 
         {/* ── Quick Actions ── */}
@@ -715,31 +843,59 @@ const createStyles = (COLORS, FONTS) =>
     alertSub:   { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.amberDim },
     alertDot:   { width: 8, height: 8, borderRadius: 4, opacity: 0.8 },
 
-    // ── Environment card ─────────────────────────────────────
+    // ── Environment / Live Conditions card ───────────────────
     envCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
       backgroundColor: COLORS.surfaceContainer,
       borderWidth: 1, borderColor: COLORS.border,
-      marginBottom: SIZES.padding,
+      marginBottom: SIZES.padding, overflow: "hidden",
+    },
+    envCardHeader: {
+      flexDirection: "row", alignItems: "center", gap: 6,
+      paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding * 0.75, paddingBottom: 0,
+    },
+    envCardTitle: {
+      fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary,
+      textTransform: "uppercase", letterSpacing: 1, flex: 1,
+    },
+    envCardCity: {
+      fontSize: 10, fontFamily: FONTS.medium, color: COLORS.textFaint,
     },
     envRow: {
-      flexDirection: "row", alignItems: "center", gap: 12,
+      flexDirection: "row", alignItems: "flex-start", gap: 12,
       padding: SIZES.padding * 0.85,
+    },
+    envRowBody: { flex: 1 },
+    envRowTitleBar: {
+      flexDirection: "row", alignItems: "center",
+      justifyContent: "space-between", marginBottom: 8,
     },
     envSeparator: { height: 1, backgroundColor: COLORS.border },
     envIconWrap: {
       width: 36, height: 36, borderRadius: 10,
       backgroundColor: COLORS.surfaceHigh,
       justifyContent: "center", alignItems: "center",
+      flexShrink: 0, marginTop: 2,
     },
+    // keep legacy aliases so nothing else breaks
     envTextWrap: { flex: 1 },
-    envTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
+    envTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white },
     envSub:      { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
     riskPill: {
-      paddingHorizontal: 9, paddingVertical: 4, borderRadius: SIZES.radiusFull,
+      paddingHorizontal: 9, paddingVertical: 3, borderRadius: SIZES.radiusFull,
       backgroundColor: COLORS.primaryContainer, borderWidth: 1, borderColor: COLORS.borderActive,
     },
     riskPillText: { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary, letterSpacing: 0.3 },
+
+    // data chips
+    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
+    chip: {
+      paddingHorizontal: 8, paddingVertical: 4,
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.surfaceHigh,
+      borderWidth: 1, borderColor: COLORS.border,
+    },
+    chipText: { fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted },
 
     // ── Quick Actions ────────────────────────────────────────
     sectionLabel: {

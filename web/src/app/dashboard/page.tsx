@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
 import { LANGUAGES, Language, makeT } from "@/lib/translations";
@@ -90,6 +90,16 @@ type PaymentRecord = {
   status: "success";
   timestamp: string;
   tier: string;
+};
+
+type NotifType = "settled" | "rejected" | "review" | "premium" | "alert";
+
+type Notif = {
+  id: string;
+  type: NotifType;
+  title: string;
+  message: string;
+  time: string;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -219,6 +229,20 @@ function methodLabel(m: string): string {
   if (m === "upi") return "UPI";
   if (m === "debit") return "Debit Card";
   return "Credit Card";
+}
+
+function formatNotifTime(ts: string): string {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 async function fetchPremiumForTier(user: User, tier: Tier): Promise<Premium> {
@@ -369,6 +393,29 @@ export default function DashboardPage() {
       document.documentElement.removeAttribute("data-theme");
     }
   };
+
+  // notifications
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("gg_dismissed_notifs");
+      if (raw) setDismissedIds(new Set(JSON.parse(raw) as string[]));
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!showNotifPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showNotifPanel]);
 
   // payment
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -685,6 +732,85 @@ export default function DashboardPage() {
           ? claimsUnderReview
           : claimsRejected;
 
+  // ── Notifications ──────────────────────────────────────────────────────────
+  const allNotifs: Notif[] = [];
+
+  // Premium due
+  if (!paidToday && currentWeeklyPremium) {
+    allNotifs.push({
+      id: `premium_due_${user.id}`,
+      type: "premium",
+      title: "Premium Due",
+      message: `Your weekly premium of ${money(currentWeeklyPremium)} is due. Pay now to keep coverage active.`,
+      time: new Date().toISOString(),
+    });
+  }
+
+  // Curfew / unrest alert
+  if (curfewData?.fired) {
+    allNotifs.push({
+      id: `curfew_${user.city}_${new Date().toDateString()}`,
+      type: "alert",
+      title: "Curfew Trigger Active",
+      message: `T-06 unrest trigger is active in ${user.city}. Your coverage is protecting you.`,
+      time: new Date().toISOString(),
+    });
+  }
+
+  // From claims (most recent first, max 8)
+  claims.slice(0, 8).forEach((c) => {
+    const id = `claim_${String(c.id)}`;
+    const triggerName = String(c.trigger_type ?? "disruption").replace(/_/g, " ");
+    if (c.payout_status === "paid") {
+      allNotifs.push({
+        id,
+        type: "settled",
+        title: "Claim Settled",
+        message: `₹${c.payout_amount ?? 0} payout processed for ${triggerName}.`,
+        time: String(c.created_at ?? ""),
+      });
+    } else if (c.payout_status === "rejected") {
+      allNotifs.push({
+        id,
+        type: "rejected",
+        title: "Claim Rejected",
+        message: `Your ${triggerName} claim did not pass automated checks.`,
+        time: String(c.created_at ?? ""),
+      });
+    } else {
+      allNotifs.push({
+        id,
+        type: "review",
+        title: "Claim Filed",
+        message: `${triggerName} claim auto-filed and is under review.`,
+        time: String(c.created_at ?? ""),
+      });
+    }
+  });
+
+  const activeNotifs = allNotifs.filter((n) => !dismissedIds.has(n.id));
+  const unreadCount  = activeNotifs.length;
+
+  const dismissNotif = (id: string) => {
+    const next = new Set([...dismissedIds, id]);
+    setDismissedIds(next);
+    localStorage.setItem("gg_dismissed_notifs", JSON.stringify([...next]));
+  };
+
+  const dismissAll = () => {
+    const next = new Set(allNotifs.map((n) => n.id));
+    setDismissedIds(next);
+    localStorage.setItem("gg_dismissed_notifs", JSON.stringify([...next]));
+  };
+
+  const NOTIF_ICONS: Record<NotifType, string> = {
+    settled:  "✓",
+    rejected: "✕",
+    review:   "⏳",
+    premium:  "₹",
+    alert:    "⚡",
+  };
+
   return (
     <div className={styles.pageRoot}>
       {/* ── Header ── */}
@@ -717,6 +843,85 @@ export default function DashboardPage() {
         </nav>
 
         <div className={styles.headerActions}>
+
+          {/* ── Notification bell ── */}
+          <div className={styles.notifWrapper} ref={notifRef}>
+            <button
+              type="button"
+              className={styles.notifBtn}
+              onClick={() => setShowNotifPanel((v) => !v)}
+              aria-label="Notifications"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {unreadCount > 0 && (
+                <span className={styles.notifBadge}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifPanel && (
+              <div className={styles.notifPanel}>
+                <div className={styles.notifPanelHead}>
+                  <span className={styles.notifPanelTitle}>
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className={styles.notifPanelCount}>{unreadCount}</span>
+                    )}
+                  </span>
+                  {activeNotifs.length > 0 && (
+                    <button
+                      type="button"
+                      className={styles.notifMarkAll}
+                      onClick={dismissAll}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                {activeNotifs.length === 0 ? (
+                  <div className={styles.notifEmpty}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    <p>All caught up</p>
+                    <span>No new notifications</span>
+                  </div>
+                ) : (
+                  <div className={styles.notifList}>
+                    {activeNotifs.map((n) => (
+                      <div key={n.id} className={styles.notifItem}>
+                        <div className={`${styles.notifIcon} ${styles[`notifIcon_${n.type}`]}`}>
+                          {NOTIF_ICONS[n.type]}
+                        </div>
+                        <div className={styles.notifBody}>
+                          <div className={styles.notifItemTitle}>{n.title}</div>
+                          <div className={styles.notifItemMsg}>{n.message}</div>
+                          <div className={styles.notifItemTime}>{formatNotifTime(n.time)}</div>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.notifDismiss}
+                          onClick={() => dismissNotif(n.id)}
+                          aria-label="Dismiss"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={toggleTheme}
@@ -799,21 +1004,6 @@ export default function DashboardPage() {
                 {money(currentPremium?.max_payout)}
               </div>
             </div>
-          </div>
-
-          <div className={styles.sidebarStatus}>
-            <StatusPill
-              label="Coverage"
-              ok={coveredNow}
-              okText="Active"
-              badText="Inactive"
-            />
-            <StatusPill
-              label="Verification"
-              ok={verified}
-              okText="Verified"
-              badText="Pending"
-            />
           </div>
 
           <div className={styles.sidebarCta}>
@@ -1581,6 +1771,23 @@ export default function DashboardPage() {
             {tab === "profile" && (
               <div>
                 <h1 className={styles.profileTitle}>{t("profile")}</h1>
+
+                {/* ── Account status pills ── */}
+                <div className={styles.profileStatusRow}>
+                  <StatusPill
+                    label="Coverage"
+                    ok={coveredNow}
+                    okText="Active"
+                    badText="Inactive"
+                  />
+                  <StatusPill
+                    label="Verification"
+                    ok={verified}
+                    okText="Verified"
+                    badText="Pending"
+                  />
+                </div>
+
                 <div className={styles.profileGrid}>
                   <div className={styles.panel}>
                     <h3 className={styles.panelTitle}>
