@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import * as api from "../lib/api";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -56,11 +57,11 @@ function titleCase(str) {
 
 // ─── filter options ──────────────────────────────────────────────────────────
 
-const FILTER_OPTIONS = [
-  { key: "all",          label: "All"      },
-  { key: "paid",         label: "Settled"  },
-  { key: "under-review", label: "Review"   },
-  { key: "rejected",     label: "Rejected" },
+const FILTER_KEYS = [
+  { key: "all",          tKey: "all"      },
+  { key: "paid",         tKey: "settled"  },
+  { key: "under-review", tKey: "review"   },
+  { key: "rejected",     tKey: "rejected" },
 ];
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -68,28 +69,29 @@ const FILTER_OPTIONS = [
 export default function ClaimsScreen({ navigation }) {
   const { user, token } = useAuth();
   const { COLORS, FONTS } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
 
   const STATUS = useMemo(() => ({
     paid: {
       bg:      COLORS.successContainer,
       color:   COLORS.success,
-      label:   "Settled",
+      label:   t("settled"),
       accent:  COLORS.success,
     },
     "under-review": {
       bg:      COLORS.amberContainer,
       color:   COLORS.amber,
-      label:   "Processing",
+      label:   t("processing"),
       accent:  COLORS.amber,
     },
     rejected: {
       bg:      COLORS.errorContainer,
       color:   COLORS.error,
-      label:   "Rejected",
+      label:   t("rejected"),
       accent:  COLORS.error,
     },
-  }), [COLORS]);
+  }), [COLORS, t]);
 
   const [filter, setFilter]       = useState("all");
   const [loading, setLoading]     = useState(true);
@@ -144,12 +146,12 @@ export default function ClaimsScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
             <Ionicons name="arrow-back" size={20} color={COLORS.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Claims</Text>
+          <Text style={styles.headerTitle}>{t("nav_claims")}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loaderWrap}>
           <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>Fetching your claims…</Text>
+          <Text style={styles.loaderText}>{t("loading_claims")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -164,7 +166,7 @@ export default function ClaimsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Claims</Text>
+        <Text style={styles.headerTitle}>{t("nav_claims")}</Text>
         <TouchableOpacity onPress={() => loadClaims(true)} style={styles.iconBtn} disabled={refreshing}>
           {refreshing
             ? <ActivityIndicator color={COLORS.white} size="small" />
@@ -187,31 +189,31 @@ export default function ClaimsScreen({ navigation }) {
           <View style={styles.heroGlow} />
           <View style={styles.heroTop}>
             <View>
-              <Text style={styles.heroEyebrow}>TOTAL RECEIVED</Text>
+              <Text style={styles.heroEyebrow}>{t("total_received")}</Text>
               <Text style={styles.heroAmount}>{money(totalReceived)}</Text>
             </View>
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeNum}>{normalized.length}</Text>
-              <Text style={styles.heroBadgeLabel}>claims</Text>
+              <Text style={styles.heroBadgeLabel}>{t("claims_badge")}</Text>
             </View>
           </View>
           <View style={styles.heroRow}>
             <View style={styles.heroStat}>
               <View style={[styles.heroStatDot, { backgroundColor: COLORS.success }]} />
               <Text style={styles.heroStatNum}>{paidCount}</Text>
-              <Text style={styles.heroStatLabel}>Settled</Text>
+              <Text style={styles.heroStatLabel}>{t("settled")}</Text>
             </View>
             <View style={styles.heroStatSep} />
             <View style={styles.heroStat}>
               <View style={[styles.heroStatDot, { backgroundColor: COLORS.amber }]} />
               <Text style={styles.heroStatNum}>{reviewCount}</Text>
-              <Text style={styles.heroStatLabel}>Review</Text>
+              <Text style={styles.heroStatLabel}>{t("review")}</Text>
             </View>
             <View style={styles.heroStatSep} />
             <View style={styles.heroStat}>
               <View style={[styles.heroStatDot, { backgroundColor: COLORS.error }]} />
               <Text style={styles.heroStatNum}>{rejectedCount}</Text>
-              <Text style={styles.heroStatLabel}>Rejected</Text>
+              <Text style={styles.heroStatLabel}>{t("rejected")}</Text>
             </View>
           </View>
         </View>
@@ -219,12 +221,12 @@ export default function ClaimsScreen({ navigation }) {
         {/* auto-claim note */}
         <View style={styles.noteRow}>
           <Ionicons name="shield-checkmark-outline" size={13} color={COLORS.primary} />
-          <Text style={styles.noteText}>Claims trigger automatically — no manual filing required</Text>
+          <Text style={styles.noteText}>{t("auto_claim_note")}</Text>
         </View>
 
         {/* ── filter tabs ── */}
         <View style={styles.filterTabs}>
-          {FILTER_OPTIONS.map((opt) => {
+          {FILTER_KEYS.map((opt) => {
             const active = filter === opt.key;
             const count  = countFor(opt.key);
             return (
@@ -235,7 +237,7 @@ export default function ClaimsScreen({ navigation }) {
                 activeOpacity={0.75}
               >
                 <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
-                  {opt.label}
+                  {t(opt.tKey)}
                 </Text>
                 {count > 0 && (
                   <View style={[styles.filterBadge, active && styles.filterBadgeActive]}>
@@ -255,11 +257,11 @@ export default function ClaimsScreen({ navigation }) {
             <View style={styles.emptyIcon}>
               <Ionicons name="document-text-outline" size={30} color={COLORS.textFaint} />
             </View>
-            <Text style={styles.emptyTitle}>Nothing here</Text>
+            <Text style={styles.emptyTitle}>{t("nothing_here")}</Text>
             <Text style={styles.emptySub}>
               {filter === "all"
-                ? "Your claims will appear here once coverage is triggered."
-                : `No ${filter === "paid" ? "settled" : filter === "under-review" ? "processing" : "rejected"} claims found.`}
+                ? t("no_claims_empty")
+                : `${t("no_claims")} (${t(filter === "paid" ? "settled" : filter === "under-review" ? "processing" : "rejected")})`}
             </Text>
           </View>
         ) : (
@@ -305,12 +307,12 @@ export default function ClaimsScreen({ navigation }) {
                     {/* facts row */}
                     <View style={styles.factsRow}>
                       <View style={styles.fact}>
-                        <Text style={styles.factLabel}>DISRUPTED</Text>
-                        <Text style={styles.factVal}>{claim.disrupted_hours || 0} hrs</Text>
+                        <Text style={styles.factLabel}>{t("fact_disrupted")}</Text>
+                        <Text style={styles.factVal}>{claim.disrupted_hours || 0} {t("hrs")}</Text>
                       </View>
                       <View style={styles.factSep} />
                       <View style={[styles.fact, { flex: 1.6 }]}>
-                        <Text style={styles.factLabel}>CLAIM ID</Text>
+                        <Text style={styles.factLabel}>{t("fact_claim_id")}</Text>
                         <Text style={styles.factVal} numberOfLines={1}>
                           {claim.claim_number
                             ? `#${claim.claim_number}`
@@ -319,7 +321,7 @@ export default function ClaimsScreen({ navigation }) {
                       </View>
                       <View style={styles.factSep} />
                       <View style={styles.fact}>
-                        <Text style={styles.factLabel}>PLAN</Text>
+                        <Text style={styles.factLabel}>{t("fact_plan")}</Text>
                         <Text style={styles.factVal}>{titleCase(claim.tier || user?.tier)}</Text>
                       </View>
                     </View>
@@ -331,7 +333,7 @@ export default function ClaimsScreen({ navigation }) {
                         <Text style={[styles.cardFooterText, { color: COLORS.success }]}>
                           {claim.transaction_id
                             ? `Ref: ${claim.transaction_id}`
-                            : "Approved — payout processing"}
+                            : t("approved_payout_note")}
                         </Text>
                       </View>
                     )}
@@ -341,7 +343,7 @@ export default function ClaimsScreen({ navigation }) {
                         <Text style={[styles.cardFooterText, { color: COLORS.error }]}>
                           {Array.isArray(claim.fraud_flags) && claim.fraud_flags.length > 0
                             ? claim.fraud_flags.join(" · ")
-                            : "Failed automated verification checks"}
+                            : t("rejected")}
                         </Text>
                       </View>
                     )}
@@ -349,7 +351,7 @@ export default function ClaimsScreen({ navigation }) {
                       <View style={[styles.cardFooter, { backgroundColor: COLORS.amberContainer }]}>
                         <Ionicons name="time-outline" size={11} color={COLORS.amber} />
                         <Text style={[styles.cardFooterText, { color: COLORS.amber }]}>
-                          Under review — typically resolves within 24 hrs
+                          {t("under_review_note")}
                         </Text>
                       </View>
                     )}

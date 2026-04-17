@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import * as api from "../lib/api";
 
 const PAY_STORAGE_KEY_PREFIX = "gg_payments_";
@@ -85,6 +86,7 @@ function getStatusTone(status, COLORS) {
 const HomeScreen = ({ navigation }) => {
   const { user, token, refreshUser } = useAuth();
   const { COLORS, FONTS } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
 
   const [loading, setLoading]           = useState(true);
@@ -240,15 +242,15 @@ const HomeScreen = ({ navigation }) => {
       };
     });
     if (items.length > 0) return items;
-    return [{ icon: "shield-checkmark", color: COLORS.primary, title: "No claims yet", status: "Protected", amount: "—", date: "—" }];
-  }, [claims, COLORS]);
+    return [{ icon: "shield-checkmark", color: COLORS.primary, title: t("no_claims"), status: t("protected_status"), amount: "—", date: "—" }];
+  }, [claims, COLORS, t]);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loader}>
           <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loaderText}>Loading dashboard…</Text>
+          <Text style={styles.loaderText}>{t("loading_dashboard")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -256,9 +258,9 @@ const HomeScreen = ({ navigation }) => {
 
   const greeting = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return t("greeting_morning");
+    if (h < 17) return t("greeting_afternoon");
+    return t("greeting_evening");
   })();
 
   const firstName = user?.name?.split(" ")[0] || "there";
@@ -299,7 +301,7 @@ const HomeScreen = ({ navigation }) => {
             <View style={[styles.statusPill, { backgroundColor: coverageActive ? COLORS.successContainer : COLORS.errorContainer, borderColor: coverageActive ? COLORS.success + "40" : COLORS.error + "40" }]}>
               <View style={[styles.statusDot, { backgroundColor: coverageActive ? COLORS.success : COLORS.error }]} />
               <Text style={[styles.statusPillText, { color: coverageActive ? COLORS.success : COLORS.error }]}>
-                {coverageActive ? "Protected" : "Inactive"}
+                {coverageActive ? t("protected_status") : t("inactive_status")}
               </Text>
             </View>
           </View>
@@ -317,9 +319,9 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.heroGlow} />
           <View style={styles.heroTop}>
             <View>
-              <Text style={styles.heroLabel}>THIS WEEK'S COVERAGE</Text>
+              <Text style={styles.heroLabel}>{t("this_weeks_coverage")}</Text>
               <Text style={styles.heroAmount}>{money(premium?.max_payout)}</Text>
-              <Text style={styles.heroSub}>Maximum payout · {titleCaseTier(user?.tier)} Plan</Text>
+              <Text style={styles.heroSub}>{t("max_payout_label")} · {titleCaseTier(user?.tier)} {t("plan_suffix")}</Text>
             </View>
             <View style={styles.heroShield}>
               <Ionicons name="shield-checkmark" size={32} color={coverageActive ? COLORS.primary : COLORS.textFaint} />
@@ -329,17 +331,17 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.heroBottom}>
             <View style={styles.heroStat}>
               <Text style={styles.heroStatVal}>{money(currentPremium)}</Text>
-              <Text style={styles.heroStatKey}>Weekly premium</Text>
+              <Text style={styles.heroStatKey}>{t("weekly_premium")}</Text>
             </View>
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStat}>
               <Text style={styles.heroStatVal}>{money(totalPaid)}</Text>
-              <Text style={styles.heroStatKey}>Total received</Text>
+              <Text style={styles.heroStatKey}>{t("total_received")}</Text>
             </View>
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStat}>
               <Text style={styles.heroStatVal}>{paidClaims.length}</Text>
-              <Text style={styles.heroStatKey}>Claims paid</Text>
+              <Text style={styles.heroStatKey}>{t("claims_paid")}</Text>
             </View>
           </View>
         </View>
@@ -347,20 +349,20 @@ const HomeScreen = ({ navigation }) => {
         {/* ── Pay Premium Card ── */}
         <View style={styles.payCard}>
           <View style={styles.payCardLeft}>
-            <Text style={styles.payCardLabel}>WEEKLY PREMIUM</Text>
+            <Text style={styles.payCardLabel}>{t("weekly_premium_label")}</Text>
             <Text style={styles.payCardAmount}>{money(weeklyPremiumAmt)}</Text>
             <Text style={styles.payCardSub}>
-              {user?.autopay ? "AutoPay · 5% off" : "Pay to keep coverage active"}
+              {user?.autopay ? t("autopay_discount") : t("pay_to_keep_coverage")}
             </Text>
           </View>
           {paidThisWeek ? (
             <View style={styles.paidBadge}>
               <Ionicons name="checkmark-circle" size={15} color={COLORS.success} />
-              <Text style={styles.paidBadgeText}>Paid</Text>
+              <Text style={styles.paidBadgeText}>{t("paid")}</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.payNowBtn} onPress={openPayModal} activeOpacity={0.85}>
-              <Text style={styles.payNowText}>Pay Now</Text>
+              <Text style={styles.payNowText}>{t("pay_now")}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -390,7 +392,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.envSub} numberOfLines={1}>
                 {weather
                   ? `${weather.temperature ?? "—"}°C · AQI ${weather.aqi_index ?? "—"} · Rain ${weather.rain_1h ?? 0}mm/h`
-                  : "Weather data unavailable"}
+                  : t("weather_unavailable")}
               </Text>
             </View>
             <View style={styles.riskPill}>
@@ -422,13 +424,13 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {/* ── Quick Actions ── */}
-        <Text style={styles.sectionLabel}>Quick Actions</Text>
+        <Text style={styles.sectionLabel}>{t("quick_actions")}</Text>
         <View style={styles.actionsGrid}>
           {[
-            { icon: "shield-outline",        label: "My Policy",  route: "Policy",   color: COLORS.primary },
-            { icon: "document-text-outline", label: "Claims",     route: "Claims",   color: COLORS.amber },
-            { icon: "card-outline",          label: "Payments",   route: "Payments", color: COLORS.success },
-            { icon: "person-outline",        label: "Profile",    route: "Profile",  color: COLORS.info },
+            { icon: "shield-outline",        label: t("my_policy"),      route: "Policy",   color: COLORS.primary },
+            { icon: "document-text-outline", label: t("nav_claims"),     route: "Claims",   color: COLORS.amber },
+            { icon: "card-outline",          label: t("nav_payments"),   route: "Payments", color: COLORS.success },
+            { icon: "person-outline",        label: t("nav_profile"),    route: "Profile",  color: COLORS.info },
           ].map(action => (
             <TouchableOpacity
               key={action.label}
@@ -446,7 +448,7 @@ const HomeScreen = ({ navigation }) => {
 
 
         {/* ── Recent Activity ── */}
-        <Text style={styles.sectionLabel}>Recent Activity</Text>
+        <Text style={styles.sectionLabel}>{t("recent_activity")}</Text>
         <View style={styles.activityCard}>
           {recentActivity.map((item, i) => (
             <View
@@ -479,11 +481,11 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark" size={36} color={COLORS.success} />
                 </View>
-                <Text style={styles.successTitle}>Payment Successful</Text>
+                <Text style={styles.successTitle}>{t("payment_successful")}</Text>
                 <Text style={styles.successTxId}>{paySuccess.transaction_id}</Text>
-                <Text style={styles.successAmt}>{money(paySuccess.amount)} paid</Text>
+                <Text style={styles.successAmt}>{money(paySuccess.amount)} {t("paid")}</Text>
                 <TouchableOpacity style={styles.doneBtn} onPress={closePayModal}>
-                  <Text style={styles.doneBtnText}>Done</Text>
+                  <Text style={styles.doneBtnText}>{t("done")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -491,7 +493,7 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.modalHandle} />
                 <View style={styles.modalTop}>
                   <View>
-                    <Text style={styles.modalTitle}>Pay Premium</Text>
+                    <Text style={styles.modalTitle}>{t("pay_premium")}</Text>
                     <Text style={styles.modalAmt}>{money(weeklyPremiumAmt)}</Text>
                   </View>
                   <TouchableOpacity onPress={closePayModal} style={styles.modalCloseBtn}>
@@ -571,7 +573,7 @@ const HomeScreen = ({ navigation }) => {
                     ? <ActivityIndicator color="#fff" size="small" />
                     : <>
                         <Ionicons name="lock-closed" size={15} color="#fff" />
-                        <Text style={styles.submitBtnText}>Pay {money(weeklyPremiumAmt)}</Text>
+                        <Text style={styles.submitBtnText}>{t("pay_now")} {money(weeklyPremiumAmt)}</Text>
                       </>
                   }
                 </TouchableOpacity>
@@ -584,10 +586,10 @@ const HomeScreen = ({ navigation }) => {
       {/* ── Bottom Nav ── */}
       <View style={styles.bottomNav}>
         {[
-          { icon: "home",             label: "Home",   route: null,       active: true },
-          { icon: "document-outline", label: "Claims", route: "Claims",   active: false },
-          { icon: "shield-outline",   label: "Policy", route: "Policy",   active: false },
-          { icon: "person-outline",   label: "Profile",route: "Profile",  active: false },
+          { icon: "home",             label: t("nav_home"),     route: null,       active: true },
+          { icon: "document-outline", label: t("nav_claims"),   route: "Claims",   active: false },
+          { icon: "shield-outline",   label: t("nav_policy"),   route: "Policy",   active: false },
+          { icon: "person-outline",   label: t("nav_profile"),  route: "Profile",  active: false },
         ].map(tab => (
           <TouchableOpacity
             key={tab.label}

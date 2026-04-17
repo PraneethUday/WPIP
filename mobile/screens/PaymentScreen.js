@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SIZES, SHADOWS } from "../constants/theme";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import * as api from "../lib/api";
 
 const STORAGE_KEY_PREFIX = "gg_payments_";
@@ -48,6 +49,7 @@ const METHOD_OPTIONS = [
 export default function PaymentScreen({ navigation }) {
   const { user, token } = useAuth();
   const { COLORS, FONTS } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
 
   const [currentPremium, setCurrentPremium] = useState(null);
@@ -159,7 +161,7 @@ export default function PaymentScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={20} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payments</Text>
+        <Text style={styles.headerTitle}>{t("nav_payments")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -167,7 +169,7 @@ export default function PaymentScreen({ navigation }) {
         {/* Pay Banner */}
         <View style={styles.payBanner}>
           <View style={styles.bannerGlow} />
-          <Text style={styles.bannerLabel}>WEEKLY PREMIUM DUE</Text>
+          <Text style={styles.bannerLabel}>{t("weekly_premium_due")}</Text>
           {loadingPremium ? (
             <ActivityIndicator color="#fff" style={{ marginVertical: 8 }} />
           ) : (
@@ -180,25 +182,25 @@ export default function PaymentScreen({ navigation }) {
             {user?.autopay && (
               <>
                 <View style={styles.metaDot} />
-                <Text style={styles.bannerDiscount}>5% AutoPay discount applied</Text>
+                <Text style={styles.bannerDiscount}>{t("autopay_discount_applied")}</Text>
               </>
             )}
           </View>
           {paidThisWeek ? (
             <View style={styles.paidBadge}>
               <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
-              <Text style={styles.paidBadgeText}>Paid this week</Text>
+              <Text style={styles.paidBadgeText}>{t("paid_this_week")}</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.payBtn} onPress={openModal} activeOpacity={0.85}>
               <Ionicons name="card" size={18} color="#fff" />
-              <Text style={styles.payBtnText}>Pay Now</Text>
+              <Text style={styles.payBtnText}>{t("pay_now")}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Payment History */}
-        <Text style={styles.sectionTitle}>Payment History</Text>
+        <Text style={styles.sectionTitle}>{t("payment_history")}</Text>
 
         {!!historyError && (
           <View style={styles.historyErrorCard}>
@@ -210,13 +212,13 @@ export default function PaymentScreen({ navigation }) {
         {loadingHistory ? (
           <View style={styles.historyLoading}>
             <ActivityIndicator color={COLORS.primary} size="small" />
-            <Text style={styles.historyLoadingText}>Loading from server…</Text>
+            <Text style={styles.historyLoadingText}>{t("loading_from_server")}</Text>
           </View>
         ) : payments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="receipt-outline" size={32} color={COLORS.textFaint} />
-            <Text style={styles.emptyText}>No payments yet.</Text>
-            <Text style={styles.emptySubText}>Your payment receipts will appear here.</Text>
+            <Text style={styles.emptyText}>{t("no_payments")}</Text>
+            <Text style={styles.emptySubText}>{t("payment_receipts_sub")}</Text>
           </View>
         ) : (
           <View style={styles.historyCard}>
@@ -235,7 +237,7 @@ export default function PaymentScreen({ navigation }) {
                 </View>
                 <View style={styles.historyRight}>
                   <Text style={styles.historyAmount}>{money(p.amount)}</Text>
-                  <Text style={styles.historyStatus}>Success</Text>
+                  <Text style={styles.historyStatus}>{t("success_status")}</Text>
                 </View>
               </View>
             ))}
@@ -252,23 +254,23 @@ export default function PaymentScreen({ navigation }) {
                 <View style={styles.successIcon}>
                   <Ionicons name="checkmark-circle" size={56} color={COLORS.success} />
                 </View>
-                <Text style={styles.successTitle}>Payment Successful</Text>
+                <Text style={styles.successTitle}>{t("payment_successful")}</Text>
                 <Text style={styles.successTxn}>{paySuccess.transaction_id}</Text>
-                <Text style={styles.successAmount}>{money(paySuccess.amount)} paid</Text>
+                <Text style={styles.successAmount}>{money(paySuccess.amount)} {t("paid")}</Text>
                 <TouchableOpacity style={styles.doneBtn} onPress={closeModal}>
-                  <Text style={styles.doneBtnText}>Done</Text>
+                  <Text style={styles.doneBtnText}>{t("done")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Pay Premium</Text>
+                  <Text style={styles.modalTitle}>{t("pay_premium")}</Text>
                   <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
                     <Ionicons name="close" size={20} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.modalAmount}>{money(amount)}</Text>
-                <Text style={styles.modalAmountLabel}>Weekly Premium</Text>
+                <Text style={styles.modalAmountLabel}>{t("weekly_premium_modal")}</Text>
                 <View style={styles.methodRow}>
                   {METHOD_OPTIONS.map((m) => (
                     <TouchableOpacity
@@ -335,11 +337,11 @@ export default function PaymentScreen({ navigation }) {
                     ) : (
                       <>
                         <Ionicons name="lock-closed" size={16} color="#fff" />
-                        <Text style={styles.submitBtnText}>Pay {money(amount)}</Text>
+                        <Text style={styles.submitBtnText}>{t("pay_now")} {money(amount)}</Text>
                       </>
                     )}
                   </TouchableOpacity>
-                  <Text style={styles.secureNote}>This is a demo payment — no real transaction occurs.</Text>
+                  <Text style={styles.secureNote}>{t("demo_note")}</Text>
                 </ScrollView>
               </>
             )}
