@@ -23,7 +23,11 @@ import * as api from "../lib/api";
 const PAY_STORAGE_KEY_PREFIX = "gg_payments_";
 
 function formatCardNumber(raw) {
-  return raw.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+  return raw
+    .replace(/\D/g, "")
+    .slice(0, 16)
+    .replace(/(.{4})/g, "$1 ")
+    .trim();
 }
 function formatExpiry(raw) {
   const d = raw.replace(/\D/g, "").slice(0, 4);
@@ -31,14 +35,23 @@ function formatExpiry(raw) {
 }
 
 const TRIGGER_ICONS = {
-  heavy_rain: "rainy", severe_aqi: "cloud", flood: "water",
-  extreme_heat: "thermometer", traffic_congestion: "car", curfew: "ban",
+  heavy_rain: "rainy",
+  severe_aqi: "cloud",
+  flood: "water",
+  extreme_heat: "thermometer",
+  traffic_congestion: "car",
+  curfew: "ban",
 };
 
 const PLATFORM_NAMES = {
-  swiggy: "Swiggy", zomato: "Zomato", amazon: "Amazon Flex",
-  blinkit: "Blinkit", zepto: "Zepto", meesho: "Meesho",
-  porter: "Porter", dunzo: "Dunzo",
+  swiggy: "Swiggy",
+  zomato: "Zomato",
+  amazon: "Amazon Flex",
+  blinkit: "Blinkit",
+  zepto: "Zepto",
+  meesho: "Meesho",
+  porter: "Porter",
+  dunzo: "Dunzo",
 };
 
 function money(value) {
@@ -52,8 +65,8 @@ function titleCaseTier(tier) {
 function riskLabel(risk) {
   if (typeof risk !== "number") return "—";
   if (risk < 0.15) return "Low Risk";
-  if (risk < 0.4)  return "Moderate";
-  if (risk < 0.7)  return "High Risk";
+  if (risk < 0.4) return "Moderate";
+  if (risk < 0.7) return "High Risk";
   return "Severe";
 }
 function ttiLabel(tti) {
@@ -84,10 +97,7 @@ function formatMetricValue(value, suffix = "") {
 }
 function humanizeLabel(value) {
   if (!value || typeof value !== "string") return "—";
-  return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function curfewLabel(confidence) {
   if (typeof confidence !== "number") return "—";
@@ -104,9 +114,10 @@ function curfewColor(confidence, COLORS) {
 }
 
 function getStatusTone(status, COLORS) {
-  if (status === "paid")                               return { color: COLORS.success, label: "Paid" };
-  if (status === "approved" || status === "pending")  return { color: COLORS.amber, label: "Processing" };
-  if (status === "rejected")                          return { color: COLORS.error, label: "Rejected" };
+  if (status === "paid") return { color: COLORS.success, label: "Paid" };
+  if (status === "approved" || status === "pending")
+    return { color: COLORS.amber, label: "Processing" };
+  if (status === "rejected") return { color: COLORS.error, label: "Rejected" };
   return { color: COLORS.info, label: "Initiated" };
 }
 
@@ -116,69 +127,89 @@ const HomeScreen = ({ navigation }) => {
   const { t } = useLanguage();
   const styles = useMemo(() => createStyles(COLORS, FONTS), [COLORS, FONTS]);
 
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [error, setError]               = useState("");
-  const [premium, setPremium]           = useState(null);
-  const [claims, setClaims]             = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [premium, setPremium] = useState(null);
+  const [claims, setClaims] = useState([]);
   const [triggerStatus, setTriggerStatus] = useState({});
-  const [trafficLive, setTrafficLive]   = useState(null);
-  const [curfewLive, setCurfewLive]     = useState(null);
+  const [trafficLive, setTrafficLive] = useState(null);
+  const [curfewLive, setCurfewLive] = useState(null);
 
   // Payment modal state
   const [showPayModal, setShowPayModal] = useState(false);
-  const [payMethod, setPayMethod]       = useState("upi");
-  const [payForm, setPayForm]           = useState({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
-  const [paying, setPaying]             = useState(false);
-  const [payError, setPayError]         = useState("");
-  const [paySuccess, setPaySuccess]     = useState(null);
+  const [payMethod, setPayMethod] = useState("upi");
+  const [payForm, setPayForm] = useState({
+    upiId: "",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    name: "",
+  });
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
+  const [paySuccess, setPaySuccess] = useState(null);
   const [paidThisWeek, setPaidThisWeek] = useState(false);
 
   const storageKey = `${PAY_STORAGE_KEY_PREFIX}${user?.id || "guest"}`;
 
   const deliveryId = user?.delivery_id;
-  const userCity   = user?.city;
-  const userTier   = user?.tier || "standard";
+  const userCity = user?.city;
+  const userTier = user?.tier || "standard";
 
-  const loadDashboard = useCallback(async (isRefresh = false) => {
-    if (!deliveryId) {
-      setLoading(false); setClaims([]); setPremium(null);
-      setError("Missing delivery ID for this account.");
-      return;
-    }
-    if (isRefresh) setRefreshing(true); else setLoading(true);
-    setError("");
-    try {
-      if (isRefresh) await refreshUser();
-      const [premiumRes, claimsRes, triggersRes, trafficRes, curfewRes] = await Promise.allSettled([
-        api.predictPremium(deliveryId, userCity, userTier),
-        api.getWorkerClaims(token, deliveryId),
-        api.getTriggerStatus(),
-        userCity ? api.getCityTraffic(userCity) : Promise.resolve(null),
-        userCity ? api.getCityCurfew(userCity)  : Promise.resolve(null),
-      ]);
-      if (premiumRes.status  === "fulfilled") setPremium(premiumRes.value);
-      if (claimsRes.status   === "fulfilled") setClaims(claimsRes.value?.data || []);
-      else setClaims([]);
-      if (triggersRes.status === "fulfilled") setTriggerStatus(triggersRes.value || {});
-      if (trafficRes.status  === "fulfilled") setTrafficLive(trafficRes.value?.traffic || null);
-      if (curfewRes.status   === "fulfilled") setCurfewLive(curfewRes.value?.curfew || null);
-      if (premiumRes.status  === "rejected" && claimsRes.status === "rejected")
+  const loadDashboard = useCallback(
+    async (isRefresh = false) => {
+      if (!deliveryId) {
+        setLoading(false);
+        setClaims([]);
+        setPremium(null);
+        setError("Missing delivery ID for this account.");
+        return;
+      }
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError("");
+      try {
+        if (isRefresh) await refreshUser();
+        const [premiumRes, claimsRes, triggersRes, trafficRes, curfewRes] =
+          await Promise.allSettled([
+            api.predictPremium(deliveryId, userCity, userTier),
+            api.getWorkerClaims(token, deliveryId),
+            api.getTriggerStatus(),
+            userCity ? api.getCityTraffic(userCity) : Promise.resolve(null),
+            userCity ? api.getCityCurfew(userCity) : Promise.resolve(null),
+          ]);
+        if (premiumRes.status === "fulfilled") setPremium(premiumRes.value);
+        if (claimsRes.status === "fulfilled")
+          setClaims(claimsRes.value?.data || []);
+        else setClaims([]);
+        if (triggersRes.status === "fulfilled")
+          setTriggerStatus(triggersRes.value || {});
+        if (trafficRes.status === "fulfilled")
+          setTrafficLive(trafficRes.value?.traffic || null);
+        if (curfewRes.status === "fulfilled")
+          setCurfewLive(curfewRes.value?.curfew || null);
+        if (premiumRes.status === "rejected" && claimsRes.status === "rejected")
+          setError("Unable to load live data right now.");
+      } catch {
         setError("Unable to load live data right now.");
-    } catch {
-      setError("Unable to load live data right now.");
-    } finally {
-      setLoading(false); setRefreshing(false);
-    }
-  }, [deliveryId, refreshUser, token, userCity, userTier]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [deliveryId, refreshUser, token, userCity, userTier],
+  );
 
-  useEffect(() => { loadDashboard(false); }, [loadDashboard]);
+  useEffect(() => {
+    loadDashboard(false);
+  }, [loadDashboard]);
 
   // Check paid-this-week from server first, fall back to local cache
   useEffect(() => {
     async function checkPaidThisWeek() {
       const isWithinWeek = (ts) =>
-        ts && ((new Date() - new Date(ts)) / (1000 * 60 * 60 * 24)) < 7;
+        ts && (new Date() - new Date(ts)) / (1000 * 60 * 60 * 24) < 7;
 
       // Try server first — this catches payments made on web/other devices
       if (token) {
@@ -186,8 +217,13 @@ const HomeScreen = ({ navigation }) => {
           const res = await api.getPaymentHistory(token);
           const serverPayments = res?.payments ?? [];
           // Keep local cache in sync
-          AsyncStorage.setItem(storageKey, JSON.stringify(serverPayments)).catch(() => {});
-          const paid = serverPayments.some(p => p.status === "success" && isWithinWeek(p.timestamp));
+          AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify(serverPayments),
+          ).catch(() => {});
+          const paid = serverPayments.some(
+            (p) => p.status === "success" && isWithinWeek(p.timestamp),
+          );
           setPaidThisWeek(paid);
           return;
         } catch {
@@ -200,7 +236,11 @@ const HomeScreen = ({ navigation }) => {
         const raw = await AsyncStorage.getItem(storageKey);
         if (!raw) return;
         const saved = JSON.parse(raw);
-        setPaidThisWeek(saved.some(p => p.status === "success" && isWithinWeek(p.timestamp)));
+        setPaidThisWeek(
+          saved.some(
+            (p) => p.status === "success" && isWithinWeek(p.timestamp),
+          ),
+        );
       } catch {}
     }
     checkPaidThisWeek();
@@ -208,17 +248,28 @@ const HomeScreen = ({ navigation }) => {
 
   function openPayModal() {
     setPayForm({ upiId: "", cardNumber: "", expiry: "", cvv: "", name: "" });
-    setPayError(""); setPaySuccess(null); setPayMethod("upi"); setShowPayModal(true);
+    setPayError("");
+    setPaySuccess(null);
+    setPayMethod("upi");
+    setShowPayModal(true);
   }
-  function closePayModal() { setShowPayModal(false); setPaySuccess(null); setPayError(""); setPaying(false); }
+  function closePayModal() {
+    setShowPayModal(false);
+    setPaySuccess(null);
+    setPayError("");
+    setPaying(false);
+  }
 
   function validatePayForm() {
     if (payMethod === "upi") {
       if (!payForm.upiId.trim()) return "Enter your UPI ID.";
-      if (!/^[\w.\-+]+@[\w]+$/.test(payForm.upiId.trim())) return "Enter a valid UPI ID (e.g. name@upi).";
+      if (!/^[\w.\-+]+@[\w]+$/.test(payForm.upiId.trim()))
+        return "Enter a valid UPI ID (e.g. name@upi).";
     } else {
-      if (payForm.cardNumber.replace(/\s/g, "").length !== 16) return "Enter a valid 16-digit card number.";
-      if (!payForm.expiry || payForm.expiry.length < 5) return "Enter a valid expiry (MM/YY).";
+      if (payForm.cardNumber.replace(/\s/g, "").length !== 16)
+        return "Enter a valid 16-digit card number.";
+      if (!payForm.expiry || payForm.expiry.length < 5)
+        return "Enter a valid expiry (MM/YY).";
       if (!payForm.cvv || payForm.cvv.length < 3) return "Enter a valid CVV.";
       if (!payForm.name.trim()) return "Enter the cardholder name.";
     }
@@ -227,48 +278,76 @@ const HomeScreen = ({ navigation }) => {
 
   async function handlePay() {
     const err = validatePayForm();
-    if (err) { setPayError(err); return; }
-    setPaying(true); setPayError("");
+    if (err) {
+      setPayError(err);
+      return;
+    }
+    setPaying(true);
+    setPayError("");
     try {
       const res = await api.payPremium(token, {
-        method: payMethod, amount: weeklyPremiumAmt,
-        tier: user?.tier || "standard", worker_id: user?.id,
+        method: payMethod,
+        amount: weeklyPremiumAmt,
+        tier: user?.tier || "standard",
+        worker_id: user?.id,
       });
       const record = {
-        transaction_id: res.transaction_id, method: payMethod,
+        transaction_id: res.transaction_id,
+        method: payMethod,
         amount: res.amount ?? weeklyPremiumAmt,
         tier: res.tier || user?.tier || "standard",
-        status: "success", timestamp: res.timestamp || new Date().toISOString(),
+        status: "success",
+        timestamp: res.timestamp || new Date().toISOString(),
       };
-      const saved = await AsyncStorage.getItem(storageKey).then(r => r ? JSON.parse(r) : []).catch(() => []);
-      await AsyncStorage.setItem(storageKey, JSON.stringify([record, ...saved]));
+      const saved = await AsyncStorage.getItem(storageKey)
+        .then((r) => (r ? JSON.parse(r) : []))
+        .catch(() => []);
+      await AsyncStorage.setItem(
+        storageKey,
+        JSON.stringify([record, ...saved]),
+      );
       setPaidThisWeek(true);
       setPaySuccess(record);
     } catch (e) {
       setPayError(e.message || "Payment failed. Please try again.");
-    } finally { setPaying(false); }
+    } finally {
+      setPaying(false);
+    }
   }
 
-  const cityData       = useMemo(() => (user?.city ? triggerStatus?.[user.city] || null : null), [triggerStatus, user?.city]);
-  const weather        = cityData?.weather || premium?.weather || null;
-  const trafficData    = trafficLive || cityData?.traffic || null;
-  const curfewData     = curfewLive || null;
+  const cityData = useMemo(
+    () => (user?.city ? triggerStatus?.[user.city] || null : null),
+    [triggerStatus, user?.city],
+  );
+  const weather = cityData?.weather || premium?.weather || null;
+  const trafficData = trafficLive || cityData?.traffic || null;
+  const curfewData = curfewLive || null;
   const activeTriggers = cityData?.triggers_fired || [];
 
-  const currentPremium    = user?.autopay ? premium?.weekly_premium_autopay : premium?.weekly_premium;
-  const weeklyPremiumAmt  = currentPremium || premium?.weekly_premium || 0;
-  const coverageActive    = user?.verification_status === "verified" && !!premium;
-  const paidClaims      = claims.filter(c => c.payout_status === "paid" || c.status === "paid");
-  const totalPaid       = paidClaims.reduce((s, c) => s + (Number(c.payout_amount) || 0), 0);
+  const currentPremium = user?.autopay
+    ? premium?.weekly_premium_autopay
+    : premium?.weekly_premium;
+  const weeklyPremiumAmt = currentPremium || premium?.weekly_premium || 0;
+  const coverageActive = user?.verification_status === "verified" && !!premium;
+  const paidClaims = claims.filter(
+    (c) => c.payout_status === "paid" || c.status === "paid",
+  );
+  const totalPaid = paidClaims.reduce(
+    (s, c) => s + (Number(c.payout_amount) || 0),
+    0,
+  );
 
   const recentActivity = useMemo(() => {
-    const items = claims.slice(0, 3).map(claim => {
+    const items = claims.slice(0, 3).map((claim) => {
       const tone = getStatusTone(claim.payout_status || claim.status, COLORS);
       return {
         icon: TRIGGER_ICONS[claim.trigger_type] || "document-text",
         color: tone.color,
         title: claim.trigger_type
-          ? claim.trigger_type.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+          ? claim.trigger_type
+              .split("_")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ")
           : "Claim",
         status: tone.label,
         amount: money(Number(claim.payout_amount)),
@@ -276,7 +355,16 @@ const HomeScreen = ({ navigation }) => {
       };
     });
     if (items.length > 0) return items;
-    return [{ icon: "shield-checkmark", color: COLORS.primary, title: t("no_claims"), status: t("protected_status"), amount: "—", date: "—" }];
+    return [
+      {
+        icon: "shield-checkmark",
+        color: COLORS.primary,
+        title: t("no_claims"),
+        status: t("protected_status"),
+        amount: "—",
+        date: "—",
+      },
+    ];
   }, [claims, COLORS, t]);
 
   if (loading) {
@@ -305,7 +393,6 @@ const HomeScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -317,9 +404,15 @@ const HomeScreen = ({ navigation }) => {
             onPress={() => loadDashboard(true)}
             disabled={refreshing}
           >
-            {refreshing
-              ? <ActivityIndicator color={COLORS.primary} size="small" />
-              : <Ionicons name="refresh-outline" size={20} color={COLORS.textMuted} />}
+            {refreshing ? (
+              <ActivityIndicator color={COLORS.primary} size="small" />
+            ) : (
+              <Ionicons
+                name="refresh-outline"
+                size={20}
+                color={COLORS.textMuted}
+              />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -327,14 +420,44 @@ const HomeScreen = ({ navigation }) => {
         {(user?.platforms || []).length > 0 && (
           <View style={styles.pillRow}>
             <View style={styles.platformPill}>
-              <Ionicons name="briefcase-outline" size={11} color={COLORS.primary} />
+              <Ionicons
+                name="briefcase-outline"
+                size={11}
+                color={COLORS.primary}
+              />
               <Text style={styles.platformPillText}>
-                {user.platforms.map(p => PLATFORM_NAMES[p] || p).join(" · ")}
+                {user.platforms.map((p) => PLATFORM_NAMES[p] || p).join(" · ")}
               </Text>
             </View>
-            <View style={[styles.statusPill, { backgroundColor: coverageActive ? COLORS.successContainer : COLORS.errorContainer, borderColor: coverageActive ? COLORS.success + "40" : COLORS.error + "40" }]}>
-              <View style={[styles.statusDot, { backgroundColor: coverageActive ? COLORS.success : COLORS.error }]} />
-              <Text style={[styles.statusPillText, { color: coverageActive ? COLORS.success : COLORS.error }]}>
+            <View
+              style={[
+                styles.statusPill,
+                {
+                  backgroundColor: coverageActive
+                    ? COLORS.successContainer
+                    : COLORS.errorContainer,
+                  borderColor: coverageActive
+                    ? COLORS.success + "40"
+                    : COLORS.error + "40",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: coverageActive
+                      ? COLORS.success
+                      : COLORS.error,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusPillText,
+                  { color: coverageActive ? COLORS.success : COLORS.error },
+                ]}
+              >
                 {coverageActive ? t("protected_status") : t("inactive_status")}
               </Text>
             </View>
@@ -354,11 +477,20 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.heroTop}>
             <View>
               <Text style={styles.heroLabel}>{t("this_weeks_coverage")}</Text>
-              <Text style={styles.heroAmount}>{money(premium?.max_payout)}</Text>
-              <Text style={styles.heroSub}>{t("max_payout_label")} · {titleCaseTier(user?.tier)} {t("plan_suffix")}</Text>
+              <Text style={styles.heroAmount}>
+                {money(premium?.max_payout)}
+              </Text>
+              <Text style={styles.heroSub}>
+                {t("max_payout_label")} · {titleCaseTier(user?.tier)}{" "}
+                {t("plan_suffix")}
+              </Text>
             </View>
             <View style={styles.heroShield}>
-              <Ionicons name="shield-checkmark" size={32} color={coverageActive ? COLORS.primary : COLORS.textFaint} />
+              <Ionicons
+                name="shield-checkmark"
+                size={32}
+                color={coverageActive ? COLORS.primary : COLORS.textFaint}
+              />
             </View>
           </View>
           <View style={styles.heroDivider} />
@@ -386,16 +518,26 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.payCardLabel}>{t("weekly_premium_label")}</Text>
             <Text style={styles.payCardAmount}>{money(weeklyPremiumAmt)}</Text>
             <Text style={styles.payCardSub}>
-              {user?.autopay ? t("autopay_discount") : t("pay_to_keep_coverage")}
+              {user?.autopay
+                ? t("autopay_discount")
+                : t("pay_to_keep_coverage")}
             </Text>
           </View>
           {paidThisWeek ? (
             <View style={styles.paidBadge}>
-              <Ionicons name="checkmark-circle" size={15} color={COLORS.success} />
+              <Ionicons
+                name="checkmark-circle"
+                size={15}
+                color={COLORS.success}
+              />
               <Text style={styles.paidBadgeText}>{t("paid")}</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.payNowBtn} onPress={openPayModal} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.payNowBtn}
+              onPress={openPayModal}
+              activeOpacity={0.85}
+            >
               <Text style={styles.payNowText}>{t("pay_now")}</Text>
             </TouchableOpacity>
           )}
@@ -407,34 +549,54 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.alertLeft}>
               <Ionicons name="flash" size={18} color={COLORS.amber} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.alertTitle}>Disruption Active · {user?.city}</Text>
-                <Text style={styles.alertSub}>{activeTriggers[0].description}</Text>
+                <Text style={styles.alertTitle}>
+                  Disruption Active · {user?.city}
+                </Text>
+                <Text style={styles.alertSub}>
+                  {activeTriggers[0].description}
+                </Text>
               </View>
             </View>
-            <View style={[styles.alertDot, { backgroundColor: COLORS.amber }]} />
+            <View
+              style={[styles.alertDot, { backgroundColor: COLORS.amber }]}
+            />
           </View>
         )}
 
         {/* ── Live Conditions Card ── */}
         <View style={styles.envCard}>
-
           {/* Card header */}
           <View style={styles.envCardHeader}>
-            <Ionicons name="analytics-outline" size={14} color={COLORS.primary} />
+            <Ionicons
+              name="analytics-outline"
+              size={14}
+              color={COLORS.primary}
+            />
             <Text style={styles.envCardTitle}>Live Conditions</Text>
             <Text style={styles.envCardCity}>{user?.city || "—"}</Text>
           </View>
 
           {/* ── Weather row ── */}
           <View style={styles.envRow}>
-            <View style={[styles.envIconWrap, { backgroundColor: COLORS.primaryContainer }]}>
-              <Ionicons name="partly-sunny-outline" size={18} color={COLORS.primary} />
+            <View
+              style={[
+                styles.envIconWrap,
+                { backgroundColor: COLORS.primaryContainer },
+              ]}
+            >
+              <Ionicons
+                name="partly-sunny-outline"
+                size={18}
+                color={COLORS.primary}
+              />
             </View>
             <View style={styles.envRowBody}>
               <View style={styles.envRowTitleBar}>
                 <Text style={styles.envTitle}>Weather</Text>
                 <View style={styles.riskPill}>
-                  <Text style={styles.riskPillText}>{riskLabel(premium?.weather_risk)}</Text>
+                  <Text style={styles.riskPillText}>
+                    {riskLabel(premium?.weather_risk)}
+                  </Text>
                 </View>
               </View>
               {weather ? (
@@ -442,24 +604,38 @@ const HomeScreen = ({ navigation }) => {
                   <View style={styles.weatherGrid}>
                     <View style={styles.weatherMetric}>
                       <Text style={styles.weatherMetricLabel}>Temperature</Text>
-                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.temperature, "°C")}</Text>
+                      <Text style={styles.weatherMetricValue}>
+                        {formatMetricValue(weather.temperature, "°C")}
+                      </Text>
                     </View>
                     <View style={styles.weatherMetric}>
                       <Text style={styles.weatherMetricLabel}>AQI</Text>
-                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.aqi_index)}</Text>
+                      <Text style={styles.weatherMetricValue}>
+                        {formatMetricValue(weather.aqi_index)}
+                      </Text>
                     </View>
                     <View style={styles.weatherMetric}>
                       <Text style={styles.weatherMetricLabel}>Rainfall</Text>
-                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.rain_1h ?? 0, " mm/h")}</Text>
+                      <Text style={styles.weatherMetricValue}>
+                        {formatMetricValue(weather.rain_1h ?? 0, " mm/h")}
+                      </Text>
                     </View>
                     <View style={styles.weatherMetric}>
                       <Text style={styles.weatherMetricLabel}>Humidity</Text>
-                      <Text style={styles.weatherMetricValue}>{formatMetricValue(weather.humidity, "%")}</Text>
+                      <Text style={styles.weatherMetricValue}>
+                        {formatMetricValue(weather.humidity, "%")}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.weatherConditionChip}>
-                    <Ionicons name="cloud-outline" size={13} color={COLORS.primary} />
-                    <Text style={styles.weatherConditionText}>{weather.weather_main || "Condition unavailable"}</Text>
+                    <Ionicons
+                      name="cloud-outline"
+                      size={13}
+                      color={COLORS.primary}
+                    />
+                    <Text style={styles.weatherConditionText}>
+                      {weather.weather_main || "Condition unavailable"}
+                    </Text>
                   </View>
                 </>
               ) : (
@@ -473,42 +649,91 @@ const HomeScreen = ({ navigation }) => {
             <>
               <View style={styles.envSeparator} />
               <View style={styles.envRow}>
-                <View style={[styles.envIconWrap, { backgroundColor: ttiColor(trafficData.tti, COLORS) + "18" }]}>
-                  <Ionicons name="car-outline" size={18} color={ttiColor(trafficData.tti, COLORS)} />
+                <View
+                  style={[
+                    styles.envIconWrap,
+                    {
+                      backgroundColor: ttiColor(trafficData.tti, COLORS) + "18",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="car-outline"
+                    size={18}
+                    color={ttiColor(trafficData.tti, COLORS)}
+                  />
                 </View>
                 <View style={styles.envRowBody}>
                   <View style={styles.envRowTitleBar}>
                     <Text style={styles.envTitle}>Traffic</Text>
-                    <View style={[styles.riskPill, {
-                      backgroundColor: ttiColor(trafficData.tti, COLORS) + "18",
-                      borderColor: ttiColor(trafficData.tti, COLORS) + "40",
-                    }]}>
-                      <Text style={[styles.riskPillText, { color: ttiColor(trafficData.tti, COLORS) }]}>
+                    <View
+                      style={[
+                        styles.riskPill,
+                        {
+                          backgroundColor:
+                            ttiColor(trafficData.tti, COLORS) + "18",
+                          borderColor: ttiColor(trafficData.tti, COLORS) + "40",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.riskPillText,
+                          { color: ttiColor(trafficData.tti, COLORS) },
+                        ]}
+                      >
                         {ttiLabel(trafficData.tti)}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.chipWrap}>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>TTI {(trafficData.tti || 1).toFixed(2)}</Text>
+                      <Text style={styles.chipText}>
+                        TTI {(trafficData.tti || 1).toFixed(2)}
+                      </Text>
                     </View>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>Speed {Math.round(trafficData.current_speed_kmh || 0)} km/h</Text>
+                      <Text style={styles.chipText}>
+                        Speed {Math.round(trafficData.current_speed_kmh || 0)}{" "}
+                        km/h
+                      </Text>
                     </View>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>Free flow {Math.round(trafficData.free_flow_speed_kmh || 0)} km/h</Text>
+                      <Text style={styles.chipText}>
+                        Free flow{" "}
+                        {Math.round(trafficData.free_flow_speed_kmh || 0)} km/h
+                      </Text>
                     </View>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>Risk {Math.round((trafficData.traffic_risk || 0) * 100)}%</Text>
+                      <Text style={styles.chipText}>
+                        Risk {Math.round((trafficData.traffic_risk || 0) * 100)}
+                        %
+                      </Text>
                     </View>
                     {trafficData.road_closure && (
-                      <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
-                        <Text style={[styles.chipText, { color: COLORS.error }]}>Road closure</Text>
+                      <View
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: COLORS.errorContainer,
+                            borderColor: COLORS.error + "40",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.chipText, { color: COLORS.error }]}
+                        >
+                          Road closure
+                        </Text>
                       </View>
                     )}
                     {trafficData.source ? (
                       <View style={styles.chip}>
-                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{humanizeLabel(trafficData.source)}</Text>
+                        <Text
+                          style={[styles.chipText, { color: COLORS.textFaint }]}
+                        >
+                          {humanizeLabel(trafficData.source)}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -522,43 +747,89 @@ const HomeScreen = ({ navigation }) => {
             <>
               <View style={styles.envSeparator} />
               <View style={styles.envRow}>
-                <View style={[styles.envIconWrap, { backgroundColor: curfewColor(curfewData.confidence, COLORS) + "18" }]}>
-                  <Ionicons name="shield-outline" size={18} color={curfewColor(curfewData.confidence, COLORS)} />
+                <View
+                  style={[
+                    styles.envIconWrap,
+                    {
+                      backgroundColor:
+                        curfewColor(curfewData.confidence, COLORS) + "18",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="shield-outline"
+                    size={18}
+                    color={curfewColor(curfewData.confidence, COLORS)}
+                  />
                 </View>
                 <View style={styles.envRowBody}>
                   <View style={styles.envRowTitleBar}>
                     <Text style={styles.envTitle}>Unrest / Curfew</Text>
-                    <View style={[styles.riskPill, {
-                      backgroundColor: curfewColor(curfewData.confidence, COLORS) + "18",
-                      borderColor: curfewColor(curfewData.confidence, COLORS) + "40",
-                    }]}>
-                      <Text style={[styles.riskPillText, { color: curfewColor(curfewData.confidence, COLORS) }]}>
+                    <View
+                      style={[
+                        styles.riskPill,
+                        {
+                          backgroundColor:
+                            curfewColor(curfewData.confidence, COLORS) + "18",
+                          borderColor:
+                            curfewColor(curfewData.confidence, COLORS) + "40",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.riskPillText,
+                          { color: curfewColor(curfewData.confidence, COLORS) },
+                        ]}
+                      >
                         {curfewLabel(curfewData.confidence)}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.chipWrap}>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>Confidence {Math.round((curfewData.confidence || 0) * 100)}%</Text>
+                      <Text style={styles.chipText}>
+                        Confidence{" "}
+                        {Math.round((curfewData.confidence || 0) * 100)}%
+                      </Text>
                     </View>
                     <View style={styles.chip}>
-                      <Text style={styles.chipText}>GDELT {curfewData.gdelt_events ?? 0} events</Text>
+                      <Text style={styles.chipText}>
+                        GDELT {curfewData.gdelt_events ?? 0} events
+                      </Text>
                     </View>
                     {curfewData.nlp_score > 0 && (
                       <View style={styles.chip}>
                         <Text style={styles.chipText}>
-                          NLP {humanizeLabel(curfewData.nlp_label)} ({Math.round(curfewData.nlp_score * 100)}%)
+                          NLP {humanizeLabel(curfewData.nlp_label)} (
+                          {Math.round(curfewData.nlp_score * 100)}%)
                         </Text>
                       </View>
                     )}
                     {curfewData.fired && (
-                      <View style={[styles.chip, { backgroundColor: COLORS.errorContainer, borderColor: COLORS.error + "40" }]}>
-                        <Text style={[styles.chipText, { color: COLORS.error }]}>Trigger active</Text>
+                      <View
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: COLORS.errorContainer,
+                            borderColor: COLORS.error + "40",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.chipText, { color: COLORS.error }]}
+                        >
+                          Trigger active
+                        </Text>
                       </View>
                     )}
                     {curfewData.source ? (
                       <View style={styles.chip}>
-                        <Text style={[styles.chipText, { color: COLORS.textFaint }]}>{humanizeLabel(curfewData.source)}</Text>
+                        <Text
+                          style={[styles.chipText, { color: COLORS.textFaint }]}
+                        >
+                          {humanizeLabel(curfewData.source)}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -566,25 +837,52 @@ const HomeScreen = ({ navigation }) => {
               </View>
             </>
           ) : null}
-
         </View>
 
         {/* ── Quick Actions ── */}
         <Text style={styles.sectionLabel}>{t("quick_actions")}</Text>
         <View style={styles.actionsGrid}>
           {[
-            { icon: "shield-outline",        label: t("my_policy"),      route: "Policy",   color: COLORS.primary },
-            { icon: "document-text-outline", label: t("nav_claims"),     route: "Claims",   color: COLORS.amber },
-            { icon: "card-outline",          label: t("nav_payments"),   route: "Payments", color: COLORS.success },
-            { icon: "person-outline",        label: t("nav_profile"),    route: "Profile",  color: COLORS.info },
-          ].map(action => (
+            {
+              icon: "shield-outline",
+              label: t("my_policy"),
+              route: "Policy",
+              color: COLORS.primary,
+            },
+            {
+              icon: "document-text-outline",
+              label: t("nav_claims"),
+              route: "Claims",
+              color: COLORS.amber,
+            },
+            {
+              icon: "card-outline",
+              label: t("nav_payments"),
+              route: "Payments",
+              color: COLORS.success,
+            },
+            {
+              icon: "person-outline",
+              label: t("nav_profile"),
+              route: "Profile",
+              color: COLORS.info,
+            },
+          ].map((action) => (
             <TouchableOpacity
               key={action.label}
               style={styles.actionItem}
               onPress={() => navigation.navigate(action.route)}
               activeOpacity={0.7}
             >
-              <View style={[styles.actionIcon, { backgroundColor: action.color + "15", borderColor: action.color + "30" }]}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  {
+                    backgroundColor: action.color + "15",
+                    borderColor: action.color + "30",
+                  },
+                ]}
+              >
                 <Ionicons name={action.icon} size={22} color={action.color} />
               </View>
               <Text style={styles.actionLabel}>{action.label}</Text>
@@ -592,16 +890,26 @@ const HomeScreen = ({ navigation }) => {
           ))}
         </View>
 
-
         {/* ── Recent Activity ── */}
         <Text style={styles.sectionLabel}>{t("recent_activity")}</Text>
         <View style={styles.activityCard}>
           {recentActivity.map((item, i) => (
             <View
               key={`activity-${i}`}
-              style={[styles.activityRow, i < recentActivity.length - 1 && { borderBottomWidth: 1, borderBottomColor: COLORS.border }]}
+              style={[
+                styles.activityRow,
+                i < recentActivity.length - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: COLORS.border,
+                },
+              ]}
             >
-              <View style={[styles.activityIconWrap, { backgroundColor: item.color + "15" }]}>
+              <View
+                style={[
+                  styles.activityIconWrap,
+                  { backgroundColor: item.color + "15" },
+                ]}
+              >
                 <Ionicons name={item.icon} size={17} color={item.color} />
               </View>
               <View style={styles.activityMeta}>
@@ -609,28 +917,48 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.activityDate}>{item.date}</Text>
               </View>
               <View style={styles.activityRight}>
-                <Text style={[styles.activityAmount, { color: item.color }]}>{item.amount}</Text>
-                <Text style={[styles.activityStatus, { color: item.color }]}>{item.status}</Text>
+                <Text style={[styles.activityAmount, { color: item.color }]}>
+                  {item.amount}
+                </Text>
+                <Text style={[styles.activityStatus, { color: item.color }]}>
+                  {item.status}
+                </Text>
               </View>
             </View>
           ))}
         </View>
-
       </ScrollView>
 
       {/* ── Payment Modal ── */}
-      <Modal visible={showPayModal} transparent animationType="slide" onRequestClose={closePayModal}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <Modal
+        visible={showPayModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closePayModal}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <View style={styles.modalSheet}>
             {paySuccess ? (
               <View style={styles.successWrap}>
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark" size={36} color={COLORS.success} />
                 </View>
-                <Text style={styles.successTitle}>{t("payment_successful")}</Text>
-                <Text style={styles.successTxId}>{paySuccess.transaction_id}</Text>
-                <Text style={styles.successAmt}>{money(paySuccess.amount)} {t("paid")}</Text>
-                <TouchableOpacity style={styles.doneBtn} onPress={closePayModal}>
+                <Text style={styles.successTitle}>
+                  {t("payment_successful")}
+                </Text>
+                <Text style={styles.successTxId}>
+                  {paySuccess.transaction_id}
+                </Text>
+                <Text style={styles.successAmt}>
+                  {money(paySuccess.amount)} {t("paid")}
+                </Text>
+                <TouchableOpacity
+                  style={styles.doneBtn}
+                  onPress={closePayModal}
+                >
                   <Text style={styles.doneBtnText}>{t("done")}</Text>
                 </TouchableOpacity>
               </View>
@@ -640,9 +968,14 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.modalTop}>
                   <View>
                     <Text style={styles.modalTitle}>{t("pay_premium")}</Text>
-                    <Text style={styles.modalAmt}>{money(weeklyPremiumAmt)}</Text>
+                    <Text style={styles.modalAmt}>
+                      {money(weeklyPremiumAmt)}
+                    </Text>
                   </View>
-                  <TouchableOpacity onPress={closePayModal} style={styles.modalCloseBtn}>
+                  <TouchableOpacity
+                    onPress={closePayModal}
+                    style={styles.modalCloseBtn}
+                  >
                     <Ionicons name="close" size={18} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -650,17 +983,40 @@ const HomeScreen = ({ navigation }) => {
                 {/* Method selector */}
                 <View style={styles.methodRow}>
                   {[
-                    { id: "upi",    label: "UPI",         icon: "phone-portrait-outline" },
-                    { id: "debit",  label: "Debit Card",  icon: "card-outline" },
-                    { id: "credit", label: "Credit Card", icon: "wallet-outline" },
-                  ].map(m => (
+                    { id: "upi", label: "UPI", icon: "phone-portrait-outline" },
+                    { id: "debit", label: "Debit Card", icon: "card-outline" },
+                    {
+                      id: "credit",
+                      label: "Credit Card",
+                      icon: "wallet-outline",
+                    },
+                  ].map((m) => (
                     <TouchableOpacity
                       key={m.id}
-                      style={[styles.methodChip, payMethod === m.id && styles.methodChipActive]}
-                      onPress={() => { setPayMethod(m.id); setPayError(""); }}
+                      style={[
+                        styles.methodChip,
+                        payMethod === m.id && styles.methodChipActive,
+                      ]}
+                      onPress={() => {
+                        setPayMethod(m.id);
+                        setPayError("");
+                      }}
                     >
-                      <Ionicons name={m.icon} size={14} color={payMethod === m.id ? COLORS.primary : COLORS.textFaint} />
-                      <Text style={[styles.methodChipText, payMethod === m.id && { color: COLORS.primary }]}>{m.label}</Text>
+                      <Ionicons
+                        name={m.icon}
+                        size={14}
+                        color={
+                          payMethod === m.id ? COLORS.primary : COLORS.textFaint
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.methodChipText,
+                          payMethod === m.id && { color: COLORS.primary },
+                        ]}
+                      >
+                        {m.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -674,7 +1030,9 @@ const HomeScreen = ({ navigation }) => {
                       placeholder="yourname@upi"
                       placeholderTextColor={COLORS.textFaint}
                       value={payForm.upiId}
-                      onChangeText={t => setPayForm(f => ({ ...f, upiId: t }))}
+                      onChangeText={(t) =>
+                        setPayForm((f) => ({ ...f, upiId: t }))
+                      }
                       autoCapitalize="none"
                       keyboardType="email-address"
                     />
@@ -683,20 +1041,69 @@ const HomeScreen = ({ navigation }) => {
                   <>
                     <View style={styles.field}>
                       <Text style={styles.fieldLabel}>Cardholder Name</Text>
-                      <TextInput style={styles.fieldInput} placeholder="Name on card" placeholderTextColor={COLORS.textFaint} value={payForm.name} onChangeText={t => setPayForm(f => ({ ...f, name: t }))} autoCapitalize="words" />
+                      <TextInput
+                        style={styles.fieldInput}
+                        placeholder="Name on card"
+                        placeholderTextColor={COLORS.textFaint}
+                        value={payForm.name}
+                        onChangeText={(t) =>
+                          setPayForm((f) => ({ ...f, name: t }))
+                        }
+                        autoCapitalize="words"
+                      />
                     </View>
                     <View style={styles.field}>
                       <Text style={styles.fieldLabel}>Card Number</Text>
-                      <TextInput style={styles.fieldInput} placeholder="0000 0000 0000 0000" placeholderTextColor={COLORS.textFaint} value={payForm.cardNumber} onChangeText={t => setPayForm(f => ({ ...f, cardNumber: formatCardNumber(t) }))} keyboardType="numeric" maxLength={19} />
+                      <TextInput
+                        style={styles.fieldInput}
+                        placeholder="0000 0000 0000 0000"
+                        placeholderTextColor={COLORS.textFaint}
+                        value={payForm.cardNumber}
+                        onChangeText={(t) =>
+                          setPayForm((f) => ({
+                            ...f,
+                            cardNumber: formatCardNumber(t),
+                          }))
+                        }
+                        keyboardType="numeric"
+                        maxLength={19}
+                      />
                     </View>
                     <View style={{ flexDirection: "row", gap: 12 }}>
                       <View style={[styles.field, { flex: 1 }]}>
                         <Text style={styles.fieldLabel}>Expiry</Text>
-                        <TextInput style={styles.fieldInput} placeholder="MM/YY" placeholderTextColor={COLORS.textFaint} value={payForm.expiry} onChangeText={t => setPayForm(f => ({ ...f, expiry: formatExpiry(t) }))} keyboardType="numeric" maxLength={5} />
+                        <TextInput
+                          style={styles.fieldInput}
+                          placeholder="MM/YY"
+                          placeholderTextColor={COLORS.textFaint}
+                          value={payForm.expiry}
+                          onChangeText={(t) =>
+                            setPayForm((f) => ({
+                              ...f,
+                              expiry: formatExpiry(t),
+                            }))
+                          }
+                          keyboardType="numeric"
+                          maxLength={5}
+                        />
                       </View>
                       <View style={[styles.field, { flex: 1 }]}>
                         <Text style={styles.fieldLabel}>CVV</Text>
-                        <TextInput style={styles.fieldInput} placeholder="•••" placeholderTextColor={COLORS.textFaint} value={payForm.cvv} onChangeText={t => setPayForm(f => ({ ...f, cvv: t.replace(/\D/g, "").slice(0, 4) }))} keyboardType="numeric" secureTextEntry maxLength={4} />
+                        <TextInput
+                          style={styles.fieldInput}
+                          placeholder="•••"
+                          placeholderTextColor={COLORS.textFaint}
+                          value={payForm.cvv}
+                          onChangeText={(t) =>
+                            setPayForm((f) => ({
+                              ...f,
+                              cvv: t.replace(/\D/g, "").slice(0, 4),
+                            }))
+                          }
+                          keyboardType="numeric"
+                          secureTextEntry
+                          maxLength={4}
+                        />
                       </View>
                     </View>
                   </>
@@ -704,7 +1111,11 @@ const HomeScreen = ({ navigation }) => {
 
                 {!!payError && (
                   <View style={styles.payErrorBox}>
-                    <Ionicons name="warning-outline" size={14} color={COLORS.error} />
+                    <Ionicons
+                      name="warning-outline"
+                      size={14}
+                      color={COLORS.error}
+                    />
                     <Text style={styles.payErrorText}>{payError}</Text>
                   </View>
                 )}
@@ -715,13 +1126,16 @@ const HomeScreen = ({ navigation }) => {
                   disabled={paying}
                   activeOpacity={0.85}
                 >
-                  {paying
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <>
-                        <Ionicons name="lock-closed" size={15} color="#fff" />
-                        <Text style={styles.submitBtnText}>{t("pay_now")} {money(weeklyPremiumAmt)}</Text>
-                      </>
-                  }
+                  {paying ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="lock-closed" size={15} color="#fff" />
+                      <Text style={styles.submitBtnText}>
+                        {t("pay_now")} {money(weeklyPremiumAmt)}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </>
             )}
@@ -732,20 +1146,45 @@ const HomeScreen = ({ navigation }) => {
       {/* ── Bottom Nav ── */}
       <View style={styles.bottomNav}>
         {[
-          { icon: "home",             label: t("nav_home"),     route: null,       active: true },
-          { icon: "document-outline", label: t("nav_claims"),   route: "Claims",   active: false },
-          { icon: "shield-outline",   label: t("nav_policy"),   route: "Policy",   active: false },
-          { icon: "person-outline",   label: t("nav_profile"),  route: "Profile",  active: false },
-        ].map(tab => (
+          { icon: "home", label: t("nav_home"), route: null, active: true },
+          {
+            icon: "document-outline",
+            label: t("nav_claims"),
+            route: "Claims",
+            active: false,
+          },
+          {
+            icon: "shield-outline",
+            label: t("nav_policy"),
+            route: "Policy",
+            active: false,
+          },
+          {
+            icon: "person-outline",
+            label: t("nav_profile"),
+            route: "Profile",
+            active: false,
+          },
+        ].map((tab) => (
           <TouchableOpacity
             key={tab.label}
             style={styles.navItem}
-            onPress={tab.route ? () => navigation.navigate(tab.route) : undefined}
+            onPress={
+              tab.route ? () => navigation.navigate(tab.route) : undefined
+            }
           >
             <View style={tab.active ? styles.navActiveWrap : null}>
-              <Ionicons name={tab.icon} size={22} color={tab.active ? COLORS.primary : COLORS.textFaint} />
+              <Ionicons
+                name={tab.icon}
+                size={22}
+                color={tab.active ? COLORS.primary : COLORS.textFaint}
+              />
             </View>
-            <Text style={[styles.navLabel, tab.active && { color: COLORS.primary }]}>{tab.label}</Text>
+            <Text
+              style={[styles.navLabel, tab.active && { color: COLORS.primary }]}
+            >
+              {tab.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -755,165 +1194,311 @@ const HomeScreen = ({ navigation }) => {
 
 const createStyles = (COLORS, FONTS) =>
   StyleSheet.create({
-    container:   { flex: 1, backgroundColor: COLORS.surface },
-    scroll:      { paddingBottom: 88 },
-    loader:      { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
-    loaderText:  { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    container: { flex: 1, backgroundColor: COLORS.surface },
+    scroll: { paddingBottom: 88 },
+    loader: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 14,
+    },
+    loaderText: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+      color: COLORS.textMuted,
+    },
 
     // ── Header ───────────────────────────────────────────────
     header: {
-      flexDirection: "row", justifyContent: "space-between",
-      alignItems: "flex-start", paddingHorizontal: SIZES.padding,
-      paddingTop: SIZES.padding, paddingBottom: SIZES.base,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      paddingHorizontal: SIZES.padding,
+      paddingTop: SIZES.padding,
+      paddingBottom: SIZES.base,
     },
     headerLeft: { gap: 2 },
-    greeting:   { fontSize: SIZES.small, fontFamily: FONTS.regular, color: COLORS.textFaint },
-    userName:   { fontSize: SIZES.h2, fontFamily: FONTS.display, color: COLORS.white },
+    greeting: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+    },
+    userName: {
+      fontSize: SIZES.h2,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+    },
     refreshBtn: {
-      width: 38, height: 38, borderRadius: 12,
+      width: 38,
+      height: 38,
+      borderRadius: 12,
       backgroundColor: COLORS.surfaceContainer,
-      borderWidth: 1, borderColor: COLORS.border,
-      justifyContent: "center", alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      justifyContent: "center",
+      alignItems: "center",
       marginTop: 4,
     },
 
     pillRow: {
-      flexDirection: "row", gap: 8, alignItems: "center",
-      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.85,
+      flexDirection: "row",
+      gap: 8,
+      alignItems: "center",
+      paddingHorizontal: SIZES.padding,
+      marginBottom: SIZES.padding * 0.85,
     },
     platformPill: {
-      flexDirection: "row", alignItems: "center", gap: 5,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
       backgroundColor: COLORS.primaryContainer,
-      borderWidth: 1, borderColor: COLORS.borderActive,
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: SIZES.radiusFull,
+      borderWidth: 1,
+      borderColor: COLORS.borderActive,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: SIZES.radiusFull,
     },
-    platformPillText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold, color: COLORS.primary },
+    platformPillText: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.primary,
+    },
     statusPill: {
-      flexDirection: "row", alignItems: "center", gap: 5,
-      paddingHorizontal: 10, paddingVertical: 5,
-      borderRadius: SIZES.radiusFull, borderWidth: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: SIZES.radiusFull,
+      borderWidth: 1,
     },
     statusDot: { width: 6, height: 6, borderRadius: 3 },
     statusPillText: { fontSize: SIZES.tiny, fontFamily: FONTS.semiBold },
 
     errorCard: {
-      flexDirection: "row", alignItems: "center", gap: 8,
-      marginHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75,
-      backgroundColor: COLORS.errorContainer, borderWidth: 1,
-      borderColor: COLORS.error + "35", borderRadius: SIZES.radius,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginHorizontal: SIZES.padding,
+      marginBottom: SIZES.padding * 0.75,
+      backgroundColor: COLORS.errorContainer,
+      borderWidth: 1,
+      borderColor: COLORS.error + "35",
+      borderRadius: SIZES.radius,
       padding: 10,
     },
-    errorCardText: { flex: 1, fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
+    errorCardText: {
+      flex: 1,
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+      color: COLORS.error,
+    },
 
     // ── Hero Card ────────────────────────────────────────────
     heroCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.5,
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius * 1.5,
       backgroundColor: COLORS.surfaceContainer,
-      borderWidth: 1, borderColor: COLORS.border,
-      marginBottom: SIZES.padding, overflow: "hidden",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: SIZES.padding,
+      overflow: "hidden",
       ...SHADOWS.card,
     },
     heroGlow: {
-      position: "absolute", width: 220, height: 220, borderRadius: 110,
-      backgroundColor: COLORS.primary, opacity: 0.06,
-      top: -60, right: -60,
+      position: "absolute",
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      backgroundColor: COLORS.primary,
+      opacity: 0.06,
+      top: -60,
+      right: -60,
     },
     heroTop: {
-      flexDirection: "row", justifyContent: "space-between",
-      alignItems: "flex-start", padding: SIZES.padding,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      padding: SIZES.padding,
     },
     heroLabel: {
-      fontSize: 10, fontFamily: FONTS.bold, color: COLORS.textFaint,
-      letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8,
+      fontSize: 10,
+      fontFamily: FONTS.bold,
+      color: COLORS.textFaint,
+      letterSpacing: 1.2,
+      textTransform: "uppercase",
+      marginBottom: 8,
     },
     heroAmount: {
-      fontSize: 36, fontFamily: FONTS.display, color: COLORS.white, lineHeight: 40,
+      fontSize: 36,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+      lineHeight: 40,
     },
     heroSub: {
-      fontSize: SIZES.small, fontFamily: FONTS.regular,
-      color: COLORS.textFaint, marginTop: 4,
+      fontSize: SIZES.small,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+      marginTop: 4,
     },
     heroShield: {
-      width: 56, height: 56, borderRadius: SIZES.radius,
+      width: 56,
+      height: 56,
+      borderRadius: SIZES.radius,
       backgroundColor: COLORS.surfaceHigh,
-      borderWidth: 1, borderColor: COLORS.border,
-      justifyContent: "center", alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      justifyContent: "center",
+      alignItems: "center",
     },
-    heroDivider: { height: 1, backgroundColor: COLORS.border, marginHorizontal: SIZES.padding },
+    heroDivider: {
+      height: 1,
+      backgroundColor: COLORS.border,
+      marginHorizontal: SIZES.padding,
+    },
     heroBottom: {
-      flexDirection: "row", padding: SIZES.padding, paddingVertical: SIZES.padding * 0.85,
+      flexDirection: "row",
+      padding: SIZES.padding,
+      paddingVertical: SIZES.padding * 0.85,
     },
-    heroStat:        { flex: 1, alignItems: "center" },
-    heroStatVal:     { fontSize: SIZES.body, fontFamily: FONTS.bold, color: COLORS.white, marginBottom: 3 },
-    heroStatKey:     { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
+    heroStat: { flex: 1, alignItems: "center" },
+    heroStatVal: {
+      fontSize: SIZES.body,
+      fontFamily: FONTS.bold,
+      color: COLORS.white,
+      marginBottom: 3,
+    },
+    heroStatKey: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+    },
     heroStatDivider: { width: 1, backgroundColor: COLORS.border },
 
     // ── Alert Card ───────────────────────────────────────────
     alertCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius,
       backgroundColor: COLORS.amberContainer,
-      borderWidth: 1, borderColor: COLORS.amber + "40",
-      padding: SIZES.padding * 0.85, marginBottom: SIZES.padding,
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      borderWidth: 1,
+      borderColor: COLORS.amber + "40",
+      padding: SIZES.padding * 0.85,
+      marginBottom: SIZES.padding,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
-    alertLeft:  { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-    alertTitle: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.amber, marginBottom: 2 },
-    alertSub:   { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.amberDim },
-    alertDot:   { width: 8, height: 8, borderRadius: 4, opacity: 0.8 },
+    alertLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+    alertTitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: COLORS.amber,
+      marginBottom: 2,
+    },
+    alertSub: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.amberDim,
+    },
+    alertDot: { width: 8, height: 8, borderRadius: 4, opacity: 0.8 },
 
     // ── Environment / Live Conditions card ───────────────────
     envCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius * 1.2,
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius * 1.2,
       backgroundColor: COLORS.surfaceContainer,
-      borderWidth: 1, borderColor: COLORS.border,
-      marginBottom: SIZES.padding, overflow: "hidden",
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      marginBottom: SIZES.padding,
+      overflow: "hidden",
     },
     envCardHeader: {
-      flexDirection: "row", alignItems: "center", gap: 6,
-      paddingHorizontal: SIZES.padding, paddingTop: SIZES.padding * 0.75, paddingBottom: 0,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: SIZES.padding,
+      paddingTop: SIZES.padding * 0.75,
+      paddingBottom: 0,
     },
     envCardTitle: {
-      fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary,
-      textTransform: "uppercase", letterSpacing: 1, flex: 1,
+      fontSize: 10,
+      fontFamily: FONTS.bold,
+      color: COLORS.primary,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      flex: 1,
     },
     envCardCity: {
-      fontSize: 10, fontFamily: FONTS.medium, color: COLORS.textFaint,
+      fontSize: 10,
+      fontFamily: FONTS.medium,
+      color: COLORS.textFaint,
     },
     envRow: {
-      flexDirection: "row", alignItems: "flex-start", gap: 12,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
       padding: SIZES.padding * 0.85,
     },
     envRowBody: { flex: 1 },
     envRowTitleBar: {
-      flexDirection: "row", alignItems: "center",
-      justifyContent: "space-between", marginBottom: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
     },
     envSeparator: { height: 1, backgroundColor: COLORS.border },
     envIconWrap: {
-      width: 36, height: 36, borderRadius: 10,
+      width: 36,
+      height: 36,
+      borderRadius: 10,
       backgroundColor: COLORS.surfaceHigh,
-      justifyContent: "center", alignItems: "center",
-      flexShrink: 0, marginTop: 2,
+      justifyContent: "center",
+      alignItems: "center",
+      flexShrink: 0,
+      marginTop: 2,
     },
     // keep legacy aliases so nothing else breaks
     envTextWrap: { flex: 1 },
-    envTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white },
-    envSub:      { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
-    riskPill: {
-      paddingHorizontal: 9, paddingVertical: 3, borderRadius: SIZES.radiusFull,
-      backgroundColor: COLORS.primaryContainer, borderWidth: 1, borderColor: COLORS.borderActive,
+    envTitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.white,
     },
-    riskPillText: { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary, letterSpacing: 0.3 },
+    envSub: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+    },
+    riskPill: {
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primaryContainer,
+      borderWidth: 1,
+      borderColor: COLORS.borderActive,
+    },
+    riskPillText: {
+      fontSize: 10,
+      fontFamily: FONTS.bold,
+      color: COLORS.primary,
+      letterSpacing: 0.3,
+    },
 
     // data chips
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
     chip: {
-      paddingHorizontal: 8, paddingVertical: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
       borderRadius: SIZES.radiusFull,
       backgroundColor: COLORS.surfaceHigh,
-      borderWidth: 1, borderColor: COLORS.border,
+      borderWidth: 1,
+      borderColor: COLORS.border,
     },
-    chipText: { fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted },
+    chipText: {
+      fontSize: 11,
+      fontFamily: FONTS.medium,
+      color: COLORS.textMuted,
+    },
     weatherGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     weatherMetric: {
       flexBasis: "48%",
@@ -933,7 +1518,11 @@ const createStyles = (COLORS, FONTS) =>
       textTransform: "uppercase",
       letterSpacing: 0.4,
     },
-    weatherMetricValue: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    weatherMetricValue: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: COLORS.white,
+    },
     weatherConditionChip: {
       flexDirection: "row",
       alignItems: "center",
@@ -947,181 +1536,394 @@ const createStyles = (COLORS, FONTS) =>
       borderWidth: 1,
       borderColor: COLORS.borderActive,
     },
-    weatherConditionText: { fontSize: 11, fontFamily: FONTS.semiBold, color: COLORS.primary },
+    weatherConditionText: {
+      fontSize: 11,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.primary,
+    },
 
     // ── Quick Actions ────────────────────────────────────────
     sectionLabel: {
-      fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.textMuted,
-      textTransform: "uppercase", letterSpacing: 0.8,
-      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 0.75,
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: COLORS.textMuted,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+      paddingHorizontal: SIZES.padding,
+      marginBottom: SIZES.padding * 0.75,
     },
     actionsGrid: {
-      flexDirection: "row", justifyContent: "space-between",
-      paddingHorizontal: SIZES.padding, marginBottom: SIZES.padding * 1.25,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: SIZES.padding,
+      marginBottom: SIZES.padding * 1.25,
     },
     actionItem: { alignItems: "center", width: "22%" },
     actionIcon: {
-      width: 52, height: 52, borderRadius: SIZES.radius,
-      justifyContent: "center", alignItems: "center",
-      marginBottom: 7, borderWidth: 1,
+      width: 52,
+      height: 52,
+      borderRadius: SIZES.radius,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 7,
+      borderWidth: 1,
     },
     actionLabel: {
-      fontSize: 11, fontFamily: FONTS.medium, color: COLORS.textMuted, textAlign: "center",
+      fontSize: 11,
+      fontFamily: FONTS.medium,
+      color: COLORS.textMuted,
+      textAlign: "center",
     },
 
     // ── Premium Card ─────────────────────────────────────────
     premiumCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius,
       backgroundColor: COLORS.surfaceContainer,
-      borderWidth: 1, borderColor: COLORS.border,
-      padding: SIZES.padding, marginBottom: SIZES.padding * 1.25,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      padding: SIZES.padding,
+      marginBottom: SIZES.padding * 1.25,
     },
     premiumHeader: {
-      flexDirection: "row", justifyContent: "space-between",
-      alignItems: "flex-end", marginBottom: SIZES.padding,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      marginBottom: SIZES.padding,
     },
-    premiumTitle:  { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginBottom: 4 },
-    premiumAmount: { fontSize: 26, fontFamily: FONTS.display, color: COLORS.white },
-    viewPlanBtn:   { flexDirection: "row", alignItems: "center", gap: 3 },
-    viewPlanText:  { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.primary },
-    breakdownRow:  {
-      flexDirection: "row", justifyContent: "space-between",
-      borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SIZES.padding * 0.75,
+    premiumTitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textFaint,
+      marginBottom: 4,
+    },
+    premiumAmount: {
+      fontSize: 26,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+    },
+    viewPlanBtn: { flexDirection: "row", alignItems: "center", gap: 3 },
+    viewPlanText: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.primary,
+    },
+    breakdownRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      paddingTop: SIZES.padding * 0.75,
     },
     breakdownItem: { alignItems: "center" },
-    breakdownKey:  { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint, marginBottom: 4 },
-    breakdownVal:  { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.white },
+    breakdownKey: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+      marginBottom: 4,
+    },
+    breakdownVal: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: COLORS.white,
+    },
 
     // ── Activity Card ────────────────────────────────────────
     activityCard: {
-      marginHorizontal: SIZES.padding, borderRadius: SIZES.radius,
+      marginHorizontal: SIZES.padding,
+      borderRadius: SIZES.radius,
       backgroundColor: COLORS.surfaceContainer,
-      borderWidth: 1, borderColor: COLORS.border,
+      borderWidth: 1,
+      borderColor: COLORS.border,
       marginBottom: SIZES.padding,
     },
     activityRow: {
-      flexDirection: "row", alignItems: "center",
-      gap: 12, padding: SIZES.padding * 0.85,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: SIZES.padding * 0.85,
     },
-    activityIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center" },
-    activityMeta:     { flex: 1 },
-    activityTitle:    { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.white, marginBottom: 2 },
-    activityDate:     { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint },
-    activityRight:    { alignItems: "flex-end" },
-    activityAmount:   { fontSize: SIZES.small, fontFamily: FONTS.bold, marginBottom: 2 },
-    activityStatus:   { fontSize: SIZES.tiny, fontFamily: FONTS.medium },
+    activityIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    activityMeta: { flex: 1 },
+    activityTitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.white,
+      marginBottom: 2,
+    },
+    activityDate: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+    },
+    activityRight: { alignItems: "flex-end" },
+    activityAmount: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      marginBottom: 2,
+    },
+    activityStatus: { fontSize: SIZES.tiny, fontFamily: FONTS.medium },
 
     // ── Pay Premium Card ─────────────────────────────────────
     payCard: {
       marginHorizontal: SIZES.padding,
       borderRadius: SIZES.radius,
       backgroundColor: COLORS.primaryContainer,
-      borderWidth: 1, borderColor: COLORS.borderActive,
+      borderWidth: 1,
+      borderColor: COLORS.borderActive,
       padding: SIZES.padding,
       marginBottom: SIZES.padding,
-      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
-    payCardLeft:   { flex: 1 },
-    payCardLabel:  { fontSize: 10, fontFamily: FONTS.bold, color: COLORS.primary, letterSpacing: 1, textTransform: "uppercase", marginBottom: 5 },
-    payCardAmount: { fontSize: 24, fontFamily: FONTS.display, color: COLORS.white, lineHeight: 28 },
-    payCardSub:    { fontSize: SIZES.tiny, fontFamily: FONTS.regular, color: COLORS.textFaint, marginTop: 3 },
+    payCardLeft: { flex: 1 },
+    payCardLabel: {
+      fontSize: 10,
+      fontFamily: FONTS.bold,
+      color: COLORS.primary,
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      marginBottom: 5,
+    },
+    payCardAmount: {
+      fontSize: 24,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+      lineHeight: 28,
+    },
+    payCardSub: {
+      fontSize: SIZES.tiny,
+      fontFamily: FONTS.regular,
+      color: COLORS.textFaint,
+      marginTop: 3,
+    },
     paidBadge: {
-      flexDirection: "row", alignItems: "center", gap: 5,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
       backgroundColor: COLORS.successContainer,
-      borderWidth: 1, borderColor: COLORS.success + "40",
-      paddingHorizontal: 12, paddingVertical: 7, borderRadius: SIZES.radiusFull,
+      borderWidth: 1,
+      borderColor: COLORS.success + "40",
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: SIZES.radiusFull,
     },
-    paidBadgeText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: COLORS.success },
+    paidBadgeText: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: COLORS.success,
+    },
     payNowBtn: {
-      backgroundColor: COLORS.primary, paddingHorizontal: 18, paddingVertical: 11,
-      borderRadius: SIZES.radiusFull, ...SHADOWS.button,
+      backgroundColor: COLORS.primary,
+      paddingHorizontal: 18,
+      paddingVertical: 11,
+      borderRadius: SIZES.radiusFull,
+      ...SHADOWS.button,
     },
-    payNowText: { fontSize: SIZES.small, fontFamily: FONTS.bold, color: "#fff" },
+    payNowText: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.bold,
+      color: "#fff",
+    },
 
     // ── Payment Modal ─────────────────────────────────────────
-    modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
+    modalOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      backgroundColor: "rgba(0,0,0,0.6)",
+    },
     modalSheet: {
       backgroundColor: COLORS.surfaceContainer,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      padding: SIZES.padding, paddingBottom: SIZES.padding * 2.5,
-      borderTopWidth: 1, borderColor: COLORS.border,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: SIZES.padding,
+      paddingBottom: SIZES.padding * 2.5,
+      borderTopWidth: 1,
+      borderColor: COLORS.border,
     },
     modalHandle: {
-      width: 36, height: 4, borderRadius: 2,
-      backgroundColor: COLORS.border, alignSelf: "center", marginBottom: SIZES.padding,
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: COLORS.border,
+      alignSelf: "center",
+      marginBottom: SIZES.padding,
     },
     modalTop: {
-      flexDirection: "row", justifyContent: "space-between",
-      alignItems: "flex-start", marginBottom: SIZES.padding,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      marginBottom: SIZES.padding,
     },
-    modalTitle: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textFaint, marginBottom: 4 },
-    modalAmt:   { fontSize: 32, fontFamily: FONTS.display, color: COLORS.white },
+    modalTitle: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textFaint,
+      marginBottom: 4,
+    },
+    modalAmt: { fontSize: 32, fontFamily: FONTS.display, color: COLORS.white },
     modalCloseBtn: {
-      width: 34, height: 34, borderRadius: 10,
-      backgroundColor: COLORS.surfaceHigh, justifyContent: "center", alignItems: "center",
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: COLORS.surfaceHigh,
+      justifyContent: "center",
+      alignItems: "center",
     },
     methodRow: { flexDirection: "row", gap: 8, marginBottom: SIZES.padding },
     methodChip: {
-      flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
-      gap: 5, paddingVertical: 9, borderRadius: SIZES.radiusFull,
-      backgroundColor: COLORS.surfaceHigh, borderWidth: 1, borderColor: COLORS.border,
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingVertical: 9,
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.surfaceHigh,
+      borderWidth: 1,
+      borderColor: COLORS.border,
     },
-    methodChipActive: { backgroundColor: COLORS.primaryContainer, borderColor: COLORS.borderActive },
-    methodChipText: { fontSize: 11, fontFamily: FONTS.semiBold, color: COLORS.textFaint },
-    field:      { marginBottom: SIZES.padding * 0.75 },
-    fieldLabel: { fontSize: SIZES.small, fontFamily: FONTS.semiBold, color: COLORS.textMuted, marginBottom: 7 },
+    methodChipActive: {
+      backgroundColor: COLORS.primaryContainer,
+      borderColor: COLORS.borderActive,
+    },
+    methodChipText: {
+      fontSize: 11,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textFaint,
+    },
+    field: { marginBottom: SIZES.padding * 0.75 },
+    fieldLabel: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.semiBold,
+      color: COLORS.textMuted,
+      marginBottom: 7,
+    },
     fieldInput: {
-      height: 48, backgroundColor: COLORS.surfaceHigh,
-      borderRadius: SIZES.radius, paddingHorizontal: 14,
-      fontSize: SIZES.body, fontFamily: FONTS.regular, color: COLORS.white,
-      borderWidth: 1, borderColor: COLORS.border,
+      height: 48,
+      backgroundColor: COLORS.surfaceHigh,
+      borderRadius: SIZES.radius,
+      paddingHorizontal: 14,
+      fontSize: SIZES.body,
+      fontFamily: FONTS.regular,
+      color: COLORS.white,
+      borderWidth: 1,
+      borderColor: COLORS.border,
     },
     payErrorBox: {
-      flexDirection: "row", alignItems: "center", gap: 7,
-      backgroundColor: COLORS.errorContainer, borderRadius: SIZES.radius,
-      padding: 10, marginBottom: SIZES.base,
-      borderWidth: 1, borderColor: COLORS.error + "35",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      backgroundColor: COLORS.errorContainer,
+      borderRadius: SIZES.radius,
+      padding: 10,
+      marginBottom: SIZES.base,
+      borderWidth: 1,
+      borderColor: COLORS.error + "35",
     },
-    payErrorText: { flex: 1, fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.error },
+    payErrorText: {
+      flex: 1,
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+      color: COLORS.error,
+    },
     submitBtn: {
-      height: 52, borderRadius: SIZES.radiusFull,
+      height: 52,
+      borderRadius: SIZES.radiusFull,
       backgroundColor: COLORS.primary,
-      flexDirection: "row", justifyContent: "center", alignItems: "center",
-      gap: 10, marginTop: SIZES.base, ...SHADOWS.button,
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 10,
+      marginTop: SIZES.base,
+      ...SHADOWS.button,
     },
-    submitBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
-    successWrap:   { alignItems: "center", paddingVertical: SIZES.padding * 1.5 },
+    submitBtnText: {
+      fontSize: SIZES.body,
+      fontFamily: FONTS.bold,
+      color: "#fff",
+    },
+    successWrap: { alignItems: "center", paddingVertical: SIZES.padding * 1.5 },
     successCircle: {
-      width: 80, height: 80, borderRadius: 40,
-      backgroundColor: COLORS.successContainer, borderWidth: 1,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: COLORS.successContainer,
+      borderWidth: 1,
       borderColor: COLORS.success + "40",
-      justifyContent: "center", alignItems: "center", marginBottom: SIZES.padding,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: SIZES.padding,
     },
-    successTitle:  { fontSize: SIZES.h3, fontFamily: FONTS.display, color: COLORS.white, marginBottom: 6 },
-    successTxId:   { fontSize: SIZES.small, fontFamily: FONTS.medium, color: COLORS.textFaint, marginBottom: 4 },
-    successAmt:    { fontSize: SIZES.h2, fontFamily: FONTS.bold, color: COLORS.success, marginBottom: SIZES.padding * 1.5 },
+    successTitle: {
+      fontSize: SIZES.h3,
+      fontFamily: FONTS.display,
+      color: COLORS.white,
+      marginBottom: 6,
+    },
+    successTxId: {
+      fontSize: SIZES.small,
+      fontFamily: FONTS.medium,
+      color: COLORS.textFaint,
+      marginBottom: 4,
+    },
+    successAmt: {
+      fontSize: SIZES.h2,
+      fontFamily: FONTS.bold,
+      color: COLORS.success,
+      marginBottom: SIZES.padding * 1.5,
+    },
     doneBtn: {
-      height: 50, width: "100%", borderRadius: SIZES.radiusFull,
-      backgroundColor: COLORS.primary, justifyContent: "center",
-      alignItems: "center", ...SHADOWS.button,
+      height: 50,
+      width: "100%",
+      borderRadius: SIZES.radiusFull,
+      backgroundColor: COLORS.primary,
+      justifyContent: "center",
+      alignItems: "center",
+      ...SHADOWS.button,
     },
-    doneBtnText: { fontSize: SIZES.body, fontFamily: FONTS.bold, color: "#fff" },
+    doneBtnText: {
+      fontSize: SIZES.body,
+      fontFamily: FONTS.bold,
+      color: "#fff",
+    },
 
     // ── Bottom Nav ───────────────────────────────────────────
     bottomNav: {
-      position: "absolute", bottom: 0, left: 0, right: 0,
-      height: 68, backgroundColor: COLORS.surfaceContainer,
-      borderTopWidth: 1, borderTopColor: COLORS.border,
-      flexDirection: "row", justifyContent: "space-around", alignItems: "center",
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 68,
+      backgroundColor: COLORS.surfaceContainer,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      flexDirection: "row",
+      justifyContent: "space-around",
+      alignItems: "center",
       paddingBottom: Platform.OS === "ios" ? 14 : 0,
     },
-    navItem:      { alignItems: "center", justifyContent: "center" },
+    navItem: { alignItems: "center", justifyContent: "center" },
     navActiveWrap: {
-      backgroundColor: COLORS.primaryContainer, width: 40, height: 28,
-      borderRadius: 8, justifyContent: "center", alignItems: "center",
+      backgroundColor: COLORS.primaryContainer,
+      width: 40,
+      height: 28,
+      borderRadius: 8,
+      justifyContent: "center",
+      alignItems: "center",
     },
     navLabel: {
-      fontSize: 10, fontFamily: FONTS.medium, color: COLORS.textFaint, marginTop: 3,
+      fontSize: 10,
+      fontFamily: FONTS.medium,
+      color: COLORS.textFaint,
+      marginTop: 3,
     },
   });
 
