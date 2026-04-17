@@ -157,6 +157,97 @@ const NAV = [
   { id: "simulator", tKey: "nav_simulator" },
 ];
 
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  home: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  ),
+  claims: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" />
+      <path d="M14 2v5h5" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  ),
+  payments: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="5.5" width="19" height="13" rx="2.5" />
+      <path d="M2.5 10h19" />
+      <path d="M7 14h4" />
+    </svg>
+  ),
+  profile: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20a8 8 0 0 1 16 0" />
+    </svg>
+  ),
+  simulator: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 19h16" />
+      <path d="m6 15 4-4 3 3 5-6" />
+      <circle cx="6" cy="15" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="14" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function normalizeTier(tier: string | undefined): Tier {
@@ -398,12 +489,28 @@ export default function DashboardPage() {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [showNotifPanel, setShowNotifPanel] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const nextWeekSectionRef = useRef<HTMLElement>(null);
+  const [pendingUpgradeScroll, setPendingUpgradeScroll] = useState(false);
+
+  const scrollToNextWeekPlan = () => {
+    if (tab !== "home") {
+      setPendingUpgradeScroll(true);
+      setTab("home");
+      return;
+    }
+    nextWeekSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem("gg_dismissed_notifs");
       if (raw) setDismissedIds(new Set(JSON.parse(raw) as string[]));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -416,6 +523,18 @@ export default function DashboardPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showNotifPanel]);
+
+  useEffect(() => {
+    if (!pendingUpgradeScroll || tab !== "home") return;
+    const rafId = window.requestAnimationFrame(() => {
+      nextWeekSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      setPendingUpgradeScroll(false);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [pendingUpgradeScroll, tab]);
 
   // payment
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -760,7 +879,10 @@ export default function DashboardPage() {
   // From claims (most recent first, max 8)
   claims.slice(0, 8).forEach((c) => {
     const id = `claim_${String(c.id)}`;
-    const triggerName = String(c.trigger_type ?? "disruption").replace(/_/g, " ");
+    const triggerName = String(c.trigger_type ?? "disruption").replace(
+      /_/g,
+      " ",
+    );
     if (c.payout_status === "paid") {
       allNotifs.push({
         id,
@@ -789,7 +911,7 @@ export default function DashboardPage() {
   });
 
   const activeNotifs = allNotifs.filter((n) => !dismissedIds.has(n.id));
-  const unreadCount  = activeNotifs.length;
+  const unreadCount = activeNotifs.length;
 
   const dismissNotif = (id: string) => {
     const next = new Set([...dismissedIds, id]);
@@ -804,46 +926,47 @@ export default function DashboardPage() {
   };
 
   const NOTIF_ICONS: Record<NotifType, string> = {
-    settled:  "✓",
+    settled: "✓",
     rejected: "✕",
-    review:   "⏳",
-    premium:  "₹",
-    alert:    "⚡",
+    review: "⏳",
+    premium: "₹",
+    alert: "⚡",
   };
 
   return (
     <div className={styles.pageRoot}>
       {/* ── Header ── */}
       <header className={styles.header}>
-        <div className={styles.brandBlock}>
-          <div className={styles.brandLogo}>WPIP</div>
-          <span className={styles.brandText}>
-            Worker Protection Insurance Portal
-          </span>
+        <div className={styles.headerMain}>
+          <div className={styles.brandBlock}>
+            <div className={styles.brandLogo}>GG</div>
+            <span className={styles.brandText}>GigGuard Assurance</span>
+          </div>
+          <label className={styles.headerSearch}>
+            <svg
+              className={styles.headerSearchIcon}
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className={styles.headerSearchInput}
+              type="text"
+              placeholder="Search claims, payouts, and risk alerts..."
+              aria-label="Search dashboard"
+            />
+          </label>
         </div>
 
-        {/* Center nav tabs */}
-        <nav className={styles.headerNavTabs}>
-          {NAV.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              onClick={() => {
-                if (item.id === "simulator") {
-                  router.push("/simulator");
-                } else {
-                  setTab(item.id);
-                }
-              }}
-              className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
-            >
-              {t(item.tKey)}
-            </button>
-          ))}
-        </nav>
-
         <div className={styles.headerActions}>
-
           {/* ── Notification bell ── */}
           <div className={styles.notifWrapper} ref={notifRef}>
             <button
@@ -852,10 +975,18 @@ export default function DashboardPage() {
               onClick={() => setShowNotifPanel((v) => !v)}
               aria-label="Notifications"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
               {unreadCount > 0 && (
                 <span className={styles.notifBadge}>
@@ -870,7 +1001,9 @@ export default function DashboardPage() {
                   <span className={styles.notifPanelTitle}>
                     Notifications
                     {unreadCount > 0 && (
-                      <span className={styles.notifPanelCount}>{unreadCount}</span>
+                      <span className={styles.notifPanelCount}>
+                        {unreadCount}
+                      </span>
                     )}
                   </span>
                   {activeNotifs.length > 0 && (
@@ -886,10 +1019,18 @@ export default function DashboardPage() {
 
                 {activeNotifs.length === 0 ? (
                   <div className={styles.notifEmpty}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
                     <p>All caught up</p>
                     <span>No new notifications</span>
@@ -898,13 +1039,17 @@ export default function DashboardPage() {
                   <div className={styles.notifList}>
                     {activeNotifs.map((n) => (
                       <div key={n.id} className={styles.notifItem}>
-                        <div className={`${styles.notifIcon} ${styles[`notifIcon_${n.type}`]}`}>
+                        <div
+                          className={`${styles.notifIcon} ${styles[`notifIcon_${n.type}`]}`}
+                        >
                           {NOTIF_ICONS[n.type]}
                         </div>
                         <div className={styles.notifBody}>
                           <div className={styles.notifItemTitle}>{n.title}</div>
                           <div className={styles.notifItemMsg}>{n.message}</div>
-                          <div className={styles.notifItemTime}>{formatNotifTime(n.time)}</div>
+                          <div className={styles.notifItemTime}>
+                            {formatNotifTime(n.time)}
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -980,36 +1125,77 @@ export default function DashboardPage() {
       </header>
 
       <div className={styles.layout}>
-        {/* ── Left Sidebar — Worker Info ── */}
+        {/* ── Left Sidebar ── */}
         <aside className={styles.sidebar}>
-          <div className={styles.workerCard}>
-            <div className={styles.workerAvatar}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div className={styles.workerName}>{user.name}</div>
-            <div className={styles.workerRole}>{tierLabel}</div>
-            <div className={styles.workerCity}>{user.city || "–"}</div>
+          <div className={styles.sidebarBrand}>
+            <h2 className={styles.sidebarBrandTitle}>GigGuard</h2>
+            <p className={styles.sidebarBrandTag}>Worker Safety Command</p>
           </div>
 
-          <div className={styles.sidebarStatGrid}>
-            <div className={styles.sidebarStat}>
-              <div className={styles.sidebarStatLabel}>Premium</div>
-              <div className={styles.sidebarStatValue}>
-                {money(currentWeeklyPremium)}
-              </div>
-            </div>
-            <div className={styles.sidebarStat}>
-              <div className={styles.sidebarStatLabel}>Max Payout</div>
-              <div className={styles.sidebarStatValue}>
-                {money(currentPremium?.max_payout)}
-              </div>
-            </div>
-          </div>
+          <nav className={styles.sidebarNav}>
+            {NAV.map((item) => {
+              const isActive = tab === item.id;
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === "simulator") {
+                      router.push("/simulator");
+                      return;
+                    }
+                    setTab(item.id);
+                  }}
+                  className={`${styles.navBtn} ${isActive ? styles.navBtnActive : ""}`}
+                >
+                  <span className={styles.navBtnIcon}>
+                    {NAV_ICONS[item.id] ?? (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="4" />
+                      </svg>
+                    )}
+                  </span>
+                  <span>{t(item.tKey)}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-          <div className={styles.sidebarCta}>
-            <div className={styles.sidebarCtaEyebrow}>NEXT WEEK</div>
-            <div className={styles.sidebarCtaTitle}>Plan your coverage</div>
-            <div className={styles.sidebarCtaText}>{nextWindow.label}</div>
+          <div className={styles.sidebarBottom}>
+            <button
+              type="button"
+              className={styles.upgradeBtn}
+              onClick={scrollToNextWeekPlan}
+            >
+              Upgrade Protection
+            </button>
+
+            <div className={styles.sidebarMeta}>
+              <button
+                type="button"
+                className={styles.sidebarMetaLink}
+                onClick={() => setTab("profile")}
+              >
+                Settings
+              </button>
+              <button
+                type="button"
+                className={styles.sidebarMetaLink}
+                onClick={() => setTab("claims")}
+              >
+                Support
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -1171,12 +1357,12 @@ export default function DashboardPage() {
                         </span>
                         {trafficData.road_closure && (
                           <span>
-                            <strong style={{ color: "var(--error)" }}>
+                            <strong className={styles.roadClosureAlert}>
                               Road Closure Detected
                             </strong>
                           </span>
                         )}
-                        <span style={{ opacity: 0.6 }}>
+                        <span className={styles.stripSource}>
                           Source: {trafficData.source}
                         </span>
                       </div>
@@ -1214,12 +1400,12 @@ export default function DashboardPage() {
                         )}
                         {curfewData.fired && (
                           <span>
-                            <strong style={{ color: "var(--error)" }}>
+                            <strong className={styles.roadClosureAlert}>
                               T-06 Trigger Active
                             </strong>
                           </span>
                         )}
-                        <span style={{ opacity: 0.6 }}>
+                        <span className={styles.stripSource}>
                           Source: {curfewData.source}
                         </span>
                       </div>
@@ -1233,7 +1419,10 @@ export default function DashboardPage() {
                   </section>
 
                   {/* Next week plan */}
-                  <section className={styles.panel}>
+                  <section
+                    ref={nextWeekSectionRef}
+                    className={`${styles.panel} ${styles.nextWeekSection}`}
+                  >
                     <div className={styles.panelHead}>
                       <h3 className={styles.panelTitle}>
                         {t("insurance_next_week")}
