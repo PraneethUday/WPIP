@@ -319,8 +319,10 @@ def train_model(X: pd.DataFrame, y: pd.Series) -> tuple[XGBRegressor, float]:
     return model, rmse
 
 
+_cached_model: XGBRegressor | None = None
+
 def save_model(model: XGBRegressor, rmse: float, n_samples: int) -> None:
-    """Save model + metadata to disk."""
+    """Save model + metadata to disk and update in-memory cache."""
     joblib.dump(model, MODEL_PATH)
     metadata = {
         "rmse": round(rmse, 4),
@@ -330,12 +332,23 @@ def save_model(model: XGBRegressor, rmse: float, n_samples: int) -> None:
     }
     METADATA_PATH.write_text(json.dumps(metadata, indent=2))
     print(f"[model] Saved model — RMSE: {rmse:.4f}, samples: {n_samples}")
+    
+    # Immediately force the memory cache to update so the new model is used
+    load_model(force_reload=True)
 
 
-def load_model() -> XGBRegressor | None:
-    """Load saved model from disk, or None if not found."""
+def load_model(force_reload: bool = False) -> XGBRegressor | None:
+    """Load saved model from disk into RAM and cache it for all future API calls.
+    Returns the cached model instantly if available.
+    """
+    global _cached_model
+    if _cached_model is not None and not force_reload:
+        return _cached_model
+        
     if MODEL_PATH.exists():
-        return joblib.load(MODEL_PATH)
+        _cached_model = joblib.load(MODEL_PATH)
+        print("[model] Loaded XGBoost model into global memory cache.")
+        return _cached_model
     return None
 
 

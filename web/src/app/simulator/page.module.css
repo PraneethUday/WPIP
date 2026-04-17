@@ -1,0 +1,354 @@
+/* ── Page root ────────────────────────────────────────────── */
+.pageRoot {
+  min-height: 100vh;
+  background: var(--surface);
+  color: var(--white);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 64px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: var(--header-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Header Nav Tabs ── */
+.headerNavTabs {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.headerNavTab {
+  padding: 7px 14px;
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.14s;
+}
+.headerNavTab:hover {
+  color: var(--muted);
+  background: var(--elevated);
+}
+.headerNavTabActive {
+  background: var(--primary-container);
+  color: var(--primary);
+}
+
+/* ── Header Actions ── */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.userBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.userInitial {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+}
+.userName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.logoutBtn {
+  border: 1px solid var(--border);
+  background: var(--elevated);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.logoutBtn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.brandBlock {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.brandLogo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(13, 158, 136, 0.35);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.brandText {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--white);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.main {
+  padding: 40px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero {
+  background: linear-gradient(125deg, var(--primary) 0%, #8b84ff 100%);
+  border-radius: 20px;
+  color: #fff;
+  padding: 28px;
+  margin-bottom: 30px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(13, 158, 136, 0.35);
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.heroSub {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.simulatorGrid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 30px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.panelTitle {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.inputGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputGroup label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sliderInput {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.numberInput {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--white);
+  padding: 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+}
+
+.numberInput:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.selectInput {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--white);
+  padding: 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+}
+
+.selectInput:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.evalBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(13, 158, 136, 0.25);
+  transition: opacity 0.14s, transform 0.14s;
+}
+
+.evalBtn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Result Aside ────────────────────────────────────── */
+.resultAside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resultCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.resultCardLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.resultCardAmount {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+
+.resultCardMeta {
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.premiumAmount {
+  color: var(--primary);
+}
+.payoutAmount {
+  color: var(--success);
+}
+.severityAmount {
+  color: var(--amber);
+}
+
+.triggerBadge {
+  display: inline-block;
+  background: var(--error-container);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+/* ── Error Message ── */
+.errorMsg {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--error-container, rgba(239, 68, 68, 0.1));
+  color: var(--error, #ef4444);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+/* ── Trigger List Breakdown ── */
+.triggerList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.triggerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+}
+.triggerRowId {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--primary);
+  min-width: 36px;
+}
+.triggerRowName {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+}
+.triggerRowScore {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--amber);
+}

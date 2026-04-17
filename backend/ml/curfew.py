@@ -378,7 +378,16 @@ async def evaluate_curfew_risk(city: str) -> dict[str, Any]:
     # classify_headlines() is synchronous (HuggingFace CPU inference).
     # Run in a thread so it never blocks the asyncio event loop.
     headlines = await fetch_rss_headlines(city)
-    nlp_score, nlp_label = await asyncio.to_thread(classify_headlines, headlines)
+    
+    # Run heavy NLP classification in a thread so we don't freeze the main event loop!
+    import asyncio
+    # Serialize the PyTorch execution to prevent OpenMP CPU thrashing
+    global _nlp_lock
+    if '_nlp_lock' not in globals():
+        _nlp_lock = asyncio.Lock()
+        
+    async with _nlp_lock:
+        nlp_score, nlp_label = await asyncio.to_thread(classify_headlines, headlines)
 
     # Combined confidence (deterministic, no randomness)
     confidence = float(np.clip(gdelt_score + nlp_score, 0.0, 1.0))

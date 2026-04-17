@@ -143,6 +143,7 @@ const NAV = [
   { id: "claims", label: "Claims History" },
   { id: "payments", label: "Payments" },
   { id: "profile", label: "Profile" },
+  { id: "simulator", label: "Simulator" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -663,13 +664,19 @@ export default function DashboardPage() {
         <nav className={styles.headerNavTabs}>
           {NAV.map((item) => (
             <button
-              type="button"
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
-            >
-              {item.label}
-            </button>
+               type="button"
+               key={item.id}
+               onClick={() => {
+                 if (item.id === "simulator") {
+                   router.push("/simulator");
+                 } else {
+                   setTab(item.id);
+                 }
+               }}
+               className={`${styles.headerNavTab} ${tab === item.id ? styles.headerNavTabActive : ""}`}
+             >
+               {item.label}
+             </button>
           ))}
         </nav>
 

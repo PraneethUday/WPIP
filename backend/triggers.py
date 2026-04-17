@@ -5,17 +5,19 @@ Every 15 minutes (called from scheduler.tick()), this module:
   1. Fetches live weather/AQI for all active worker cities
   2. Fetches live traffic TTI (TomTom) for all cities
   3. Evaluates curfew/unrest risk (GDELT + NLP) for all cities
-  4. Evaluates each trigger rule against the data
-  5. If a threshold is breached → creates a disruption_event
+  4. Evaluates each trigger via the FUZZY SEVERITY ENGINE directly
+     (not boolean ON/OFF flags) so partial disruptions produce
+     proportional payouts, eliminating basis risk.
+  5. If fuzzy severity ≥ MIN_SEVERITY_THRESHOLD → creates a disruption_event
   6. For each disruption → auto-initiates claims for affected workers
 
-Trigger Rules:
-  T-01: Heavy Rainfall   — rain_1h > 20mm OR rain_3h > 64.5mm
-  T-02: Extreme Heat      — temperature > 45°C
-  T-03: Severe AQI        — AQI index ≥ 400 (Severe)
-  T-04: Flood Risk        — rain_3h > 100mm
-  T-05: Traffic Congestion — TTI > 2.5 for 2 consecutive 15-min cycles
-  T-06: Curfew / Unrest   — GDELT+NLP confidence ≥ 0.8
+Fuzzy Calibration (entry → ceiling):
+  T-01: Heavy Rainfall       — 20mm  → 100mm  (combined rain signal)
+  T-02: Extreme Heat         — 39.5°C → 45°C
+  T-03: Severe AQI           — 300   → 450    (India NAQI scale)
+  T-04: Flood Risk           — 64.5mm → 150mm (rain_3h)
+  T-05: Traffic Congestion   — TTI 2.5 → 3.5  (+ consecutive-cycle gate)
+  T-06: Curfew / Unrest      — 0.80  → 0.95   (GDELT+NLP confidence)
 """
 
 import logging
@@ -37,6 +39,15 @@ from ml.fraud_model import build_fraud_features, compute_fraud_score
 from fuzzy import compute_trigger_severity
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy-first evaluation threshold
+# ---------------------------------------------------------------------------
+# Minimum fuzzy severity score to fire a trigger and create a disruption event.
+# Below this threshold, the disruption is too minor to warrant claim processing.
+# Set to 0.10 (10%) to filter out trivial environmental noise.
+MIN_SEVERITY_THRESHOLD = 0.10
 
 
 # ---------------------------------------------------------------------------
@@ -181,38 +192,57 @@ async def poll_triggers() -> dict:
         # Update the previous-cycle state for next poll
         _previous_tti[city] = current_tti
 
-        # --- Evaluate all trigger rules ---
+        # --- Evaluate all triggers via FUZZY SEVERITY ENGINE ---
+        # Instead of boolean ON/OFF flags, we compute the fuzzy severity
+        # score directly from calibration ranges.  This ensures partial
+        # disruptions (e.g. AQI 390 → 60%, rain_3h 80mm → 18%) produce
+        # proportional payouts rather than being silently ignored.
         fired: list[str] = []
 
         for rule in TRIGGER_RULES:
             try:
-                if rule["check"](ctx):
-                    # Compute fuzzy severity (0.0–1.0) for this trigger + context
-                    severity_label, severity_score = compute_trigger_severity(
-                        rule["trigger_id"], ctx
-                    )
+                trigger_id = rule["trigger_id"]
 
-                    logger.warning(
-                        "[triggers] %s FIRED in %s — %s (severity=%.2f)",
-                        rule["trigger_id"],
-                        city,
-                        rule["description"],
-                        severity_score,
-                    )
+                # T-05 SPECIAL CASE: Traffic congestion must persist for
+                # 2 consecutive 15-min polling cycles before we evaluate.
+                # This prevents brief spikes from triggering payouts.
+                if trigger_id == "T-05":
+                    current_tti_val = ctx.get("tti", 1.0)
+                    prev_tti_val = ctx.get("_prev_tti", 1.0)
+                    if not (current_tti_val > 2.5 and prev_tti_val > 2.5):
+                        continue  # Not consecutive — skip T-05 entirely
 
-                    # Upsert disruption event (idempotent per trigger+city+date)
-                    event_id = await asyncio.to_thread(
-                        _upsert_disruption_event,
-                        city, weather, rule, today, severity_label, severity_score,
-                    )
+                # Compute fuzzy severity directly from calibration ranges
+                severity_label, severity_score = compute_trigger_severity(
+                    trigger_id, ctx
+                )
 
-                    if event_id:
-                        # Auto-create claims for all workers in this city
-                        await asyncio.to_thread(
-                            _auto_create_claims,
-                            event_id, city, rule, today, severity_score,
-                        )
-                        fired.append(rule["trigger_id"])
+                # Skip if severity is below the minimum actionable threshold
+                if severity_score < MIN_SEVERITY_THRESHOLD:
+                    continue
+
+                logger.warning(
+                    "[triggers] %s FIRED in %s — %s (fuzzy_severity=%.2f, label=%s)",
+                    trigger_id,
+                    city,
+                    rule["description"],
+                    severity_score,
+                    severity_label,
+                )
+
+                # Upsert disruption event (idempotent per trigger+city+date)
+                event_id = await asyncio.to_thread(
+                    _upsert_disruption_event,
+                    city, weather, rule, today, severity_label, severity_score,
+                )
+
+                if event_id:
+                    # Auto-create claims for all workers in this city
+                    await asyncio.to_thread(
+                        _auto_create_claims,
+                        event_id, city, rule, today, severity_score,
+                    )
+                    fired.append(trigger_id)
 
             except Exception as exc:
                 logger.error(
@@ -263,8 +293,6 @@ def _upsert_disruption_event(
     severity_score: float = 1.0,
 ) -> str | None:
     """Insert a disruption event row. Returns the event UUID, or None on duplicate."""
-    severity = rule["severity"](ctx)
-
     payload = {
         "trigger_id": rule["trigger_id"],
         "trigger_type": rule["trigger_type"],
@@ -552,18 +580,28 @@ def get_trigger_status() -> dict:
 
         triggered = []
         for rule in TRIGGER_RULES:
-            if rule["check"](ctx):
-                severity_label, severity_score = compute_trigger_severity(
-                    rule["trigger_id"], ctx
-                )
-                triggered.append({
-                    "trigger_id": rule["trigger_id"],
-                    "trigger_type": rule["trigger_type"],
-                    "description": rule["description"],
-                    "severity": severity_label,
-                    "severity_score": severity_score,
-                    "payout_multiplier_pct": round(severity_score * 100, 1),
-                })
+            trigger_id = rule["trigger_id"]
+
+            # T-05: require consecutive high TTI
+            if trigger_id == "T-05":
+                if not (current_tti > 2.5 and prev_tti > 2.5):
+                    continue
+
+            severity_label, severity_score = compute_trigger_severity(
+                trigger_id, ctx
+            )
+
+            if severity_score < MIN_SEVERITY_THRESHOLD:
+                continue
+
+            triggered.append({
+                "trigger_id": trigger_id,
+                "trigger_type": rule["trigger_type"],
+                "description": rule["description"],
+                "severity": severity_label,
+                "severity_score": severity_score,
+                "payout_multiplier_pct": round(severity_score * 100, 1),
+            })
 
         results[city] = {
             "weather": weather,

@@ -8,6 +8,10 @@ Exposes endpoints for:
   - Admin premium management
 """
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import asyncio
 import io
 import logging
@@ -107,10 +111,30 @@ async def _scheduler_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start the background scheduler when the app boots."""
+    loop = asyncio.get_running_loop()
     task = asyncio.create_task(_scheduler_loop())
     logger.info("FastAPI lifespan: scheduler task created.")
+    
     yield
+    
     task.cancel()
+    
+    # Prevent Uvicorn from hanging on background Supabase/GDELT threads
+    if hasattr(loop, '_default_executor') and loop._default_executor:
+        loop._default_executor.shutdown(wait=False)
+        # Hide the executor so the event loop doesn't try to shut it down again with wait=True
+        loop._default_executor = None
+        
+    # Launch a "sniper" thread to forcefully kill this process after 1 second
+    # This guarantees Uvicorn has just enough time to cleanly surrender port 8000
+    # but forcefully ends it before Python gets stuck waiting on non-daemon threads forever.
+    def _sniper():
+        import time, os, signal
+        time.sleep(1.0)
+        os.kill(os.getpid(), signal.SIGKILL)
+    import threading
+    threading.Thread(target=_sniper, daemon=True).start()
+    
     logger.info("FastAPI lifespan: scheduler task cancelled.")
 
 
@@ -969,3 +993,84 @@ async def regional_exposure():
         return {"status": "ok", "exposure": exposure}
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+class SimulatorRequest(BaseModel):
+    daily_wage: float = 500.0
+    tier: str = "standard"
+    temperature: float = 30.0
+    rain_1h: float = 0.0
+    wind_speed: float = 5.0
+    aqi_index: int = 100
+    tti: float = 1.0
+    unrest_confidence: float = 0.0
+
+@app.post("/api/simulator/evaluate")
+async def evaluate_simulator_scenario(req: SimulatorRequest):
+    """Evaluate a hypothetical scenario bypassing live metrics."""
+    from datetime import date, timedelta
+    from ml.premium_model import build_features_from_history, predict_premium
+    from fuzzy import compute_trigger_severity
+    from claims import compute_payout
+    
+    # 1. Mock a 7-day worker history
+    history = []
+    base_date = date.today()
+    for i in range(7):
+        history.append({
+            "date": (base_date - timedelta(days=i)).isoformat(),
+            "earnings": req.daily_wage,
+            "deliveries": max(1, req.daily_wage / 40.0),
+            "active_hours": 8.0,
+            "rating": 4.8,
+            "city": "SimulatorCity"
+        })
+        
+    weather_dict = {
+        "temperature": req.temperature,
+        "rain_1h": req.rain_1h,
+        "wind_speed": req.wind_speed,
+        "aqi_index": req.aqi_index,
+        "is_heavy_rain": req.rain_1h >= 15.0,
+        "is_extreme_heat": req.temperature >= 45.0,
+        "is_severe_aqi": req.aqi_index >= 400,
+    }
+    traffic_dict = {"tti": req.tti}
+    curfew_dict = {"confidence": req.unrest_confidence, "fired": req.unrest_confidence >= 0.8}
+    
+    features = build_features_from_history(history, weather_dict, traffic_dict, curfew_dict)
+    model = load_model()
+    premium = predict_premium(model, features, req.tier) if model else 0.0
+    
+    ctx = {
+        **weather_dict,
+        "traffic": traffic_dict,
+        "tti": req.tti,
+        "curfew": curfew_dict,
+        "curfew_confidence": req.unrest_confidence
+    }
+    
+    # Evaluate ALL triggers using fuzzy calibration directly (not boolean flags).
+    # This lets the simulator show partial severity for values within the
+    # fuzzy range (e.g. AQI 390 is within the 300-450 calibration for T-03).
+    trigger_ids = ["T-01", "T-02", "T-03", "T-04", "T-05", "T-06"]
+    max_severity = 0.0
+    active_trigger = "None"
+    all_triggers = []
+
+    for tid in trigger_ids:
+        _, severity_score = compute_trigger_severity(tid, ctx)
+        if severity_score > 0:
+            all_triggers.append({"trigger_id": tid, "severity": round(severity_score, 3)})
+        if severity_score > max_severity:
+            max_severity = severity_score
+            active_trigger = tid
+
+    payout = compute_payout(req.daily_wage, 6.0, max_severity, req.tier) if max_severity > 0 else 0.0
+
+    return {
+        "predicted_premium": premium,
+        "severity": round(max_severity, 2),
+        "active_trigger": active_trigger,
+        "claim_payout": payout,
+        "all_triggers": all_triggers,
+    }

@@ -46,23 +46,42 @@ def compute_payout(
     daily_wage: float,
     disrupted_hours: float = 6.0,
     severity: float = 1.0,
+    tier: str = "standard",
 ) -> float:
-    """Compute the claim payout amount with fuzzy severity scaling.
+    """Compute the claim payout amount bounded by premium tier caps and severity.
 
     Formula:  payout = (daily_wage / active_hours_per_day) × disrupted_hours × severity
     We assume an 8-hour active day as the baseline.
-    Both the raw payout and the 50% policy cap are scaled by the fuzzy severity
-    score, so a 0.6 severity event yields ~60% of the maximum possible payout.
+    The raw payout is scaled by the fuzzy severity score and bounded by two caps:
+      1. A daily wage percentage limit determined by the tier (Basic: 50%, Standard: 80%, Pro: 100%)
+      2. The mathematical absolute tier ceiling.
     """
-    if daily_wage <= 0:
+    if daily_wage <= 0 or severity <= 0.0:
         return 0.0
-    if severity <= 0.0:
-        return 0.0
+
+    from ml.premium_model import TIER_CONFIG
+    import numpy as np
+    
+    tier_lower = tier.lower()
+    tier_cfg = TIER_CONFIG.get(tier_lower, TIER_CONFIG["standard"])
+    absolute_tier_cap = float(tier_cfg.get("max_payout", 1200))
+
+    # Determine percentage of daily income covered based on their plan
+    if tier_lower == "basic":
+        wage_coverage_pct = 0.50   # 50% of daily wage
+    elif tier_lower == "standard":
+        wage_coverage_pct = 0.80   # 80% of daily wage
+    else:  # pro
+        wage_coverage_pct = 1.00   # 100% of daily wage
 
     hourly_rate = daily_wage / 8.0
     raw_payout = hourly_rate * disrupted_hours * severity
-    max_payout = daily_wage * 0.50 * severity  # 50% cap, scaled by severity
-    return round(min(raw_payout, max_payout), 2)
+    
+    # Cap 1: Coverage % of their daily wage scaled by severity
+    # Cap 2: Absolute tier mathematical ceiling scaled by severity
+    max_payout = min((daily_wage * wage_coverage_pct) * severity, absolute_tier_cap * severity)
+    
+    return round(float(np.clip(raw_payout, 0.0, max_payout)), 2)
 
 
 def has_active_policy(worker_id: str) -> bool:
