@@ -1,7 +1,7 @@
-# GigGuard — Hackathon Coordinator Setup & Evaluation Guide
+# WPIP — Hackathon Coordinator Setup & Evaluation Guide
 
-> **Last updated:** 2026-04-05  
-> **Repository:** PraneethUday/GigGuard
+> **Last updated:** 2026-04-17  
+> **Repository:** PraneethUday/WPIP
 
 ---
 
@@ -22,44 +22,48 @@
 
 ## 1. Project Overview
 
-**GigGuard** is a parametric micro-insurance platform for gig economy delivery workers (Swiggy, Zomato, Blinkit, Amazon Flex, Zepto, Meesho, Porter, Dunzo). It provides:
+**WPIP (Worker Protection Insurance Platform)** is a parametric micro-insurance platform for gig economy delivery workers (Swiggy, Zomato, Blinkit, Amazon Flex, Zepto, Meesho, Porter, Dunzo). It provides:
 
 - **Real-time risk-based premium calculation** using an XGBoost ML model trained on synthetic delivery data
-- **Parametric trigger-based claims** — weather events (heavy rain, extreme heat, poor AQI, floods) automatically generate claims for affected workers
-- **Fraud detection** using Isolation Forest anomaly detection
-- **GPS proximity validation** during claims
+- **Parametric trigger-based claims** — weather events (heavy rain, extreme heat, poor AQI, floods), traffic congestion (TomTom TTI), and civil unrest (GDELT + NLP) automatically generate claims for affected workers
+- **Fuzzy logic severity scaling** — proportional payouts based on continuous disruption intensity (not binary on/off)
+- **Fraud detection** using Isolation Forest anomaly detection with geo-polygon GPS validation
 - **Cross-platform activity checks** to prevent fraudulent claims
 - **Auto-payouts** via mock UPI integration
+- **Vernacular language support** — English, Hindi, Tamil, Telugu, Malayalam
 
 The platform has **four interfaces**:
 
 | Component | Technology | Port | Purpose |
 |-----------|-----------|------|---------|
-| **Backend API** | FastAPI (Python) | `8000` | Data API, ML engine, auth, triggers, claims |
-| **Web App** | Next.js (React/TypeScript) | `3000` | Worker-facing dashboard, registration, login |
-| **Admin Panel** | Next.js (React/TypeScript) | `3001` | Admin control center, disruption monitoring |
-| **Mobile App** | React Native (Expo) | `8081` | Worker mobile app, GPS check-ins |
+| **Backend API** | FastAPI (Python) | `8000` | Data API, ML engine, auth, triggers, claims, fuzzy logic |
+| **Web App** | Next.js (React/TypeScript) | `3000` | Worker-facing dashboard, registration, login, scenario simulator |
+| **Admin Panel** | Next.js (React/TypeScript) | `3001` | Admin control center, disruption monitoring, fraud review |
+| **Mobile App** | React Native (Expo) | `8081` | Worker mobile app, GPS check-ins, vernacular UI |
 
 ---
 
 ## 2. Architecture & Components
 
 ```
-GigGuard/
+WPIP/
 ├── backend/              # FastAPI backend (Python 3.12)
 │   ├── main.py           # All API endpoints
 │   ├── db.py             # Supabase client & DB operations
 │   ├── generator.py      # Synthetic data generator (200 workers, 8 platforms)
 │   ├── scheduler.py      # Background 15-min scheduler (data gen + retrain)
-│   ├── triggers.py       # Parametric trigger engine (weather-based auto-claims)
-│   ├── claims.py         # Payout computation & eligibility checks
+│   ├── triggers.py       # Parametric trigger engine (weather + traffic + curfew auto-claims)
+│   ├── claims.py         # Payout computation & eligibility checks (tier-aware)
+│   ├── fuzzy.py          # Fuzzy logic severity engine (T-01 to T-06 scaling)
 │   ├── gps.py            # GPS proximity validation (Haversine)
 │   ├── auth_utils.py     # JWT auth + bcrypt password hashing
 │   ├── seed.py           # One-time 30-day backfill script
 │   ├── ml/
 │   │   ├── weather.py        # OpenWeatherMap API (5-min cache)
-│   │   ├── premium_model.py  # XGBoost premium prediction model
-│   │   ├── fraud_model.py    # Isolation Forest fraud detection
+│   │   ├── traffic.py        # TomTom Traffic API — TTI computation (5-min cache)
+│   │   ├── curfew.py         # GDELT 2.0 + HuggingFace NLP curfew/unrest detection
+│   │   ├── premium_model.py  # XGBoost premium prediction model (25 features)
+│   │   ├── fraud_model.py    # Isolation Forest fraud detection + geo-polygon validation
 │   │   ├── retrain.py        # Model retraining pipeline
 │   │   └── compute_premiums.py
 │   ├── schema.sql            # Platform worker tables (8 tables)
@@ -70,8 +74,11 @@ GigGuard/
 │   ├── src/app/
 │   │   ├── register/     # 4-step registration wizard
 │   │   ├── login/        # Login page
-│   │   ├── dashboard/    # Worker dashboard (premiums, claims, weather)
+│   │   ├── dashboard/    # Worker dashboard (premiums, claims, weather, language selector)
+│   │   ├── simulator/    # Scenario simulator sandbox (5 sliders, tier-aware payouts)
 │   │   └── api/          # API route proxies (auth, premium, claims, payments)
+│   ├── src/lib/
+│   │   └── translations.ts   # Vernacular translations (en, hi, te, ta, ml)
 │   ├── supabase-schema.sql    # registered_workers table
 │   └── payments-schema.sql    # worker_payments + insurance_claims tables
 ├── admin/                # Next.js admin panel
@@ -80,14 +87,19 @@ GigGuard/
 │       ├── disruptions/     # Live disruption monitoring
 │       └── admin/           # Admin dashboard
 ├── mobile/               # React Native (Expo) mobile app
+│   ├── context/
+│   │   └── LanguageContext.js  # Vernacular language provider (5 languages)
+│   ├── lib/
+│   │   └── translations.js    # Mobile translations (en, hi, te, ta, ml)
 │   └── screens/
 │       ├── SignUpScreen.js    # Worker registration (mobile)
 │       ├── LoginScreen.js     # Login
 │       ├── HomeScreen.js      # Home dashboard
+│       ├── LandingScreen.js   # Landing/splash screen
 │       ├── PolicyScreen.js    # Policy details
 │       ├── ClaimsScreen.js    # Claims history
 │       ├── PaymentScreen.js   # Payment history
-│       └── ProfileScreen.js   # Worker profile
+│       └── ProfileScreen.js   # Worker profile + language picker
 └── shared/
     └── theme.js           # Shared design tokens
 ```
@@ -100,46 +112,79 @@ The project uses **5 separate `.env` files** across different components. Below 
 
 ### 3.1 Root `.env` — `/.env`
 
+```env
 # ============================================================
-# GigGuard — Root Environment Variables
+# WPIP — Root Environment Variables
 # ============================================================
 
 # Supabase (shared)
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-
+```
 
 
 ### 3.2 Backend `.env` — `/backend/.env`
 
+```env
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 OWM_API_KEY=your_openweathermap_api_key
 JWT_SECRET=your_jwt_secret_min_32_chars
+TOMTOM_API_KEY=your_tomtom_api_key
+```
+
+| Variable | Purpose | Consumed By |
+|----------|---------|-------------|
+| `SUPABASE_URL` | Supabase project URL | `db.py` |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key (full DB access) | `db.py` |
+| `OWM_API_KEY` | OpenWeatherMap API key (free tier) | `ml/weather.py` |
+| `JWT_SECRET` | Secret for signing JWT auth tokens | `auth_utils.py` |
+| `TOMTOM_API_KEY` | TomTom Traffic Flow Segment API key (free tier: 2,500 calls/day) | `ml/traffic.py` |
 
 
 ### 3.3 Web App `.env` — `/web/.env`
 
+```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 JWT_SECRET=your_jwt_secret_min_32_chars
+BACKEND_URL=http://127.0.0.1:8000
+```
+
+| Variable | Purpose | Consumed By |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL (client-side accessible) | Supabase client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (client-side accessible) | Supabase client |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key (server-side only) | API routes |
+| `JWT_SECRET` | JWT signing secret (must match backend) | API route auth |
+| `BACKEND_URL` | FastAPI backend URL for proxy routes | `api/backend/[...path]/route.ts` |
 
 
 ### 3.4 Admin Panel `.env` — `/admin/.env`
 
+```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 BACKEND_URL=http://localhost:8000
+```
+
+| Variable | Purpose | Consumed By |
+|----------|---------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase URL | Supabase client |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | Server-side API calls |
+| `BACKEND_URL` | FastAPI backend URL | Admin API proxy routes |
 
 
 ### 3.5 Mobile App `.env` — `/mobile/.env`
 
+```env
 WEB_API_URL=http://localhost:3000
 BACKEND_API_URL=http://localhost:8000
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
 ### Environment Variables Summary Matrix
 
@@ -152,7 +197,8 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | — | — | Yes | — | — |
 | `OWM_API_KEY` | — | Yes | — | — | — |
 | `JWT_SECRET` | — | Yes | Yes | — | — |
-| `BACKEND_URL` | — | — | — | Yes | — |
+| `TOMTOM_API_KEY` | — | Yes | — | — | — |
+| `BACKEND_URL` | — | — | Yes | Yes | — |
 | `WEB_API_URL` | — | — | — | — | Yes |
 | `BACKEND_API_URL` | — | — | — | — | Yes |
 
@@ -163,7 +209,7 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 Run these SQL files **in order** in the Supabase SQL Editor (`Dashboard → SQL Editor`):
 
 | Order | File | Tables Created | Purpose |
-|:-----:|------|----------------|---------|
+|:-----:|------|----------------|---------| 
 | 1 | `backend/schema.sql` | 8 platform tables: `swiggy_workers`, `zomato_workers`, `amazon_flex_workers`, `blinkit_workers`, `zepto_workers`, `meesho_workers`, `porter_workers`, `dunzo_workers` | Store daily synthetic delivery activity data |
 | 2 | `web/supabase-schema.sql` | `registered_workers` | Store registered worker accounts (auth) |
 | 3 | `backend/triggers_schema.sql` | `disruption_events`, `claims` | Weather disruption events and auto-generated insurance claims |
@@ -189,11 +235,8 @@ Run these SQL files **in order** in the Supabase SQL Editor (`Dashboard → SQL 
 # Navigate to backend directory
 cd backend
 
-
 # Install dependencies
 pip install -r requirements.txt
-
-
 
 # Start the backend server  
 uvicorn main:app --reload 
@@ -203,6 +246,7 @@ The backend will:
 1. Start serving the API on `http://localhost:8000`
 2. Launch a background scheduler that generates synthetic data every 15 minutes
 3. Auto-retrain the ML model every 4 scheduler ticks (~1 hour)
+4. Poll OpenWeatherMap, TomTom Traffic, and GDELT/NLP feeds for parametric triggers
 
 **Verify:** Open `http://localhost:8000` in browser — you should see the API info JSON.
 
@@ -299,9 +343,9 @@ A "Verify ID" button checks the entered Delivery Partner ID against the selected
 - **Auto-pay checkbox** — enables automatic weekly premium deduction
 
 ### Step 4: Coverage Tier Selection
-- **Basic** — ~INR 30/week, max payout INR 500
-- **Standard** — ~INR 60/week, max payout INR 1,200 (default)
-- **Pro** — ~INR 105/week, max payout INR 2,500
+- **Basic** — ~INR 30/week, max payout INR 500 (50% wage coverage)
+- **Standard** — ~INR 60/week, max payout INR 1,200 (80% wage coverage)
+- **Pro** — ~INR 105/week, max payout INR 2,500 (100% wage coverage)
 
 Each tier shows a summary card with: name, estimated weekly premium, and maximum claim payout.
 
@@ -376,12 +420,15 @@ Below are two **real worker IDs** from the synthetic database that you can use f
    When `/api/premium/predict` is called with this worker's delivery ID:
    - Fetches last 30 days of data from `swiggy_workers` table
    - Fetches real-time Pune weather from OpenWeatherMap
-   - Builds 23 ML features:
+   - Fetches real-time Pune traffic TTI from TomTom
+   - Builds 25 ML features:
      - Rolling 7-day averages (earnings, deliveries, hours, rating)
      - Weekly earnings estimate (~INR 2,500/week)
      - Earnings trend (3d vs 7d), consistency (std dev, CV)
      - Efficiency (earnings/delivery, earnings/hour)
      - Weather risk (rain, AQI, temperature composited into 0-1 score)
+     - Traffic TTI risk factor
+     - Unrest exposure flag (GDELT + NLP curfew signal)
      - Pune city risk: 0.90 (lower than average — Pune is relatively safer)
    - XGBoost model predicts raw premium, then clamped to tier bounds
    - Example output for "standard" tier: ~INR 40-60/week
@@ -389,12 +436,14 @@ Below are two **real worker IDs** from the synthetic database that you can use f
 4. **Trigger & Claims Processing:**  
    If Pune experiences heavy rainfall (>20mm/hr or >64.5mm/3hr):
    - `triggers.py` detects the breach via OpenWeatherMap data
+   - `fuzzy.py` computes severity score (0.0–1.0) using fuzzy logic scaling
    - Creates a `disruption_events` row for Pune
    - Finds this worker in `swiggy_workers` for today's date in Pune
-   - Computes daily wage (7-day average), payout = min(hourly_rate × 6hrs, 50% of daily wage)
+   - Computes payout: `daily_wage × (disrupted_hours/8) × severity × wage_coverage_pct`
+   - Wage coverage: Basic=50%, Standard=80%, Pro=100%
    - Runs GPS proximity check (is worker within 20km of Pune center?)
    - Runs cross-platform activity check (was worker delivering on other platforms during disruption?)
-   - Runs fraud scoring (ML or rule-based)
+   - Runs fraud scoring (Isolation Forest ML + rule-based)
    - Creates a claim: `CLM-20260405-a1b2c3` with `payout_status: approved` (if fraud_score < 0.75)
 
 5. **Registration Demo:**  
@@ -435,7 +484,7 @@ Below are two **real worker IDs** from the synthetic database that you can use f
 3. **Premium Calculation:**  
    When `/api/premium/predict` is called:
    - Fetches 30 days from `zomato_workers`
-   - Fetches real-time Hyderabad weather
+   - Fetches real-time Hyderabad weather + traffic TTI
    - Key feature differences vs. Swiggy worker:
      - Higher weekly earnings estimate (~INR 3,400/week) → higher base premium
      - Hyderabad city risk: 0.95 (moderate)
@@ -443,12 +492,12 @@ Below are two **real worker IDs** from the synthetic database that you can use f
    - Expected premium for "standard" tier: ~INR 55-85/week (higher because higher earnings)
 
 4. **Trigger & Claims Processing:**  
-   Hyderabad is monitored for all 5 trigger types. Example scenario — **Severe AQI (T-03)**:
-   - If AQI ≥ 400 (OpenWeatherMap Poor/Very Poor scale), trigger T-03 fires
+   Hyderabad is monitored for all 6 trigger types. Example scenario — **Severe AQI (T-03)**:
+   - If AQI ≥ 300 (entry threshold), fuzzy logic begins scaling severity linearly up to AQI 450
    - Disruption event created for Hyderabad
    - This Zomato worker gets an auto-claim:
      - Daily wage estimate: ~INR 490 (7-day average)
-     - Payout: min((490/8) × 6, 490 × 0.5) = min(367.5, 245) = **INR 245**
+     - Payout: `daily_wage × (6hrs/8hrs) × severity × wage_coverage_pct`
      - Fraud score computed, GPS checked, cross-platform verified
    - Claim appears in worker's claims history and admin disruptions page
 
@@ -507,12 +556,14 @@ Below are two **real worker IDs** from the synthetic database that you can use f
 | `POST` | `/api/model/retrain` | Trigger model retraining (async) |
 | `GET` | `/api/model/retrain/logs` | Get retrain progress, logs, and status |
 
-### Weather & Triggers
+### Weather, Traffic & Triggers
 | Method | Endpoint | Description |
 |--------|---------|-------------|
-| `GET` | `/api/weather/{city}` | Real-time weather for a city |
-| `GET` | `/api/weather` | Weather for all 6 monitored cities |
-| `GET` | `/api/triggers/status` | Current trigger evaluation for all cities |
+| `GET` | `/api/weather/{city}` | Real-time weather for a city (OpenWeatherMap) |
+| `GET` | `/api/weather` | Weather for all monitored cities |
+| `GET` | `/api/traffic/{city}` | Real-time traffic TTI for a city (TomTom) |
+| `GET` | `/api/curfew/{city}` | GDELT + NLP curfew/unrest assessment for a city |
+| `GET` | `/api/triggers/status` | Current trigger evaluation for all cities (T-01 to T-06) |
 | `POST` | `/api/triggers/test-fire` | Manually fire a trigger for testing (body: `{city, trigger_id}`) |
 
 ### Claims & Payouts
@@ -522,6 +573,11 @@ Below are two **real worker IDs** from the synthetic database that you can use f
 | `GET` | `/api/claims/worker/{worker_id}` | Claims for a specific worker |
 | `GET` | `/api/disruptions` | Recent disruption events |
 | `POST` | `/api/claims/execute-payouts` | Execute mock payouts for approved claims |
+
+### Scenario Simulator
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| `POST` | `/api/simulator/evaluate` | Simulate disruption (body: `{city, tier, temperature, aqi, rainfall, tti, curfew_confidence}`) |
 
 ### Admin
 | Method | Endpoint | Description |
@@ -541,7 +597,7 @@ Below are two **real worker IDs** from the synthetic database that you can use f
 
 **Training Data:**
 - 200 synthetic workers × 30 days = ~6,000 samples
-- 23 features: earnings averages, delivery trends, weather risk, city risk, consistency metrics
+- 25 features: earnings averages, delivery trends, weather risk, traffic TTI, unrest exposure, city risk, consistency metrics
 
 **Model Config:**
 ```python
@@ -557,44 +613,60 @@ XGBRegressor(
 ```
 
 **Tier Bounds (clamped at serving time):**
-| Tier | Rate | Min Premium | Max Premium | Max Payout |
-|------|------|:-----------:|:-----------:|:----------:|
-| Basic | 1.5% of weekly earnings | INR 10 | INR 120 | INR 500 |
-| Standard | 2.5% of weekly earnings | INR 20 | INR 250 | INR 1,200 |
-| Pro | 3.5% of weekly earnings | INR 40 | INR 400 | INR 2,500 |
+| Tier | Rate | Min Premium | Max Premium | Max Payout | Wage Coverage |
+|------|------|:-----------:|:-----------:|:----------:|:-------------:|
+| Basic | 0.8% of weekly earnings | INR 40 | INR 80 | INR 500 | 50% |
+| Standard | 1.2% of weekly earnings | INR 60 | INR 100 | INR 1,200 | 80% |
+| Pro | 1.6% of weekly earnings | INR 80 | INR 120 | INR 2,500 | 100% |
 
-### 9.2 Fraud Detection (Isolation Forest)
+### 9.2 Fraud Detection (Isolation Forest + Geo-Polygon Validation)
 
 **Features:** claim frequency (30d), cumulative payouts, payout ratio, cross-platform flag, GPS flag  
 **Contamination:** 10% assumed anomaly rate  
+**Geo-Polygon Validation:** Cities split into North/South sub-zones; T-06 curfew claims checked against worker GPS pings — mismatch adds +0.50 fraud penalty  
+**Threshold:** Anomaly score > 0.75 suspends auto-payout, flags for admin review  
 **Fallback:** Rule-based scoring if no trained model exists
 
-### 9.3 Parametric Triggers
+### 9.3 Fuzzy Logic Severity Engine
 
-| ID | Type | Threshold | Severity |
-|----|------|-----------|----------|
-| T-01 | Heavy Rainfall | rain_1h > 20mm OR rain_3h > 64.5mm | severe/extreme |
-| T-02 | Extreme Heat | temperature > 45°C | severe |
-| T-03 | Severe AQI | AQI index ≥ 400 | severe/extreme |
-| T-04 | Flood Risk | rain_3h > 100mm | extreme |
-| T-05 | Curfew | Government advisory (stub) | severe |
+All 6 triggers use continuous fuzzy membership functions instead of binary thresholds:
+
+| ID | Type | Entry (0% Payout) | Ceiling (100% Payout) | Data Source |
+|----|------|:------------------:|:---------------------:|-------------|
+| T-01 | Heavy Rainfall | 20.0 mm | 100.0 mm | OpenWeatherMap |
+| T-02 | Extreme Heat | 39.5 °C | 45.0 °C | OpenWeatherMap |
+| T-03 | Severe AQI | 300 AQI | 450 AQI | CPCB / OpenAQ |
+| T-04 | Flood Risk | 64.5 mm (3hr) | 150.0 mm | OpenWeatherMap |
+| T-05 | Traffic Congestion | 2.5x TTI | 3.5x TTI | TomTom Traffic API |
+| T-06 | Curfew / Unrest | 0.80 confidence | 0.95 confidence | GDELT 2.0 + HuggingFace NLP |
+
+### 9.4 Curfew/Unrest Detection (GDELT + NLP)
+
+**Two-stage pipeline (`ml/curfew.py`):**
+
+1. **GDELT Stage:** Fetches GDELT 2.0 15-minute CSV export, filters for Indian bounding box (Lat 8°–37°, Lon 68°–97°), isolates events within ~50km of target city, checks for CAMEO codes: `{14, 141, 142, 143, 144, 145, 18, 19}`
+2. **NLP Stage:** HuggingFace `cross-encoder/nli-deberta-v3-xsmall` zero-shot classifier scans RSS headlines against labels: `["curfew", "section 144", "riot", "strike"]`
+3. **Combined confidence** drives T-06 fuzzy trigger
 
 ---
 
 ## 10. Troubleshooting
 
 | Issue | Solution |
-|-------|---------|
+|-------|---------| 
 | `Missing SUPABASE_URL or SUPABASE_SERVICE_KEY` | Ensure `backend/.env` exists and has both variables set |
 | Backend port 8000 already in use | Kill: `lsof -ti:8000 \| xargs kill -9` |
 | Web app port 3000 already in use | Kill: `lsof -ti:3000 \| xargs kill -9` |
 | `ModuleNotFoundError` in Python | Activate venv: `source venv/bin/activate`, then `pip install -r requirements.txt` |
 | Weather API returns defaults | Check `OWM_API_KEY` in `backend/.env` — get a free key at openweathermap.org |
+| Traffic API returns defaults | Check `TOMTOM_API_KEY` in `backend/.env` — get a free key at developer.tomtom.com |
 | JWT token invalid across services | Ensure `JWT_SECRET` matches between `backend/.env` and `web/.env` |
 | Mobile app can't connect to API | Replace `localhost` with your LAN IP in `mobile/.env` |
 | No premium data in dashboard | Run `python seed.py` first, then trigger a retrain via admin or wait ~1 hour |
 | "Verify ID" shows not found | Ensure `seed.py` has been run (creates 200 workers in platform tables) |
 | Admin control center errors | Ensure `BACKEND_URL=http://localhost:8000` in `admin/.env` and backend is running |
+| Hydration mismatch error in admin | Restart the Next.js dev server (`Ctrl+C` then `npm run dev`) to clear Turbopack cache |
+| NLP model fails to load | Normal on low-memory machines — system falls back to GDELT-only with confidence=0.0 |
 
 ---
 
