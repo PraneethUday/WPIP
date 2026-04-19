@@ -1,7 +1,7 @@
-# GigGuard: Deep System & Codebase Analysis
+# WPIP: Deep System & Codebase Analysis
 
 ## 1. System Architecture & Foundation
-**GigGuard** is an AI-powered parametric micro-insurance platform designed around the gig economy's week-to-week workforce dynamics in India. The current system implements a full closed-loop architecture that simulates worker activity, computes machine-learning driven risk premiums, actively polls environmental trigger thresholds, and automatically processes claim logic and fraud checks.
+**WPIP** is an AI-powered parametric micro-insurance platform designed around the gig economy's week-to-week workforce dynamics in India. The current system implements a full closed-loop architecture that simulates worker activity, computes machine-learning driven risk premiums, actively polls environmental trigger thresholds, and automatically processes claim logic and fraud checks.
 
 ### Core Stack & Services:
 *   **Backend (Python 3.12 / FastAPI):** The central nervous system handling all background processes (15-min scheduler), synthetic data generation, machine learning inference (XGBoost/Isolation Forests), triggers, and the primary REST API.
@@ -61,7 +61,7 @@ Leverages Unsupervised Learning to catch strange anomaly blocks without needing 
 *   **Model Specification:** `sklearn.ensemble.IsolationForest` (`n_estimators=100`, `contamination=0.1`).
 *   **Features Used:** `claim_count_30d`, `total_payout_30d`, `payout_amount`, `payout_ratio`, `daily_wage`, `cross_platform_flag`, `gps_flag`.
 *   **Scoring Logic:**
-    *   IsolationForest maps its internal decision outputs tightly. GigGuard clips this: `np.clip(0.5 - raw_score, 0.0, 1.0)`. A normalized core `> 0.6` pushes an `"ML_anomaly_detected"` flag.
+    *   IsolationForest maps its internal decision outputs tightly. WPIP clips this: `np.clip(0.5 - raw_score, 0.0, 1.0)`. A normalized core `> 0.6` pushes an `"ML_anomaly_detected"` flag.
     *   **Rule-Based Fallback Engine:** If the ML container is un-trained (sub 20-claims) or fails, the code applies a strict linear penalizer metric:
         * `+ 0.35` for active activity on other SQL app tables (`cross_platform_activity`).
         * `+ 0.15` for missing or mismatched GPS parameters (`gps_not_verified`).
@@ -73,7 +73,7 @@ Leverages Unsupervised Learning to catch strange anomaly blocks without needing 
 
 ## 4. Parametric Triggers & Execution Pipeline
 
-GigGuard handles 0% manual claims. Instead, the backend background `scheduler.py` wakes every 15 minutes to call `triggers.py`.
+WPIP handles 0% manual claims. Instead, the backend background `scheduler.py` wakes every 15 minutes to call `triggers.py`.
 
 ### Trigger Formulations
 1.  **T-01 (Heavy Rainfall):** Fired if open weather mapping hits `rain_1h > 20mm` OR `rain_3h > 64.5mm`. Severity marked as `"extreme"` if `rain_3h > 100mm`.
@@ -99,4 +99,4 @@ If a city hits a trigger, the disruption loop loops through `PLATFORM_TABLES` fo
 *   **Multi-App GPS Corroboration:** The Mobile App uses standard Native geolocation packages which check Lat/Long endpoints against Haversine bounding boxes from city cores on the FastAPI instances.
 
 ## Conclusion 
-GigGuard operates as an incredibly robust micro-service cluster, not merely faking its AI implementation but driving genuine gradient-boosted regressions bounding user attributes mathematically. It protects operational risk systematically by strictly separating predictive models (Premium Prediction XGB) and preventative architectures (Isolation Forest Fraud Guard).
+WPIP operates as an incredibly robust micro-service cluster, not merely faking its AI implementation but driving genuine gradient-boosted regressions bounding user attributes mathematically. It protects operational risk systematically by strictly separating predictive models (Premium Prediction XGB) and preventative architectures (Isolation Forest Fraud Guard).
