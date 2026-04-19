@@ -1,8 +1,8 @@
-# GigGuard Presentation Document
+# WPIP Presentation Document
 
 ## 1. Project Overview
 
-GigGuard (WPIP: Worker Protection Insurance Platform) is an AI-enabled parametric insurance system for delivery workers in India.
+WPIP: Worker Protection Insurance Platform is an AI-enabled parametric insurance system for delivery workers in India.
 
 Core goal:
 
@@ -36,14 +36,14 @@ Gig workers are exposed to events they cannot control:
 
 When disruptions happen, workers lose paid delivery time immediately. Traditional insurance does not match their weekly earning cycle.
 
-GigGuard addresses this with:
+WPIP addresses this with:
 
 - Weekly premiums
 - Automated trigger-based claims
 - Fast payout workflow
 - Fraud-aware validations
 
-## 3. What Is Special About GigGuard
+## 3. What Is Special About WPIP
 
 Key differentiators:
 
@@ -287,7 +287,8 @@ Current trigger set:
 - T-02 extreme heat
 - T-03 severe AQI
 - T-04 flood risk
-- T-05 curfew placeholder
+- T-05 traffic
+- T-06 curfew placeholder
 
 Event handling method:
 
@@ -478,8 +479,8 @@ Mocked or partially simulated:
 
 ## 16. Elevator Pitch (Use in Presentation Opening)
 
-GigGuard is a parametric, AI-driven income protection platform for delivery workers. It combines synthetic platform simulation, real weather and AQI signals, ML-based premium intelligence, fraud-aware auto-claims, and multi-device operations across mobile, web, and admin control surfaces.
+WPIP is a parametric, AI-driven income protection platform for delivery workers. It combines synthetic platform simulation, real weather and AQI signals, ML-based premium intelligence, fraud-aware auto-claims, and multi-device operations across mobile, web, and admin control surfaces.
 
 ## 17. One-Line Conclusion
 
-GigGuard turns disruption events into automated financial protection for gig workers, with operational intelligence for insurers and a scalable architecture ready for real integrations.
+WPIP turns disruption events into automated financial protection for gig workers, with operational intelligence for insurers and a scalable architecture ready for real integrations.
