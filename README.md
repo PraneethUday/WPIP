@@ -64,6 +64,16 @@ For sensitive claims like undocumented civil unrest (T-06), the fraud model part
 ### 3. Claim Velocity & Payout Anomalies
 WPIP utilizes unsupervised anomaly detection (ML) to flag suspicious overarching patterns across worker histories. The system flags users attempting to file claims suspiciously fast against minor weather shifts, or clustering high-frequency claims across short multi-week windows. Any normalized anomaly score crossing `0.75` suspends the automated UPI disbursement, redirecting the claim to the Admin portal for an actuary review.
 
+### 4. Live Simulation Example: The Location & Velocity Anomaly
+To prove the resilience of the zero-trust system architecture, consider the following simulated test scenario:
+A user registers via the Web Dashboard asserting their residence is in **Delhi**. However, to verify their employment, they supply a Swiggy Delivery Worker ID from the supabase data which is mapped to **Pune**. Because the backend actively maps this specific ID to API delivery schedules fundamentally localized in **Pune**, the system legally binds their parametric coverage to Pune's weather footprint, not their typed dropdown choice. 
+
+If this user then rapidly utilizes the Scenario Simulator Sandbox to test high-intensity disruptions (like a severe heatwave in Pune), the system securely responds by generating auto-claims for Pune, but immediately identifies two extreme compounding vectors spanning crossing the `0.75` threshold safely halting the payout from transitioning to `SETTLED`, locking it securely as `PENDING`:
+1. **The Location Anomaly (+0.15 to +0.50 Penalty):** The fraud engine correlates the geographical mismatch (asserting residency in Delhi vs executing API work within Pune) and triggers a major GPS penalty block.
+2. **The Velocity Anomaly (+0.25 Penalty):** Initiating 3+ catastrophic claims within 24–48 hours statistically spikes the `high_claim_frequency` variable. The Isolation Forest actively detects this frequency output as mathematically absurd.
+
+This conclusively proves the fraud pipelines actively firewall internal capital even when synthetically abused through internal testing structures!
+
 ---
 
 ## Core Features & Modules
