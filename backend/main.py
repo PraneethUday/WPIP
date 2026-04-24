@@ -942,21 +942,42 @@ async def get_claims(limit: int = Query(100, ge=1, le=1000)):
 
 
 @app.get("/api/claims/worker/{worker_id}")
-def get_worker_claims(worker_id: str):
-    """Get all claims for a specific worker."""
+def get_worker_claims(worker_id: str, after: str | None = None):
+    """Get all claims for a specific worker, filtered to on/after their registration date."""
     try:
         registered_user_city_index = _get_registered_claim_user_index()
         worker_key = str(worker_id).strip().lower()
         if worker_key not in registered_user_city_index:
             return {"count": 0, "worker_id": worker_id, "data": []}
 
-        resp = (
+        # Always use the registration date from the DB as the lower bound.
+        # The caller may pass `after` as an override, but we look it up directly
+        # from registered_workers using delivery_id so the filter is authoritative.
+        if not after:
+            try:
+                reg_resp = (
+                    supabase.table("registered_workers")
+                    .select("created_at")
+                    .eq("delivery_id", worker_id)
+                    .eq("is_active", True)
+                    .limit(1)
+                    .execute()
+                )
+                if reg_resp.data:
+                    after = str(reg_resp.data[0].get("created_at", "") or "")
+            except Exception:
+                pass
+
+        query = (
             supabase.table("claims")
             .select("*")
             .eq("worker_id", worker_id)
-            .order("created_at", desc=True)
-            .execute()
         )
+        if after:
+            query = query.gte("created_at", after)
+        query = query.order("created_at", desc=True)
+        resp = query.execute()
+
         filtered = _filter_claim_rows_for_registered_city(
             resp.data or [], registered_user_city_index
         )

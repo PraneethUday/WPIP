@@ -644,11 +644,25 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.tier]);
 
+  // Re-fetch claims once created_at becomes available (first server refresh populates it).
+  // This ensures the backend date filter is applied even when localStorage lacked created_at.
+  useEffect(() => {
+    if (user?.delivery_id && user?.created_at) {
+      fetchClaims(user);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.created_at]);
+
   const fetchClaims = async (u: User) => {
     if (!u.delivery_id) return;
     setLoadingClaims(true);
     try {
-      const res = await fetch(`/api/backend/claims/worker/${u.delivery_id}`);
+      const token = localStorage.getItem("gg_token");
+      // Use the dedicated route that fetches the registration date from Supabase
+      // server-side — no dependency on client-side user.created_at being populated.
+      const res = await fetch(`/api/claims/worker/${u.delivery_id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       if (data?.data) setClaims(data.data);
     } catch {
@@ -950,10 +964,11 @@ export default function DashboardPage() {
     payments.length > 0 &&
     new Date(payments[0].timestamp).toDateString() === today;
 
-  const registrationDate = user?.created_at ? new Date(user.created_at) : null;
+  // Compare date strings only (YYYY-MM-DD) to avoid same-day time edge cases.
+  const registrationDateStr = user?.created_at ? user.created_at.slice(0, 10) : null;
   const claimsAfterRegistration = claims.filter((c) => {
-    if (!registrationDate || !c.created_at) return true;
-    return new Date(String(c.created_at)) >= registrationDate;
+    if (!registrationDateStr || !c.created_at) return true;
+    return String(c.created_at).slice(0, 10) >= registrationDateStr;
   });
   const claimsSettled = claimsAfterRegistration.filter((c) =>
     isSettledPayoutStatus(c.payout_status),
