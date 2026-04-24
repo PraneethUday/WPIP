@@ -1,68 +1,100 @@
-"""
-Isolation Forest-based fraud detection for GigGuard insurance claims.
-
-Uses unsupervised anomaly detection to flag suspicious claim patterns:
-  - Cross-platform activity during disruption
-  - Claim frequency (too many claims in a short window)
-  - Payout amount anomalies
-  - Timing patterns (claims filed suspiciously fast)
-  - T-06 Curfew geo-polygon mismatch (Phase 3)
-"""
-
-import logging
-import math
-import numpy as np
-import joblib
-from pathlib import Path
+import requests
+import os
 from datetime import date, timedelta
 
-logger = logging.getLogger(__name__)
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
 
-MODEL_DIR = Path(__file__).parent / "saved_models"
-FRAUD_MODEL_PATH = MODEL_DIR / "fraud_model.joblib"
+
+def get_fraud_score(claim_data: dict) -> dict:
+    """
+    Call GigGuard ML Service for fraud scoring.
+
+    claim_data keys (GPS removed — behavioral signals only):
+      - delivery_activity_detected (bool)
+      - duplicate_claim (bool)
+      - new_registration_fraud (bool)
+      - abnormal_claim_freq (bool)
+      - payout_amount (float)
+      - daily_wage (float)
+      - claim_count_30d (int)
+      - total_payout_30d (float)
+      - cross_platform_flag (float)
+      - curfew_zone_mismatch (float)
+    """
+    try:
+        response = requests.post(
+            f"{ML_SERVICE_URL}/predict/fraud-score",
+            json=claim_data,
+            timeout=5
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        return {
+            "fraud_risk_score":  result["fraud_risk_score"],
+            "disposition":       result["claim_disposition"],
+            "signals":           result["fraud_signals_found"],
+            "auto_action":       result["auto_action"],
+            "explanation":       result["explanation"],
+        }
+
+    except Exception as e:
+        print(f"ML service unavailable: {e}. Using rule-based fallback.")
+        return _rule_based_fallback(claim_data)
+
+
+def _rule_based_fallback(claim_data: dict) -> dict:
+    """Simple fallback if ML service is unreachable. GPS signals removed."""
+    score = 0.0
+    signals = []
+
+    if claim_data.get("delivery_activity_detected", False):
+        score += 0.50; signals.append("ACTIVE_DURING_CLAIM")
+    if claim_data.get("duplicate_claim", False):
+        score += 0.45; signals.append("DUPLICATE_CLAIM")
+    if claim_data.get("new_registration_fraud", False):
+        score += 0.25; signals.append("NEW_REGISTRATION_RISK")
+    if claim_data.get("abnormal_claim_freq", False):
+        score += 0.25; signals.append("ABNORMAL_CLAIM_FREQUENCY")
+    if claim_data.get("cross_platform_flag", 0) > 0:
+        score += 0.35; signals.append("CROSS_PLATFORM_ACTIVITY")
+    if claim_data.get("curfew_zone_mismatch", 0) > 0:
+        score += 0.50; signals.append("CURFEW_ZONE_MISMATCH")
+
+    payout_ratio = claim_data.get("payout_amount", 0) / max(claim_data.get("daily_wage", 1), 1)
+    if payout_ratio > 1.2:
+        score += 0.15; signals.append("HIGH_PAYOUT_RATIO")
+
+    claim_count = claim_data.get("claim_count_30d", 0)
+    if claim_count > 5:
+        score += 0.25; signals.append("HIGH_CLAIM_FREQUENCY")
+    elif claim_count > 3:
+        score += 0.10; signals.append("ELEVATED_CLAIM_FREQUENCY")
+
+    if claim_data.get("total_payout_30d", 0) > 3000:
+        score += 0.10; signals.append("HIGH_CUMULATIVE_PAYOUT")
+
+    score = round(min(0.99, score), 4)
+
+    if score >= 0.90:
+        disposition = "Auto_Rejected"
+    elif score >= 0.60:
+        disposition = "Flagged_Manual_Review"
+    else:
+        disposition = "Auto_Approved"
+
+    return {
+        "fraud_risk_score": score,
+        "disposition":      disposition,
+        "signals":          signals,
+        "auto_action":      disposition,
+        "explanation":      "Rule-based fallback (ML service offline)",
+    }
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Sub-city zone definitions for curfew geo-polygon validation
+# Compatibility shims — required by triggers.py
 # ---------------------------------------------------------------------------
-# Each city is split into North/South sub-zones using a dividing latitude.
-# When a T-06 curfew trigger fires, we check whether the worker's GPS pings
-# are INSIDE the affected sub-zone.  If all 3 recent pings are OUTSIDE,
-# we apply a massive +0.50 fraud penalty.
-
-CITY_SUB_ZONES: dict[str, dict] = {
-    "Chennai": {
-        "dividing_lat": 13.0600,
-        "north": {"lat_min": 13.0600, "lat_max": 13.2500, "lon_min": 80.1500, "lon_max": 80.3500},
-        "south": {"lat_min": 12.8500, "lat_max": 13.0600, "lon_min": 80.1500, "lon_max": 80.3500},
-    },
-    "Bangalore": {
-        "dividing_lat": 12.9700,
-        "north": {"lat_min": 12.9700, "lat_max": 13.1500, "lon_min": 77.4500, "lon_max": 77.7500},
-        "south": {"lat_min": 12.8000, "lat_max": 12.9700, "lon_min": 77.4500, "lon_max": 77.7500},
-    },
-    "Hyderabad": {
-        "dividing_lat": 17.4000,
-        "north": {"lat_min": 17.4000, "lat_max": 17.5500, "lon_min": 78.3500, "lon_max": 78.6000},
-        "south": {"lat_min": 17.2500, "lat_max": 17.4000, "lon_min": 78.3500, "lon_max": 78.6000},
-    },
-    "Mumbai": {
-        "dividing_lat": 19.0500,
-        "north": {"lat_min": 19.0500, "lat_max": 19.2800, "lon_min": 72.7800, "lon_max": 72.9800},
-        "south": {"lat_min": 18.8800, "lat_max": 19.0500, "lon_min": 72.7800, "lon_max": 72.9800},
-    },
-    "Delhi": {
-        "dividing_lat": 28.6200,
-        "north": {"lat_min": 28.6200, "lat_max": 28.8800, "lon_min": 77.0500, "lon_max": 77.3500},
-        "south": {"lat_min": 28.4000, "lat_max": 28.6200, "lon_min": 77.0500, "lon_max": 77.3500},
-    },
-    "Pune": {
-        "dividing_lat": 18.5200,
-        "north": {"lat_min": 18.5200, "lat_max": 18.6500, "lon_min": 73.7500, "lon_max": 73.9500},
-        "south": {"lat_min": 18.4000, "lat_max": 18.5200, "lon_min": 73.7500, "lon_max": 73.9500},
-    },
-}
-
 
 def build_fraud_features(
     worker_id: str,
@@ -73,14 +105,13 @@ def build_fraud_features(
     supabase_client=None,
     trigger_type: str = "",
 ) -> dict:
-    """Build a feature vector for fraud scoring a single claim.
-
-    Features are designed to capture anomalous behavior patterns
-    without needing labelled fraud data (unsupervised approach).
     """
-    # --- Claim frequency: how many claims has this worker had in the last 30 days? ---
-    claim_count_30d = 0
+    Build fraud feature dict for compute_fraud_score().
+    GPS removed — only behavioral features are passed to the ML service.
+    """
+    claim_count_30d  = 0
     total_payout_30d = 0.0
+
     if supabase_client:
         try:
             cutoff = (date.today() - timedelta(days=30)).isoformat()
@@ -91,7 +122,7 @@ def build_fraud_features(
                 .gte("created_at", cutoff)
                 .execute()
             )
-            claim_count_30d = len(resp.data)
+            claim_count_30d  = len(resp.data)
             total_payout_30d = sum(r.get("payout_amount", 0) for r in resp.data)
         except Exception:
             pass
@@ -144,52 +175,8 @@ def _check_curfew_zone_mismatch(
 
     If there are fewer than 3 pings or no zone data, returns 0.0 (benefit of doubt).
     """
-    zones = CITY_SUB_ZONES.get(city)
-    if not zones:
-        return 0.0
-
-    try:
-        resp = (
-            supabase_client.table("gps_checkins")
-            .select("latitude, longitude, checked_in_at")
-            .eq("worker_id", worker_id)
-            .order("checked_in_at", desc=True)
-            .limit(3)
-            .execute()
-        )
-        pings = resp.data
-    except Exception:
-        return 0.0
-
-    if len(pings) < 3:
-        return 0.0  # Not enough data — give benefit of doubt
-
-    # The curfew is assumed to affect the "north" sub-zone by default.
-    # (In production, the disruption_event would specify the exact zone.)
-    affected_zone = zones["north"]
-
-    pings_outside = 0
-    for ping in pings:
-        lat = ping.get("latitude", 0)
-        lon = ping.get("longitude", 0)
-        if not (affected_zone["lat_min"] <= lat <= affected_zone["lat_max"] and
-                affected_zone["lon_min"] <= lon <= affected_zone["lon_max"]):
-            pings_outside += 1
-
-    # ALL 3 pings outside the affected zone = mismatch
-    return 1.0 if pings_outside == 3 else 0.0
-
-
-def compute_fraud_score(
-    features: dict, trigger_type: str = ""
-) -> tuple[float, list[str]]:
-    """Compute a fraud score (0.0 to 1.0) and a list of flag reasons.
-
-    Uses the Isolation Forest model if available, otherwise falls back
-    to a rule-based heuristic scoring system.
-
-    Returns:
-        (fraud_score, fraud_flags)
+    Score a claim. Routes to ML service first, rule-based fallback second.
+    Returns (fraud_score: float, fraud_flags: list[str]).
     """
     flags: list[str] = []
     score = 0.0
