@@ -15,7 +15,6 @@ type Claim = {
   payout_status: string;
   fraud_score: number;
   fraud_flags: string[];
-  gps_verified: boolean;
   cross_platform_clear: boolean;
   status: string;
   created_at: string;
@@ -502,10 +501,6 @@ export default function ClaimsPage() {
                                 {[
                                   ["Daily Wage Est.", `₹${c.daily_wage_est}`],
                                   ["Disrupted Hours", `${c.disrupted_hours}h`],
-                                  [
-                                    "GPS Verified",
-                                    c.gps_verified ? "Yes ✓" : "No ✗",
-                                  ],
                                   [
                                     "Cross-platform",
                                     c.cross_platform_clear

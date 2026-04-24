@@ -70,7 +70,6 @@ def build_fraud_features(
     payout_amount: float,
     daily_wage: float,
     cross_platform_clear: bool,
-    gps_verified: bool,
     supabase_client=None,
     trigger_type: str = "",
 ) -> dict:
@@ -98,13 +97,16 @@ def build_fraud_features(
             pass
 
     # --- Payout ratio: how much of the daily wage is being claimed ---
-    payout_ratio = payout_amount / max(daily_wage, 1.0)
+    # Only compute if we have meaningful wage data — if daily_wage is 0
+    # (no earnings history yet), we skip this check entirely to avoid
+    # falsely penalising new workers.
+    if daily_wage >= 50.0:
+        payout_ratio = payout_amount / daily_wage
+    else:
+        payout_ratio = 0.0  # No wage history — benefit of the doubt
 
     # --- Cross-platform: was the worker active elsewhere? ---
     cross_platform_flag = 0.0 if cross_platform_clear else 1.0
-
-    # --- GPS: was location verified? ---
-    gps_flag = 0.0 if gps_verified else 1.0
 
     # --- Phase 3: T-06 curfew zone mismatch ---
     curfew_zone_mismatch = 0.0
@@ -120,14 +122,13 @@ def build_fraud_features(
         "payout_ratio": round(payout_ratio, 4),
         "daily_wage": round(daily_wage, 2),
         "cross_platform_flag": cross_platform_flag,
-        "gps_flag": gps_flag,
         "curfew_zone_mismatch": curfew_zone_mismatch,
     }
 
 
 FRAUD_FEATURE_COLS = [
     "claim_count_30d", "total_payout_30d", "payout_amount",
-    "payout_ratio", "daily_wage", "cross_platform_flag", "gps_flag",
+    "payout_ratio", "daily_wage", "cross_platform_flag",
     "curfew_zone_mismatch",
 ]
 
@@ -226,11 +227,6 @@ def _rule_based_score(
         score += 0.35
         flags.append("cross_platform_activity")
 
-    # GPS not verified
-    if features["gps_flag"] > 0:
-        score += 0.15
-        flags.append("gps_not_verified")
-
     # Too many claims in 30 days (>3 is suspicious)
     if features["claim_count_30d"] > 5:
         score += 0.25
@@ -248,13 +244,6 @@ def _rule_based_score(
     if features["total_payout_30d"] > 3000:
         score += 0.10
         flags.append("high_cumulative_payout")
-
-    # --- Phase 3: T-06 Curfew geo-polygon mismatch ---
-    # If the worker claims a curfew disruption but their last 3 GPS pings
-    # are outside the affected sub-zone, apply a massive penalty.
-    if trigger_type == "curfew" and features.get("curfew_zone_mismatch", 0) > 0:
-        score += 0.50
-        flags.append("curfew_zone_mismatch_all_pings_outside")
 
     return min(score, 1.0), flags
 
@@ -295,7 +284,6 @@ def train_fraud_model(supabase_client) -> dict:
             "payout_ratio": payout / max(wage, 1),
             "daily_wage": wage,
             "cross_platform_flag": 0.0 if cross_clear else 1.0,
-            "gps_flag": 0.0,  # Assume verified for historical context
             "curfew_zone_mismatch": 0.0,  # No historical data for this
         })
 
