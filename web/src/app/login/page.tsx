@@ -59,7 +59,9 @@ export default function LoginPage() {
       <header className={styles.topBar}>
         <div className={styles.brand}>
           <div className={styles.brandMark}>GG</div>
-          <span className={styles.brandName}>Worker Protection Insurance Platform</span>
+          <span className={styles.brandName}>
+            Worker Protection Insurance Platform
+          </span>
         </div>
         <div className={styles.secureLabel}>
           <svg
