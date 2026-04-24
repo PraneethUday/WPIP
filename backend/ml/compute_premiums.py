@@ -14,6 +14,7 @@ Usage:
 
 import sys
 import os
+import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,6 +30,57 @@ from ml.premium_model import (
     TIER_CONFIG,
 )
 
+ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
+
+
+def get_premium(worker_features: dict, tier: str = "standard") -> dict:
+    """
+    Call GigGuard ML Service for premium prediction.
+    Falls back to local XGBoost model (or formula) if the service is unreachable.
+
+    worker_features: flat dict of 25 numeric features (output of build_features_from_history).
+    tier: 'basic' | 'standard' | 'pro'
+    """
+    payload = {**worker_features, "tier": tier}
+    try:
+        response = requests.post(
+            f"{ML_SERVICE_URL}/predict/premium",
+            json=payload,
+            timeout=5,
+        )
+        response.raise_for_status()
+        result = response.json()
+        # Normalise to the same keys the rest of the code expects
+        return {
+            "weekly_premium":         result["weekly_premium"],
+            "weekly_premium_autopay": result.get("weekly_premium_autopay", round(result["weekly_premium"] * 0.95, 2)),
+            "raw_prediction":         result.get("raw_prediction", result["weekly_premium"]),
+            "tier":                   tier,
+            "max_payout":             result.get("max_payout", TIER_CONFIG[tier]["max_payout"]),
+            "weather_risk":           result.get("weather_risk", worker_features.get("weather_risk", 0)),
+            "city_risk":              result.get("city_risk",    worker_features.get("city_risk", 1.0)),
+            "weekly_earnings_est":    result.get("weekly_earnings_est", worker_features.get("weekly_earnings_est", 0)),
+        }
+    except Exception as e:
+        # Fallback: local XGBoost model (or formula if model not trained yet)
+        print(f"[premium] ML service unavailable: {e}. Using local fallback.")
+        model = load_model()
+        if model is not None:
+            return predict_premium(model, worker_features, tier)
+        # Last resort: formula-based
+        premium = compute_target_premium(worker_features, tier)
+        cfg = TIER_CONFIG[tier]
+        return {
+            "weekly_premium":         premium,
+            "weekly_premium_autopay": round(premium * 0.95, 2),
+            "raw_prediction":         premium,
+            "tier":                   tier,
+            "max_payout":             cfg["max_payout"],
+            "weather_risk":           worker_features.get("weather_risk", 0),
+            "city_risk":              worker_features.get("city_risk", 1.0),
+            "weekly_earnings_est":    worker_features.get("weekly_earnings_est", 0),
+        }
+
 
 def get_week_start(d: date | None = None) -> date:
     """Get Monday of the current week."""
@@ -39,16 +91,14 @@ def get_week_start(d: date | None = None) -> date:
 def compute_all_premiums():
     """Compute premiums for every registered worker."""
     print(f"[compute] Starting premium computation — {date.today()}")
+    print(f"[compute] ML service endpoint: {ML_SERVICE_URL}")
 
-    # 1. Load model
-    model = load_model()
+    # 1. Log local model status (used only as fallback now)
     meta = load_metadata()
-    use_model = model is not None
-
-    if use_model:
-        print(f"[compute] Using trained model (RMSE: ₹{meta['rmse']:.2f}, trained: {meta['trained_at']})")
+    if meta:
+        print(f"[compute] Local fallback model available (RMSE: ₹{meta['rmse']:.2f}, trained: {meta['trained_at']})")
     else:
-        print("[compute] No trained model found. Using formula-based premium calculation.")
+        print("[compute] No local fallback model. Formula-based calculation will be used if ML service is down.")
 
     # 2. Fetch weather
     print("[compute] Fetching weather data...")
@@ -87,23 +137,8 @@ def compute_all_premiums():
         # Build features
         features = build_features_from_history(history, weather)
 
-        # Predict premium
-        if use_model:
-            pred = predict_premium(model, features, tier)
-        else:
-            # Fallback: formula-based
-            premium = compute_target_premium(features, tier)
-            cfg = TIER_CONFIG[tier]
-            pred = {
-                "weekly_premium": premium,
-                "weekly_premium_autopay": round(premium * 0.95, 2),
-                "raw_prediction": premium,
-                "tier": tier,
-                "max_payout": cfg["max_payout"],
-                "weather_risk": features.get("weather_risk", 0),
-                "city_risk": features.get("city_risk", 1.0),
-                "weekly_earnings_est": features.get("weekly_earnings_est", 0),
-            }
+        # Predict premium — ML service first, local model as fallback
+        pred = get_premium(features, tier)
 
         # Apply autopay discount if worker has it enabled
         if w.get("autopay"):
@@ -129,7 +164,7 @@ def compute_all_premiums():
             "aqi_index": features.get("aqi_index", 100),
             "temperature": features.get("temperature", 30),
             "rain_1h": features.get("rain_1h", 0),
-            "model_rmse": model_rmse,
+            "model_rmse": meta["rmse"] if meta else None,
             "week_start": week_start.isoformat(),
         })
 
