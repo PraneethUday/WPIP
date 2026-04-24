@@ -935,6 +935,17 @@
   flex-shrink: 0;
 }
 
+/* Wrapper for SVG brand logos — doesn't constrain to a square */
+.platformChipLogo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  height: 20px;
+  line-height: 0;
+}
+
 .platformChipIcon {
   width: 24px;
   height: 24px;
@@ -946,6 +957,8 @@
   font-weight: 800;
   letter-spacing: 0.4px;
   border: 1px solid transparent;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .platformIconSwiggy {

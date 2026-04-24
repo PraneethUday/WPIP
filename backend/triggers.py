@@ -347,14 +347,39 @@ def _auto_create_claims(
 
     # Find all unique workers in this city across all platform tables
     workers = _get_workers_in_city(city, event_date)
+    registered_index = _get_registered_workers_index(city)
+
+    if not registered_index:
+        logger.info(
+            "[triggers] No registered workers in %s — claim creation skipped.",
+            city,
+        )
+        return 0
+
+    workers = [
+        w for w in workers
+        if str(w.get("worker_id", "")).strip().lower() in registered_index
+    ]
+
     logger.info(
-        "[triggers] Found %d workers in %s for auto-claim processing.",
+        "[triggers] Found %d registered workers in %s for auto-claim processing.",
         len(workers), city,
     )
 
     for worker in workers:
         worker_id = worker["worker_id"]
         platform = worker["platform"]
+        reg = registered_index.get(str(worker_id).lower(), {})
+        worker_tier = reg.get("tier", "standard")
+        registered_platforms = reg.get("platforms", set())
+
+        if registered_platforms:
+            claim_platform = (
+                platform if platform in registered_platforms
+                else sorted(registered_platforms)[0]
+            )
+        else:
+            claim_platform = platform
 
         try:
             # Cross-platform inactivity check
@@ -382,9 +407,15 @@ def _auto_create_claims(
             if rule["trigger_id"] == "T-06":
                 payout = round(min(daily_wage * 0.50, daily_wage * 0.50), 2)
             else:
-                payout = compute_payout(daily_wage, disrupted_hours, severity_score)
+                payout = compute_payout(
+                    daily_wage,
+                    disrupted_hours,
+                    severity_score,
+                    tier=worker_tier,
+                )
 
-            # ML Fraud scoring
+            # ML Fraud scoring — only count claims since registration to avoid
+            # penalising workers who re-registered with an existing delivery_id.
             fraud_features = build_fraud_features(
                 worker_id=worker_id,
                 city=city,
@@ -393,6 +424,7 @@ def _auto_create_claims(
                 cross_platform_clear=cross_clear,
                 supabase_client=supabase,
                 trigger_type=rule["trigger_type"],
+                registration_date=reg.get("registered_at"),
             )
             fraud_score, fraud_flags = compute_fraud_score(
                 fraud_features, trigger_type=rule["trigger_type"]
@@ -407,7 +439,7 @@ def _auto_create_claims(
             claim_payload = {
                 "claim_number": claim_number,
                 "worker_id": worker_id,
-                "platform": platform,
+                "platform": claim_platform,
                 "city": city,
                 "disruption_event_id": event_id,
                 "trigger_id": rule["trigger_id"],
@@ -446,6 +478,53 @@ def _auto_create_claims(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _get_registered_workers_index(city: str) -> dict[str, dict]:
+    """Return a map of registered workers in a city keyed by delivery_id (lowercase).
+
+    Only active registrations are considered. Rejected registrations are excluded.
+    """
+    registered: dict[str, dict] = {}
+
+    try:
+        resp = (
+            supabase.table("registered_workers")
+            .select("delivery_id, tier, platforms, verification_status, created_at")
+            .eq("city", city)
+            .eq("is_active", True)
+            .neq("verification_status", "rejected")
+            .execute()
+        )
+    except Exception as exc:
+        logger.error("[triggers] Failed to fetch registered workers for %s: %s", city, exc)
+        return registered
+
+    for row in resp.data or []:
+        delivery_id = str(row.get("delivery_id", "")).strip()
+        if not delivery_id:
+            continue
+
+        tier = str(row.get("tier") or "standard").strip().lower()
+        if tier not in {"basic", "standard", "pro"}:
+            tier = "standard"
+
+        platforms_raw = row.get("platforms") or []
+        if not isinstance(platforms_raw, list):
+            platforms_raw = []
+
+        platforms = {
+            str(p).strip().lower()
+            for p in platforms_raw
+            if str(p).strip()
+        }
+
+        registered[delivery_id.lower()] = {
+            "tier": tier,
+            "platforms": platforms,
+            "registered_at": row.get("created_at"),
+        }
+
+    return registered
 
 def _get_workers_in_city(city: str, event_date: str) -> list[dict]:
     """Get all unique workers in a given city.

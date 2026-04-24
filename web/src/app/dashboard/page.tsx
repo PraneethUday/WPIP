@@ -39,6 +39,7 @@ type User = {
   delivery_id?: string;
   autopay?: boolean;
   phone?: string;
+  created_at?: string;
 };
 
 type Premium = {
@@ -949,15 +950,20 @@ export default function DashboardPage() {
     payments.length > 0 &&
     new Date(payments[0].timestamp).toDateString() === today;
 
-  const claimsSettled = claims.filter((c) =>
+  const registrationDate = user?.created_at ? new Date(user.created_at) : null;
+  const claimsAfterRegistration = claims.filter((c) => {
+    if (!registrationDate || !c.created_at) return true;
+    return new Date(String(c.created_at)) >= registrationDate;
+  });
+  const claimsSettled = claimsAfterRegistration.filter((c) =>
     isSettledPayoutStatus(c.payout_status),
   );
-  const claimsUnderReview = claims.filter(
+  const claimsUnderReview = claimsAfterRegistration.filter(
     (c) =>
       !isSettledPayoutStatus(c.payout_status) &&
       payoutStatusValue(c.payout_status) !== "rejected",
   );
-  const claimsRejected = claims.filter(
+  const claimsRejected = claimsAfterRegistration.filter(
     (c) => payoutStatusValue(c.payout_status) === "rejected",
   );
   const claimsTotalReceived = claimsSettled.reduce(
@@ -966,7 +972,7 @@ export default function DashboardPage() {
   );
   const claimsFiltered =
     claimsFilter === "all"
-      ? claims
+      ? claimsAfterRegistration
       : claimsFilter === "paid"
         ? claimsSettled
         : claimsFilter === "review"
@@ -975,6 +981,20 @@ export default function DashboardPage() {
 
   // ── Notifications ──────────────────────────────────────────────────────────
   const allNotifs: Notif[] = [];
+
+  // Welcome notification — only for accounts registered in the last 7 days
+  if (user.created_at) {
+    const daysSinceReg = (Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceReg <= 7) {
+      allNotifs.push({
+        id: `welcome_${user.id}`,
+        type: "alert",
+        title: "Welcome to WPIP!",
+        message: `Your coverage is now active. Claims are filed automatically whenever a disruption is detected in ${user.city}.`,
+        time: user.created_at,
+      });
+    }
+  }
 
   // Premium due
   if (!paidToday && currentWeeklyPremium) {
@@ -998,8 +1018,8 @@ export default function DashboardPage() {
     });
   }
 
-  // From claims (most recent first, max 8)
-  claims.slice(0, 8).forEach((c) => {
+  // From claims (only post-registration, most recent first, max 8)
+  claimsAfterRegistration.slice(0, 8).forEach((c) => {
     const id = `claim_${String(c.id)}`;
     const triggerName = String(c.trigger_type ?? "disruption").replace(
       /_/g,
@@ -1658,11 +1678,17 @@ export default function DashboardPage() {
                         const logo = PLATFORM_LOGOS[p];
                         return (
                           <span key={p} className={styles.platformChip}>
-                            <span
-                              className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
-                            >
-                              {logo ?? meta.symbol}
-                            </span>
+                            {logo ? (
+                              <span className={styles.platformChipLogo}>
+                                {logo}
+                              </span>
+                            ) : (
+                              <span
+                                className={`${styles.platformChipIcon} ${styles[meta.iconClass]}`}
+                              >
+                                {meta.symbol}
+                              </span>
+                            )}
                             {meta.name}
                           </span>
                         );
@@ -1787,7 +1813,7 @@ export default function DashboardPage() {
                         </div>
                         <div className={styles.claimsHeroBadge}>
                           <div className={styles.claimsHeroBadgeNum}>
-                            {claims.length}
+                            {claimsAfterRegistration.length}
                           </div>
                           <div className={styles.claimsHeroBadgeLabel}>
                             {t("claims_badge")}
@@ -1858,7 +1884,7 @@ export default function DashboardPage() {
                     <div className={styles.claimsFilterTabs}>
                       {(
                         [
-                          { key: "all", tKey: "all", count: claims.length },
+                          { key: "all", tKey: "all", count: claimsAfterRegistration.length },
                           {
                             key: "paid",
                             tKey: "settled",
@@ -2058,7 +2084,7 @@ export default function DashboardPage() {
                           {/* ── Transaction ID (only when paid) ── */}
                           {settled &&
                             payoutStatusValue(c.payout_status) === "paid" &&
-                            c.transaction_id && (
+                            !!c.transaction_id && (
                               <div className={styles.claimTxnRow}>
                                 <span className={styles.claimTxnLabel}>
                                   Transaction ID
