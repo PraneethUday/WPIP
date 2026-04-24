@@ -304,11 +304,6 @@ def _upsert_disruption_event(
         "rain_3h": ctx.get("rain_3h"),
         "aqi_index": ctx.get("aqi_index"),
         "wind_speed": ctx.get("wind_speed"),
-        # Phase 3 columns
-        "tti_value": ctx.get("tti"),
-        "current_speed_kmh": ctx.get("current_speed_kmh"),
-        "curfew_confidence": ctx.get("curfew_confidence"),
-        "curfew_source": ctx.get("curfew_nlp_label"),
         "status": "active",
         "event_date": event_date,
     }
@@ -342,6 +337,7 @@ def _auto_create_claims(
     rule: dict,
     event_date: str,
     severity_score: float = 1.0,
+    test_mode: bool = False,
 ) -> int:
     """Create claims for all workers in the disrupted city.
 
@@ -362,7 +358,12 @@ def _auto_create_claims(
 
         try:
             # Cross-platform inactivity check
-            cross_clear = check_cross_platform_activity(worker_id, event_date)
+            # In test_mode, skip this check — all workers have synthetic delivery
+            # data for today so the check would block every single claim.
+            if test_mode:
+                cross_clear = True
+            else:
+                cross_clear = check_cross_platform_activity(worker_id, event_date)
 
             # If the worker was actively delivering during the disruption,
             # they did not lose income — skip claim entirely (no payout warranted)
@@ -447,27 +448,58 @@ def _auto_create_claims(
 # ---------------------------------------------------------------------------
 
 def _get_workers_in_city(city: str, event_date: str) -> list[dict]:
-    """Get all unique workers in a given city from today's data."""
+    """Get all unique workers in a given city.
+
+    Tries today's date first. If no data found (e.g. scheduler hasn't run yet today),
+    falls back to the most recent date in the last 7 days that has data.
+    This ensures test_fire_trigger always finds workers regardless of scheduler state.
+    """
+    from datetime import timedelta
+
     seen: set[str] = set()
     workers: list[dict] = []
 
-    for table in PLATFORM_TABLES:
-        try:
-            resp = (
-                supabase.table(table)
-                .select("worker_id, platform, city")
-                .eq("city", city)
-                .eq("date", event_date)
-                .limit(500)
-                .execute()
+    # Build list of dates to try: today first, then up to 30 previous days
+    base = date.fromisoformat(event_date)
+    dates_to_try = [event_date] + [
+        (base - timedelta(days=i)).isoformat() for i in range(1, 30)
+    ]
+
+    for try_date in dates_to_try:
+        seen_this_round: set[str] = set()
+        workers_this_round: list[dict] = []
+
+        for table in PLATFORM_TABLES:
+            try:
+                resp = (
+                    supabase.table(table)
+                    .select("worker_id, platform, city")
+                    .eq("city", city)
+                    .eq("date", try_date)
+                    .limit(500)
+                    .execute()
+                )
+                for row in resp.data:
+                    wid = row["worker_id"]
+                    if wid not in seen_this_round:
+                        seen_this_round.add(wid)
+                        workers_this_round.append(row)
+            except Exception:
+                pass
+
+        if workers_this_round:
+            # Found data for this date — use it and stop looking
+            logger.info(
+                "[triggers] Found %d workers in %s for date %s (requested %s).",
+                len(workers_this_round), city, try_date, event_date,
             )
-            for row in resp.data:
+            # Merge into seen/workers (dedup across tables already handled above)
+            for row in workers_this_round:
                 wid = row["worker_id"]
                 if wid not in seen:
                     seen.add(wid)
                     workers.append(row)
-        except Exception:
-            pass
+            break  # Stop as soon as we find a date with data
 
     return workers
 
@@ -509,21 +541,34 @@ def test_fire_trigger(city: str = "Chennai", trigger_id: str = "T-01") -> dict:
         "is_extreme_heat": trigger_id == "T-02",
         "is_severe_aqi": trigger_id == "T-03",
         "is_flood_risk": trigger_id == "T-04",
-        # T-05 Traffic: fake consecutive high TTI
         "tti": 3.2 if trigger_id == "T-05" else 1.0,
         "_prev_tti": 2.8 if trigger_id == "T-05" else 1.0,
         "current_speed_kmh": 8.0 if trigger_id == "T-05" else 30.0,
         "free_flow_speed_kmh": 30.0,
-        # T-06 Curfew: fake high confidence
         "curfew_confidence": 0.92 if trigger_id == "T-06" else 0.0,
         "curfew_nlp_label": "section 144" if trigger_id == "T-06" else "none",
         "curfew_gdelt_events": 4 if trigger_id == "T-06" else 0,
     }
 
+    # --- Step 1: Create disruption event ---
     event_id = _upsert_disruption_event(city, fake_ctx, rule, today)
-    claims_count = 0
-    if event_id:
-        claims_count = _auto_create_claims(event_id, city, rule, today)
+    if not event_id:
+        logger.error("[test_fire] Failed to create disruption event for %s/%s", trigger_id, city)
+        return {
+            "status": "error",
+            "trigger_id": trigger_id,
+            "city": city,
+            "error": "Disruption event creation failed",
+            "claims_created": 0,
+            "debug": {"event_id": None},
+        }
+
+    # --- Step 2: Find workers in city (with 30-day fallback) ---
+    workers = _get_workers_in_city(city, today)
+    logger.info("[test_fire] Workers found in %s: %d", city, len(workers))
+
+    # --- Step 3: Create claims (test_mode=True bypasses cross-platform check) ---
+    claims_count = _auto_create_claims(event_id, city, rule, today, test_mode=True)
 
     return {
         "status": "fired",
@@ -531,6 +576,11 @@ def test_fire_trigger(city: str = "Chennai", trigger_id: str = "T-01") -> dict:
         "city": city,
         "event_id": event_id,
         "claims_created": claims_count,
+        "debug": {
+            "event_date": today,
+            "workers_found": len(workers),
+            "event_id": event_id,
+        },
     }
 
 

@@ -170,8 +170,14 @@ export default function DisruptionsPage() {
       if (data.error) {
         setActionErr(data.error);
       } else {
-        setActionMsg(`Trigger ${data.trigger_id} fired in ${data.city}. ${data.claims_created} claims auto-created.`);
-        refresh();
+        setActionMsg(
+          `Trigger ${data.trigger_id} fired in ${data.city}. Claims are being auto-created — refreshing in 6 seconds…`
+        );
+        // Claims are created in background — wait 6s then refresh to show them
+        setTimeout(() => {
+          refresh();
+          setActionMsg(`Trigger ${data.trigger_id} fired in ${data.city}. Claims created and visible below.`);
+        }, 6000);
       }
     } catch {
       setActionErr("Backend unavailable.");

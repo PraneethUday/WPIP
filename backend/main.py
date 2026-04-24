@@ -19,7 +19,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, Query, HTTPException, Header
+from fastapi import FastAPI, Query, HTTPException, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -955,10 +955,22 @@ class TestFireRequest(BaseModel):
 
 
 @app.post("/api/triggers/test-fire")
-def test_fire(req: TestFireRequest):
-    """Manually fire a trigger for testing (creates mock disruption + claims)."""
-    result = test_fire_trigger(city=req.city, trigger_id=req.trigger_id)
-    return result
+async def test_fire(req: TestFireRequest, background_tasks: BackgroundTasks):
+    """Manually fire a trigger for testing (creates mock disruption + claims).
+
+    Returns immediately. Claim creation runs in the background so the
+    UI button doesn\'t freeze during the 10-20s of Supabase queries.
+    """
+    background_tasks.add_task(
+        test_fire_trigger, city=req.city, trigger_id=req.trigger_id
+    )
+    return {
+        "status": "fired",
+        "trigger_id": req.trigger_id,
+        "city": req.city,
+        "claims_created": 0,
+        "processing": True,
+    }
 
 
 # ---------------------------------------------------------------------------
