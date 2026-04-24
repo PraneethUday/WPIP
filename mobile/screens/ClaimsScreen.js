@@ -436,7 +436,7 @@ export default function ClaimsScreen({ navigation }) {
 
                     {/* facts row */}
                     <View style={styles.factsRow}>
-                      <View style={styles.fact}>
+                      <View style={[styles.fact, styles.factCompact]}>
                         <Text style={styles.factLabel}>
                           {t("fact_disrupted")}
                         </Text>
@@ -445,11 +445,15 @@ export default function ClaimsScreen({ navigation }) {
                         </Text>
                       </View>
                       <View style={styles.factSep} />
-                      <View style={[styles.fact, { flex: 1.6 }]}>
+                      <View style={[styles.fact, styles.factClaimId]}>
                         <Text style={styles.factLabel}>
                           {t("fact_claim_id")}
                         </Text>
-                        <Text style={styles.factVal} numberOfLines={1}>
+                        <Text
+                          style={[styles.factVal, styles.factClaimIdVal]}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
                           {claim.claim_number
                             ? `#${claim.claim_number}`
                             : claim.id
@@ -458,7 +462,7 @@ export default function ClaimsScreen({ navigation }) {
                         </Text>
                       </View>
                       <View style={styles.factSep} />
-                      <View style={styles.fact}>
+                      <View style={[styles.fact, styles.factCompact]}>
                         <Text style={styles.factLabel}>{t("fact_plan")}</Text>
                         <Text style={styles.factVal}>
                           {titleCase(claim.tier || user?.tier)}
@@ -720,10 +724,10 @@ const createStyles = (COLORS, FONTS) =>
       marginHorizontal: SIZES.padding,
       marginBottom: SIZES.padding * 0.8,
       backgroundColor: COLORS.surfaceContainer,
-      borderRadius: SIZES.radius,
+      borderRadius: SIZES.radius * 1.25,
       borderWidth: 1,
       borderColor: COLORS.border,
-      padding: 4,
+      padding: 6,
     },
     filterTab: {
       flex: 1,
@@ -734,7 +738,11 @@ const createStyles = (COLORS, FONTS) =>
       paddingVertical: 9,
       borderRadius: SIZES.radius - 2,
     },
-    filterTabActive: { backgroundColor: COLORS.surfaceHighest },
+    filterTabActive: {
+      backgroundColor: COLORS.surfaceHighest,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
     filterTabText: {
       fontSize: 11,
       fontFamily: FONTS.semiBold,
@@ -796,13 +804,13 @@ const createStyles = (COLORS, FONTS) =>
     card: {
       flexDirection: "row",
       backgroundColor: COLORS.surfaceContainer,
-      borderRadius: SIZES.radius * 1.2,
+      borderRadius: SIZES.radius * 1.5,
       borderWidth: 1,
       borderColor: COLORS.border,
       overflow: "hidden",
       ...SHADOWS.card,
     },
-    cardAccent: { width: 3 },
+    cardAccent: { width: 4 },
     cardBody: { flex: 1 },
 
     // card head
@@ -810,9 +818,9 @@ const createStyles = (COLORS, FONTS) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 11,
-      paddingTop: 13,
-      paddingBottom: 12,
-      paddingLeft: 11,
+      paddingTop: 14,
+      paddingBottom: 13,
+      paddingLeft: 12,
       paddingRight: 13,
     },
     cardIconBg: {
@@ -823,12 +831,13 @@ const createStyles = (COLORS, FONTS) =>
       alignItems: "center",
       flexShrink: 0,
     },
-    cardHeadMid: { flex: 1 },
+    cardHeadMid: { flex: 1, paddingRight: 6 },
     cardType: {
       fontSize: SIZES.body,
       fontFamily: FONTS.bold,
       color: COLORS.white,
       marginBottom: 3,
+      letterSpacing: -0.2,
     },
     cardMeta: {
       fontSize: 12,
@@ -860,13 +869,16 @@ const createStyles = (COLORS, FONTS) =>
     // facts row
     factsRow: {
       flexDirection: "row",
+      alignItems: "stretch",
       borderTopWidth: 1,
       borderTopColor: COLORS.border,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
+      paddingVertical: 11,
+      paddingHorizontal: 10,
       backgroundColor: COLORS.surface,
     },
-    fact: { flex: 1, alignItems: "center" },
+    fact: { flex: 1, alignItems: "center", justifyContent: "center" },
+    factCompact: { flex: 0.85 },
+    factClaimId: { flex: 2.3, alignItems: "flex-start", paddingHorizontal: 8 },
     factLabel: {
       fontSize: 9,
       fontFamily: FONTS.bold,
@@ -880,7 +892,18 @@ const createStyles = (COLORS, FONTS) =>
       fontFamily: FONTS.semiBold,
       color: COLORS.white,
     },
-    factSep: { width: 1, backgroundColor: COLORS.border },
+    factClaimIdVal: {
+      fontSize: 12,
+      lineHeight: 16,
+      letterSpacing: 0.2,
+      fontFamily: FONTS.bold,
+    },
+    factSep: {
+      width: 1,
+      alignSelf: "stretch",
+      marginVertical: 2,
+      backgroundColor: COLORS.border,
+    },
 
     // footer strip
     cardFooter: {
@@ -888,13 +911,13 @@ const createStyles = (COLORS, FONTS) =>
       alignItems: "center",
       gap: 7,
       paddingHorizontal: 13,
-      paddingVertical: 8,
+      paddingVertical: 9,
       borderTopWidth: 1,
       borderTopColor: COLORS.border,
     },
     cardFooterText: {
       flex: 1,
-      fontSize: 11,
+      fontSize: 11.5,
       fontFamily: FONTS.semiBold,
       lineHeight: 15,
     },
