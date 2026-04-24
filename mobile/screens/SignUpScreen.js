@@ -58,7 +58,7 @@ const SignUpScreen = ({ navigation }) => {
     password: "", confirmPassword: "",
     city: "", area: "", deliveryId: "",
     pan: "", aadhaar: "", upi: "", bank: "",
-    consent: false, gpsConsent: false, autopay: false,
+    consent: false, autopay: false,
     tier: "standard",
   });
 
@@ -90,8 +90,8 @@ const SignUpScreen = ({ navigation }) => {
         return false;
       }
     }
-    if (step === 3 && (!form.consent || !form.gpsConsent)) {
-      setError("Please accept required consent toggles to continue.");
+    if (step === 3 && !form.consent) {
+      setError("Please accept the required consent to continue.");
       return false;
     }
     return true;
@@ -145,7 +145,6 @@ const SignUpScreen = ({ navigation }) => {
         upi: form.upi.trim(),
         bank: form.bank.trim(),
         consent: form.consent,
-        gpsConsent: form.gpsConsent,
         autopay: form.autopay,
         tier: form.tier,
       });
@@ -362,7 +361,6 @@ const SignUpScreen = ({ navigation }) => {
                 <Text style={styles.consentTitle}>Consent & Authorisations</Text>
                 {[
                   { key: "consent", label: "I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims." },
-                  { key: "gpsConsent", label: "I authorise GPS location validation during disruption events for fraud prevention." },
                   { key: "autopay", label: "Enable AutoPay — auto-deduct weekly premium from platform payout.", tag: "5% discount" },
                 ].map((item) => (
                   <View key={item.key} style={styles.consentRow}>

@@ -193,7 +193,7 @@ class RegisterRequest(BaseModel):
     upi: str | None = None
     bank: str | None = None
     consent: bool = False
-    gpsConsent: bool = False
+
     autopay: bool = False
     tier: str = "standard"
 
@@ -339,7 +339,6 @@ def auth_register(req: RegisterRequest):
         "upi": req.upi,
         "bank": req.bank,
         "consent": bool(req.consent),
-        "gps_consent": bool(req.gpsConsent),
         "autopay": bool(req.autopay),
         "tier": req.tier or "standard",
         "verification_status": "pending",
@@ -963,7 +962,7 @@ def test_fire(req: TestFireRequest):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Payouts, GPS, & Exposure
+# Phase 3: Payouts & Exposure
 # ---------------------------------------------------------------------------
 
 class PayoutRequest(BaseModel):
@@ -1010,15 +1009,6 @@ def execute_payouts(req: PayoutRequest):
         return {"status": "error", "error": str(e)}
 
 
-class GPSCheckinRequest(BaseModel):
-    worker_id: str
-    latitude: float
-    longitude: float
-
-@app.post("/api/gps/checkin")
-def gps_checkin(req: GPSCheckinRequest):
-    """Mobile app calls this periodically to update worker location."""
-    return store_gps_checkin(req.worker_id, req.latitude, req.longitude)
 
 
 @app.get("/api/admin/exposure")
