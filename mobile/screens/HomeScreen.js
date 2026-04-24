@@ -420,11 +420,6 @@ const HomeScreen = ({ navigation }) => {
         {(user?.platforms || []).length > 0 && (
           <View style={styles.pillRow}>
             <View style={styles.platformPill}>
-              <Ionicons
-                name="briefcase-outline"
-                size={11}
-                color={COLORS.primary}
-              />
               <Text style={styles.platformPillText}>
                 {user.platforms.map((p) => PLATFORM_NAMES[p] || p).join(" · ")}
               </Text>

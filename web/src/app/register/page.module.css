@@ -19,19 +19,19 @@
 .logoMark {
   width: 44px;
   height: 44px;
-  background: #0D2B22;
+  background: var(--primary-container);
   border-radius: 11px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   font-weight: 800;
-  color: #5CD4BE;
+  color: var(--primary);
   margin-bottom: 14px;
   letter-spacing: 0.3px;
 }
 .title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: "Cormorant Garamond", Georgia, serif;
   font-size: 26px;
   font-weight: 600;
   color: var(--white);
@@ -72,8 +72,8 @@
   transition: all 0.2s;
 }
 .stepCircleActive {
-  background: #0D2B22;
-  color: #5CD4BE;
+  background: var(--primary-container);
+  color: var(--primary);
 }
 .stepCircleDone {
   background: var(--primary);
@@ -117,7 +117,7 @@
   background: var(--surface);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 1px 4px rgba(0, 20, 10, 0.1);
+  box-shadow: 0 18px 40px -28px rgba(5, 9, 16, 0.9);
   border: 1px solid var(--border);
 }
 .stepTitle {
@@ -224,11 +224,13 @@
   color: var(--white);
   box-sizing: border-box;
   font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.18);
 }
 .select {
   width: 100%;
@@ -242,12 +244,14 @@
   color: var(--white);
   box-sizing: border-box;
   font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
   cursor: pointer;
 }
 .select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(13, 158, 136, 0.12);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.18);
 }
 .verifyRow {
   display: flex;
@@ -259,9 +263,9 @@
 .verifyBtn {
   height: 44px;
   padding: 0 18px;
-  background: #0D2B22;
-  color: #5CD4BE;
-  border: 1px solid rgba(92, 212, 190, 0.3);
+  background: var(--primary-container);
+  color: var(--primary);
+  border: 1px solid var(--border-active);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 700;
@@ -271,7 +275,7 @@
   transition: background 0.15s;
 }
 .verifyBtn:hover:not(:disabled) {
-  background: #163D2E;
+  background: var(--input);
 }
 .verifyBtn:disabled {
   opacity: 0.45;
@@ -332,15 +336,51 @@
 }
 
 /* ── Platform symbol colors ──────────────────────────────── */
-.symZomato  { background: #3b1d25; color: #fb7185; border-color: #be123c; }
-.symSwiggy  { background: #2b2a57; color: #8b84ff; border-color: #4c46b6; }
-.symAmazon  { background: #302512; color: #f59e0b; border-color: #d97706; }
-.symBlinkit { background: #2f2a12; color: #facc15; border-color: #ca8a04; }
-.symZepto   { background: #201a3d; color: #a78bfa; border-color: #7c3aed; }
-.symMeesho  { background: #2f1437; color: #e879f9; border-color: #c026d3; }
-.symPorter  { background: #162f2b; color: #34d399; border-color: #0f766e; }
-.symDunzo   { background: #15293d; color: #60a5fa; border-color: #2563eb; }
-.symDefault { background: var(--elevated); color: var(--muted); border-color: var(--border); }
+.symZomato {
+  background: #3b1d25;
+  color: #fb7185;
+  border-color: #be123c;
+}
+.symSwiggy {
+  background: #2b2a57;
+  color: #8b84ff;
+  border-color: #4c46b6;
+}
+.symAmazon {
+  background: #302512;
+  color: #f59e0b;
+  border-color: #d97706;
+}
+.symBlinkit {
+  background: #2f2a12;
+  color: #facc15;
+  border-color: #ca8a04;
+}
+.symZepto {
+  background: #201a3d;
+  color: #a78bfa;
+  border-color: #7c3aed;
+}
+.symMeesho {
+  background: #2f1437;
+  color: #e879f9;
+  border-color: #c026d3;
+}
+.symPorter {
+  background: #162f2b;
+  color: #34d399;
+  border-color: #0f766e;
+}
+.symDunzo {
+  background: #15293d;
+  color: #60a5fa;
+  border-color: #2563eb;
+}
+.symDefault {
+  background: var(--elevated);
+  color: var(--muted);
+  border-color: var(--border);
+}
 
 .platformCardSelected .platformSymbol {
   border-color: var(--primary);
@@ -437,7 +477,7 @@
   align-items: flex-start;
   gap: 7px;
   background: var(--primary-container);
-  border: 1px solid rgba(13, 158, 136, 0.3);
+  border: 1px solid rgba(79, 140, 255, 0.35);
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 12px;
@@ -492,18 +532,20 @@
 .btnPrimary {
   flex: 2;
   height: 44px;
-  background: #0D2B22;
-  color: #5CD4BE;
+  background: var(--primary);
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 .btnPrimary:hover:not(:disabled) {
-  background: #163D2E;
+  background: var(--primary-dim);
 }
 .btnPrimary:disabled {
   opacity: 0.5;

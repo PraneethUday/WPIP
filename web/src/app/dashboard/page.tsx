@@ -1904,77 +1904,255 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className={styles.claimsList}>
-                    {claimsFiltered.map((c) => (
-                      <div
-                        key={String(c.id)}
-                        className={`${styles.panel} ${styles.claimPanel}`}
-                      >
-                        <div className={styles.planTopRow}>
-                          <h4 className={styles.claimHeading}>
-                            {String(c.claim_number ?? "–")}
-                          </h4>
-                          <span
-                            className={
-                              isSettledPayoutStatus(c.payout_status)
-                                ? styles.badgeGreen
-                                : payoutStatusValue(c.payout_status) ===
-                                    "rejected"
-                                  ? styles.badgeRed
-                                  : styles.badgeAmber
-                            }
-                          >
-                            {isSettledPayoutStatus(c.payout_status)
-                              ? "SETTLED"
-                              : String(c.payout_status ?? "").toUpperCase()}
-                          </span>
-                        </div>
-                        <div className={styles.claimBody}>
-                          <ProfileRow
-                            label="Disruption Event"
-                            value={String(c.trigger_type ?? "").replace(
-                              /_/g,
-                              " ",
+                    {claimsFiltered.map((c) => {
+                      const triggerType = String(c.trigger_type ?? "");
+                      const triggerLabel = triggerType
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (ch) => ch.toUpperCase());
+                      const settled = isSettledPayoutStatus(c.payout_status);
+                      const rejected =
+                        payoutStatusValue(c.payout_status) === "rejected";
+                      const statusKey = settled
+                        ? "settled"
+                        : rejected
+                          ? "rejected"
+                          : "review";
+                      const disrupted = c.disrupted_hours
+                        ? `${c.disrupted_hours} hrs`
+                        : "—";
+                      const planLabel = user?.tier
+                        ? String(user.tier).charAt(0).toUpperCase() +
+                          String(user.tier).slice(1)
+                        : "—";
+                      const dateStr = c.created_at
+                        ? new Date(String(c.created_at)).toLocaleDateString(
+                            "en-IN",
+                            { day: "numeric", month: "short", year: "2-digit" },
+                          )
+                        : "—";
+
+                      // Trigger icon + colour
+                      const triggerTheme: Record<
+                        string,
+                        { icon: string; bg: string; color: string }
+                      > = {
+                        heavy_rain: {
+                          icon: "🌧️",
+                          bg: "rgba(59,130,246,0.10)",
+                          color: "#2563eb",
+                        },
+                        flood: {
+                          icon: "🌊",
+                          bg: "rgba(6,182,212,0.10)",
+                          color: "#0891b2",
+                        },
+                        extreme_heat: {
+                          icon: "🌡️",
+                          bg: "rgba(239,68,68,0.10)",
+                          color: "#dc2626",
+                        },
+                        severe_aqi: {
+                          icon: "💨",
+                          bg: "rgba(100,116,139,0.10)",
+                          color: "#475569",
+                        },
+                        traffic_congestion: {
+                          icon: "🚦",
+                          bg: "rgba(245,158,11,0.10)",
+                          color: "#d97706",
+                        },
+                        curfew: {
+                          icon: "🔒",
+                          bg: "rgba(139,92,246,0.10)",
+                          color: "#7c3aed",
+                        },
+                      };
+                      const theme = triggerTheme[triggerType] ?? {
+                        icon: "⚡",
+                        bg: "rgba(100,116,139,0.08)",
+                        color: "#64748b",
+                      };
+
+                      return (
+                        <div
+                          key={String(c.id)}
+                          className={styles.claimCard}
+                          data-status={statusKey}
+                        >
+                          {/* ── Header ── */}
+                          <div className={styles.claimCardHeader}>
+                            <div
+                              className={styles.claimTriggerIcon}
+                              style={{
+                                background: theme.bg,
+                              }}
+                            >
+                              {theme.icon}
+                            </div>
+
+                            <div className={styles.claimCardMeta}>
+                              <p className={styles.claimCardTitle}>
+                                {triggerLabel}
+                              </p>
+                              <div className={styles.claimCardSub}>
+                                <span>
+                                  {String(c.city ?? "—")} · {dateStr}
+                                </span>
+                                <span
+                                  className={`${styles.claimStatusDot} ${
+                                    settled
+                                      ? styles.claimStatusDotGreen
+                                      : rejected
+                                        ? styles.claimStatusDotRed
+                                        : styles.claimStatusDotAmber
+                                  }`}
+                                >
+                                  {settled
+                                    ? "Settled"
+                                    : rejected
+                                      ? "Rejected"
+                                      : "Processing"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className={styles.claimCardAmount}>
+                              ₹
+                              {Number(c.payout_amount ?? 0).toLocaleString(
+                                "en-IN",
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ── Stats grid (disrupted + plan) ── */}
+                          <div className={styles.claimStats}>
+                            <div className={styles.claimStatCell}>
+                              <span className={styles.claimStatLabel}>
+                                Disrupted
+                              </span>
+                              <span className={styles.claimStatValue}>
+                                {disrupted}
+                              </span>
+                            </div>
+                            <div className={styles.claimStatDivider} />
+                            <div className={styles.claimStatCell}>
+                              <span className={styles.claimStatLabel}>
+                                Plan
+                              </span>
+                              <span className={styles.claimStatValue}>
+                                {planLabel}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* ── Claim ID — full width, never truncates ── */}
+                          <div className={styles.claimIdRow}>
+                            <span className={styles.claimIdLabel}>
+                              Claim ID
+                            </span>
+                            <span className={styles.claimIdValue}>
+                              {String(c.claim_number ?? c.id ?? "—")}
+                            </span>
+                          </div>
+
+                          {/* ── Transaction ID (only when paid) ── */}
+                          {settled &&
+                            payoutStatusValue(c.payout_status) === "paid" &&
+                            c.transaction_id && (
+                              <div className={styles.claimTxnRow}>
+                                <span className={styles.claimTxnLabel}>
+                                  Transaction ID
+                                </span>
+                                <span className={styles.claimTxnValue}>
+                                  {String(c.transaction_id)}
+                                </span>
+                              </div>
                             )}
-                          />
-                          <ProfileRow
-                            label="Payout Amount"
-                            value={`₹${c.payout_amount ?? 0}`}
-                          />
-                          <ProfileRow
-                            label="City"
-                            value={String(c.city ?? "–")}
-                          />
-                          <ProfileRow
-                            label="Date Initiated"
-                            value={
-                              c.created_at
-                                ? new Date(
-                                    String(c.created_at),
-                                  ).toLocaleDateString("en-IN")
-                                : "–"
-                            }
-                          />
-                          {payoutStatusValue(c.payout_status) === "paid" && (
-                            <ProfileRow
-                              label="Transaction ID"
-                              value={String(c.transaction_id ?? "–")}
-                              mono
-                            />
+
+                          {/* ── Status message ── */}
+                          {!settled && !rejected && (
+                            <div
+                              className={`${styles.claimStatusMsg} ${styles.claimStatusMsgAmber}`}
+                            >
+                              <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                style={{ flexShrink: 0, marginTop: 1 }}
+                              >
+                                <circle cx="7" cy="7" r="5.5" />
+                                <path d="M7 4.5V7l1.5 1.5" />
+                              </svg>
+                              Under review — typically resolves within 24 hrs
+                            </div>
                           )}
+                          {rejected && (
+                            <div
+                              className={`${styles.claimStatusMsg} ${styles.claimStatusMsgRed}`}
+                            >
+                              <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                style={{ flexShrink: 0, marginTop: 1 }}
+                              >
+                                <circle cx="7" cy="7" r="5.5" />
+                                <path d="M5 5l4 4M9 5l-4 4" />
+                              </svg>
+                              This claim was not eligible for payout. Escalate
+                              below if you believe this is incorrect.
+                            </div>
+                          )}
+                          {settled && (
+                            <div
+                              className={`${styles.claimStatusMsg} ${styles.claimStatusMsgGreen}`}
+                            >
+                              <svg
+                                width="13"
+                                height="13"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                style={{ flexShrink: 0, marginTop: 1 }}
+                              >
+                                <circle cx="7" cy="7" r="5.5" />
+                                <path d="M4.5 7l2 2 3-3" />
+                              </svg>
+                              Payout of ₹
+                              {Number(c.payout_amount ?? 0).toLocaleString(
+                                "en-IN",
+                              )}{" "}
+                              successfully processed.
+                            </div>
+                          )}
+
+                          {/* ── Footer ── */}
+                          <div className={styles.claimCardFooter}>
+                            <button
+                              type="button"
+                              className={styles.claimEscalateBtn}
+                              onClick={() =>
+                                openSupportModal("claim_escalation", c)
+                              }
+                            >
+                              Escalate Claim
+                            </button>
+                          </div>
                         </div>
-                        <div className={styles.claimActions}>
-                          <button
-                            type="button"
-                            className={styles.claimEscalateBtn}
-                            onClick={() =>
-                              openSupportModal("claim_escalation", c)
-                            }
-                          >
-                            Escalate Claim
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

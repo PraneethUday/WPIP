@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
       upi,
       bank,
       consent,
-      gpsConsent,
       autopay,
       tier,
     } = body;
@@ -99,7 +98,6 @@ export async function POST(req: NextRequest) {
         upi: upi || null,
         bank: bank || null,
         consent: !!consent,
-        gps_consent: !!gpsConsent,
         autopay: !!autopay,
         tier: tier || "standard",
         verification_status: "pending",

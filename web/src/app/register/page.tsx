@@ -51,7 +51,6 @@ type Form = {
   upi: string;
   bank: string;
   consent: boolean;
-  gpsConsent: boolean;
   autopay: boolean;
   tier: string;
 };
@@ -73,7 +72,7 @@ export default function RegisterPage() {
     password: "", confirmPassword: "",
     pan: "", aadhaar: "", city: "", area: "",
     deliveryId: "", upi: "", bank: "",
-    consent: false, gpsConsent: false, autopay: false,
+    consent: false, autopay: false,
     tier: "standard",
   });
 
@@ -107,7 +106,7 @@ export default function RegisterPage() {
           city: form.city, area: form.area, deliveryId: form.deliveryId,
           platforms: form.platforms, pan: form.pan, aadhaar: form.aadhaar,
           upi: form.upi, bank: form.bank,
-          consent: form.consent, gpsConsent: form.gpsConsent,
+          consent: form.consent,
           autopay: form.autopay, tier: form.tier,
         }),
       });
@@ -434,10 +433,6 @@ export default function RegisterPage() {
                   {
                     key: "consent" as keyof Form,
                     label: "I authorise WPIP to monitor weather and disruption data in my delivery zone for insurance claims.",
-                  },
-                  {
-                    key: "gpsConsent" as keyof Form,
-                    label: "I authorise GPS location validation during disruption events for fraud prevention.",
                   },
                   {
                     key: "autopay" as keyof Form,

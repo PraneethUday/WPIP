@@ -102,7 +102,6 @@ def build_fraud_features(
     payout_amount: float,
     daily_wage: float,
     cross_platform_clear: bool,
-    gps_verified: bool,          # kept for backward compat with triggers.py — not used for scoring
     supabase_client=None,
     trigger_type: str = "",
 ) -> dict:
@@ -128,30 +127,186 @@ def build_fraud_features(
         except Exception:
             pass
 
+    # --- Payout ratio: how much of the daily wage is being claimed ---
+    # Only compute if we have meaningful wage data — if daily_wage is 0
+    # (no earnings history yet), we skip this check entirely to avoid
+    # falsely penalising new workers.
+    if daily_wage >= 50.0:
+        payout_ratio = payout_amount / daily_wage
+    else:
+        payout_ratio = 0.0  # No wage history — benefit of the doubt
+
+    # --- Cross-platform: was the worker active elsewhere? ---
+    cross_platform_flag = 0.0 if cross_platform_clear else 1.0
+
+    # --- Phase 3: T-06 curfew zone mismatch ---
+    curfew_zone_mismatch = 0.0
+    if trigger_type == "curfew" and supabase_client:
+        curfew_zone_mismatch = _check_curfew_zone_mismatch(
+            worker_id, city, supabase_client
+        )
+
     return {
-        # Behavioral signals only — GPS removed
-        "delivery_activity_detected": not cross_platform_clear,
-        "duplicate_claim":            False,
-        "new_registration_fraud":     False,
-        "abnormal_claim_freq":        claim_count_30d > 5,
-        "payout_amount":              round(payout_amount, 2),
-        "daily_wage":                 round(daily_wage, 2),
-        "cross_platform_flag":        0.0 if cross_platform_clear else 1.0,
-        "curfew_zone_mismatch":       0.0,
-        "claim_count_30d":            claim_count_30d,
-        "total_payout_30d":           round(total_payout_30d, 2),
-        # Metadata (not sent to ML service)
-        "_worker_id":    worker_id,
-        "_city":         city,
-        "_trigger_type": trigger_type,
+        "claim_count_30d": claim_count_30d,
+        "total_payout_30d": round(total_payout_30d, 2),
+        "payout_amount": round(payout_amount, 2),
+        "payout_ratio": round(payout_ratio, 4),
+        "daily_wage": round(daily_wage, 2),
+        "cross_platform_flag": cross_platform_flag,
+        "curfew_zone_mismatch": curfew_zone_mismatch,
     }
 
 
-def compute_fraud_score(features: dict, trigger_type: str = "") -> tuple[float, list[str]]:
+FRAUD_FEATURE_COLS = [
+    "claim_count_30d", "total_payout_30d", "payout_amount",
+    "payout_ratio", "daily_wage", "cross_platform_flag",
+    "curfew_zone_mismatch",
+]
+
+
+def _check_curfew_zone_mismatch(
+    worker_id: str, city: str, supabase_client
+) -> float:
+    """Check if a worker's last 3 GPS pings are outside the affected curfew sub-zone.
+
+    For T-06 claims: if ALL 3 of the worker's most recent GPS pings fall outside
+    the affected city sub-zone, this returns 1.0 (triggering a +0.50 penalty in
+    rule-based scoring).  Otherwise returns 0.0.
+
+    If there are fewer than 3 pings or no zone data, returns 0.0 (benefit of doubt).
     """
     Score a claim. Routes to ML service first, rule-based fallback second.
     Returns (fraud_score: float, fraud_flags: list[str]).
     """
-    payload = {k: v for k, v in features.items() if not k.startswith("_")}
-    result  = get_fraud_score(payload)
-    return float(result.get("fraud_risk_score", 0.0)), list(result.get("signals", []))
+    flags: list[str] = []
+    score = 0.0
+
+    # --- Try ML model first ---
+    model = _load_fraud_model()
+    if model is not None:
+        try:
+            X = np.array([[features[col] for col in FRAUD_FEATURE_COLS]])
+            # IsolationForest.decision_function: lower = more anomalous
+            raw_score = model.decision_function(X)[0]
+            # Normalize: decision_function returns ~[-0.5, 0.5] typically
+            # Map to 0-1 where higher = more fraudulent
+            score = float(np.clip(0.5 - raw_score, 0.0, 1.0))
+            if score > 0.6:
+                flags.append("ML_anomaly_detected")
+        except Exception as e:
+            logger.warning("Fraud model prediction failed: %s, falling back to rules", e)
+            score, flags = _rule_based_score(features, trigger_type)
+    else:
+        score, flags = _rule_based_score(features, trigger_type)
+
+    return round(score, 4), flags
+
+
+def _rule_based_score(
+    features: dict, trigger_type: str = ""
+) -> tuple[float, list[str]]:
+    """Fallback rule-based fraud scoring when no ML model is available."""
+    score = 0.0
+    flags: list[str] = []
+
+    # Cross-platform activity during disruption
+    if features["cross_platform_flag"] > 0:
+        score += 0.35
+        flags.append("cross_platform_activity")
+
+    # Too many claims in 30 days (>3 is suspicious)
+    if features["claim_count_30d"] > 5:
+        score += 0.25
+        flags.append("high_claim_frequency")
+    elif features["claim_count_30d"] > 3:
+        score += 0.10
+        flags.append("elevated_claim_frequency")
+
+    # Payout ratio too high (claiming >45% of daily wage)
+    if features["payout_ratio"] > 0.45:
+        score += 0.15
+        flags.append("high_payout_ratio")
+
+    # Large cumulative payouts
+    if features["total_payout_30d"] > 3000:
+        score += 0.10
+        flags.append("high_cumulative_payout")
+
+    return min(score, 1.0), flags
+
+
+def train_fraud_model(supabase_client) -> dict:
+    """Train an Isolation Forest model on historical claim data.
+
+    Uses existing claims to learn 'normal' patterns, then flags
+    anomalies. Requires at least 20 claims to train meaningfully.
+    """
+    from sklearn.ensemble import IsolationForest
+
+    try:
+        resp = (
+            supabase_client.table("claims")
+            .select("worker_id, payout_amount, daily_wage_est, cross_platform_clear, fraud_score, created_at")
+            .order("created_at", desc=True)
+            .limit(1000)
+            .execute()
+        )
+        claims = resp.data
+    except Exception as e:
+        return {"error": f"Failed to fetch claims: {e}"}
+
+    if len(claims) < 20:
+        return {"error": f"Need at least 20 claims to train, found {len(claims)}"}
+
+    # Build feature matrix from historical claims
+    rows = []
+    for c in claims:
+        payout = c.get("payout_amount", 0) or 0
+        wage = c.get("daily_wage_est", 0) or 1
+        cross_clear = c.get("cross_platform_clear", True)
+        rows.append({
+            "claim_count_30d": 1,  # Placeholder — in production, aggregate per worker
+            "total_payout_30d": payout,
+            "payout_amount": payout,
+            "payout_ratio": payout / max(wage, 1),
+            "daily_wage": wage,
+            "cross_platform_flag": 0.0 if cross_clear else 1.0,
+            "curfew_zone_mismatch": 0.0,  # No historical data for this
+        })
+
+    X = np.array([[r[col] for col in FRAUD_FEATURE_COLS] for r in rows])
+
+    model = IsolationForest(
+        n_estimators=100,
+        contamination=0.1,  # Assume ~10% of claims could be anomalous
+        random_state=42,
+        n_jobs=-1,
+    )
+    model.fit(X)
+
+    # Save model
+    MODEL_DIR.mkdir(exist_ok=True)
+    joblib.dump(model, FRAUD_MODEL_PATH)
+
+    # Evaluate: count anomalies in training data
+    predictions = model.predict(X)
+    n_anomalies = int((predictions == -1).sum())
+
+    result = {
+        "status": "ok",
+        "n_samples": len(X),
+        "n_anomalies": n_anomalies,
+        "contamination": 0.1,
+    }
+    logger.info("[fraud] Trained Isolation Forest: %s", result)
+    return result
+
+
+def _load_fraud_model():
+    """Load saved Isolation Forest model or return None."""
+    if FRAUD_MODEL_PATH.exists():
+        try:
+            return joblib.load(FRAUD_MODEL_PATH)
+        except Exception:
+            return None
+    return None

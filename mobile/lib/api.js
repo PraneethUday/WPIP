@@ -251,13 +251,6 @@ export async function getCityCurfew(city) {
   }
 }
 
-// GPS route (direct backend)
-export function gpsCheckin(worker_id, latitude, longitude) {
-  return request(`${BACKEND_URL}/api/gps/checkin`, {
-    method: "POST",
-    body: JSON.stringify({ worker_id, latitude, longitude }),
-  });
-}
 
 // Support / Escalation
 export function submitSupportTicket(token, payload) {

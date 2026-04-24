@@ -34,7 +34,6 @@ from claims import (
     compute_payout,
     check_cross_platform_activity,
 )
-from gps import validate_gps_proximity
 from ml.fraud_model import build_fraud_features, compute_fraud_score
 from fuzzy import compute_trigger_severity
 
@@ -374,10 +373,6 @@ def _auto_create_claims(
                 )
                 continue
 
-            # GPS verification
-            gps_res = validate_gps_proximity(worker_id, city)
-            gps_verified = gps_res["verified"]
-
             # Compute payout scaled by fuzzy severity multiplier
             daily_wage = get_worker_daily_wage(worker_id, days=7)
             disrupted_hours = 6.0  # default assumption
@@ -395,7 +390,6 @@ def _auto_create_claims(
                 payout_amount=payout,
                 daily_wage=daily_wage,
                 cross_platform_clear=cross_clear,
-                gps_verified=gps_verified,
                 supabase_client=supabase,
                 trigger_type=rule["trigger_type"],
             )
@@ -424,7 +418,6 @@ def _auto_create_claims(
                 "payout_status": payout_status,
                 "fraud_score": fraud_score,
                 "fraud_flags": fraud_flags,
-                "gps_verified": gps_verified,
                 "cross_platform_clear": cross_clear,
                 "status": status,
             }

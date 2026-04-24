@@ -26,10 +26,7 @@ type ModelStatus = {
     trained_at: string;
     features: string[];
   } | null;
-  tiers: Record<
-    string,
-    { rate: number; min: number; max: number; max_payout: number }
-  >;
+  tiers: Record<string, { rate: number; min: number; max: number; max_payout: number }>;
 };
 
 type PremiumResult = {
@@ -45,16 +42,45 @@ type PremiumResult = {
 };
 
 const PLATFORMS = [
-  "swiggy",
-  "zomato",
-  "amazon_flex",
-  "blinkit",
-  "zepto",
-  "meesho",
-  "porter",
-  "dunzo",
+  "swiggy", "zomato", "amazon_flex", "blinkit",
+  "zepto", "meesho", "porter", "dunzo",
 ];
 const CITIES = ["Chennai", "Bangalore", "Hyderabad", "Mumbai", "Delhi", "Pune"];
+
+const IconRefresh = () => (
+  <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
+    <path d="M12.25 7A5.25 5.25 0 1 1 7 1.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M7 1.75L9.5 4.25 7 6.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconCpu = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M6 4V2M10 4V2M6 14v-2M10 14v-2M4 6H2M4 10H2M14 6h-2M14 10h-2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+const IconDatabase = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <ellipse cx="8" cy="4" rx="5.5" ry="2" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M2.5 4v4c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2V4" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M2.5 8v4c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2V8" stroke="currentColor" strokeWidth="1.4" />
+  </svg>
+);
+
+const IconZap = () => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <path d="M9 2L3 9h5l-1 5 6-7H8l1-5z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconSearch = () => (
+  <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
+    <circle cx="6" cy="6" r="4.5" stroke="#94A3B8" strokeWidth="1.3" />
+    <path d="M10 10l2.5 2.5" stroke="#94A3B8" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
 
 export default function ControlCenterPage() {
   const [dataSummary, setDataSummary] = useState<DataSummary | null>(null);
@@ -64,75 +90,24 @@ export default function ControlCenterPage() {
   const [actionErr, setActionErr] = useState("");
   const [actionLoading, setActionLoading] = useState("");
   const [retrainLogs, setRetrainLogs] = useState<string[]>([]);
-  const [retrainStatus, setRetrainStatus] = useState<
-    "idle" | "running" | "done" | "error"
-  >("idle");
+  const [retrainStatus, setRetrainStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Income adjustment form
+  // Income adjustment
   const [adjPlatform, setAdjPlatform] = useState("");
   const [adjEarnings, setAdjEarnings] = useState("1.0");
   const [adjDeliveries, setAdjDeliveries] = useState("1.0");
 
-  // Premium test form
+  // Premium test
   const [testWorkerId, setTestWorkerId] = useState("");
   const [testCity, setTestCity] = useState("Chennai");
   const [testTier, setTestTier] = useState("standard");
-  const [premiumResult, setPremiumResult] = useState<PremiumResult | null>(
-    null,
-  );
+  const [premiumResult, setPremiumResult] = useState<PremiumResult | null>(null);
 
   useEffect(() => {
     refresh();
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
-
-  const handleRetrain = async () => {
-    setActionLoading("Retrain Model");
-    setActionMsg("");
-    setActionErr("");
-    setRetrainLogs(["Starting retrain..."]);
-    setRetrainStatus("running");
-    try {
-      const res = await fetch("/api/backend/model/retrain", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok || data.status === "error") {
-        setActionErr(data.message || "Failed to start retrain.");
-        setRetrainStatus("error");
-        setActionLoading("");
-        return;
-      }
-      // Poll for logs every 1.5s
-      pollRef.current = setInterval(async () => {
-        try {
-          const r = await fetch("/api/backend/model/retrain/logs");
-          const d = await r.json();
-          setRetrainLogs(d.logs?.length ? d.logs : ["Waiting for logs..."]);
-          if (!d.running) {
-            clearInterval(pollRef.current!);
-            pollRef.current = null;
-            setActionLoading("");
-            if (d.error) {
-              setRetrainStatus("error");
-              setActionErr(`Retrain failed: ${d.error}`);
-            } else {
-              setRetrainStatus("done");
-              setActionMsg("Retrain completed successfully.");
-              refresh();
-            }
-          }
-        } catch {
-          // backend blip — keep polling
-        }
-      }, 1500);
-    } catch {
-      setActionErr("Backend unavailable.");
-      setRetrainStatus("error");
-      setActionLoading("");
-    }
-  };
 
   const refresh = async () => {
     setLoading(true);
@@ -150,12 +125,49 @@ export default function ControlCenterPage() {
     }
   };
 
-  const doAction = async (
-    label: string,
-    url: string,
-    method: string = "POST",
-    body?: object,
-  ) => {
+  const handleRetrain = async () => {
+    setActionLoading("Retrain Model");
+    setActionMsg("");
+    setActionErr("");
+    setRetrainLogs(["Starting retrain…"]);
+    setRetrainStatus("running");
+    try {
+      const res = await fetch("/api/backend/model/retrain", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setActionErr(data.message || "Failed to start retrain.");
+        setRetrainStatus("error");
+        setActionLoading("");
+        return;
+      }
+      pollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch("/api/backend/model/retrain/logs");
+          const d = await r.json();
+          setRetrainLogs(d.logs?.length ? d.logs : ["Waiting for logs…"]);
+          if (!d.running) {
+            clearInterval(pollRef.current!);
+            pollRef.current = null;
+            setActionLoading("");
+            if (d.error) {
+              setRetrainStatus("error");
+              setActionErr(`Retrain failed: ${d.error}`);
+            } else {
+              setRetrainStatus("done");
+              setActionMsg("Retrain completed successfully.");
+              refresh();
+            }
+          }
+        } catch { /* backend blip — keep polling */ }
+      }, 1500);
+    } catch {
+      setActionErr("Backend unavailable.");
+      setRetrainStatus("error");
+      setActionLoading("");
+    }
+  };
+
+  const doAction = async (label: string, url: string, method = "POST", body?: object) => {
     setActionLoading(label);
     setActionMsg("");
     setActionErr("");
@@ -188,10 +200,7 @@ export default function ControlCenterPage() {
   };
 
   const handleTestPremium = async () => {
-    if (!testWorkerId) {
-      setActionErr("Enter a worker ID to test.");
-      return;
-    }
+    if (!testWorkerId) { setActionErr("Enter a worker ID to test."); return; }
     setActionLoading("Test Premium");
     setActionMsg("");
     setActionErr("");
@@ -200,11 +209,7 @@ export default function ControlCenterPage() {
       const res = await fetch("/api/backend/premium/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          delivery_id: testWorkerId,
-          city: testCity,
-          tier: testTier,
-        }),
+        body: JSON.stringify({ delivery_id: testWorkerId, city: testCity, tier: testTier }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -221,890 +226,497 @@ export default function ControlCenterPage() {
   };
 
   return (
-    <section className="admin-page">
-      <div className="admin-page-head">
+    <div>
+      {/* Header */}
+      <div className="pageHead">
         <div>
-          <h1 className="admin-page-title">Backend Control Center</h1>
-          <p className="admin-page-subtitle">
-            Monitor generated data, tune income multipliers, retrain models, and
-            validate premium predictions in one place.
+          <h1 className="pageTitle">Control Center</h1>
+          <p className="pageSubtitle">
+            Monitor generated data, tune income multipliers, retrain models, and validate premium predictions.
           </p>
         </div>
-        <button type="button" className="admin-page-action" onClick={refresh}>
-          Refresh Metrics
-        </button>
+        <div className="pageActions">
+          <button type="button" className="btn btnSecondary" onClick={refresh}>
+            <IconRefresh /> Refresh Metrics
+          </button>
+        </div>
       </div>
 
-      {actionMsg && (
-        <div
-          style={{
-            marginBottom: 12,
-            background: "#0A2E18",
-            border: "1px solid rgba(34,197,94,0.3)",
-            color: "#22C55E",
-            fontSize: 13,
-            fontWeight: 600,
-            borderRadius: 8,
-            padding: "8px 12px",
-          }}
-        >
-          {actionMsg}
-        </div>
-      )}
-      {actionErr && (
-        <div
-          style={{
-            marginBottom: 12,
-            background: "#2E0A0A",
-            border: "1px solid rgba(239,68,68,0.3)",
-            color: "#EF4444",
-            fontSize: 13,
-            fontWeight: 600,
-            borderRadius: 8,
-            padding: "8px 12px",
-          }}
-        >
-          {actionErr}
+      {actionMsg && <div className="alertSuccess">{actionMsg}</div>}
+      {actionErr && <div className="alertError">{actionErr}</div>}
+
+      {/* Quick Action Cards */}
+      <div
+        className="gridStats"
+        style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 24 }}
+      >
+        {[
+          {
+            icon: <IconDatabase />,
+            iconBg: "#DBEAFE",
+            iconColor: "#2563EB",
+            title: "Generate Data",
+            desc: "Trigger one cycle of synthetic data generation for all platforms.",
+            btn: actionLoading === "Generate Data" ? "Generating…" : "Generate Now",
+            onClick: () => doAction("Generate Data", "/api/backend/admin/generate-data"),
+          },
+          {
+            icon: <IconCpu />,
+            iconBg: "#DCFCE7",
+            iconColor: "#16A34A",
+            title: "Retrain Model",
+            desc: "Retrain the XGBoost premium model on latest data. Takes 10–30 seconds.",
+            btn: actionLoading === "Retrain Model" ? "Training…" : "Retrain Now",
+            onClick: handleRetrain,
+          },
+          {
+            icon: <IconRefresh />,
+            iconBg: "#EDE9FE",
+            iconColor: "#7C3AED",
+            title: "Refresh All",
+            desc: "Reload data summary and model status from the backend.",
+            btn: "Refresh",
+            onClick: refresh,
+          },
+        ].map(({ icon, iconBg, iconColor, title, desc, btn, onClick }) => (
+          <div key={title} className="card cardPad">
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: iconBg,
+                  color: iconColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {icon}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--white)" }}>{title}</div>
+                <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 3, lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btnPrimary"
+              style={{ width: "100%", justifyContent: "center" }}
+              disabled={!!actionLoading}
+              onClick={onClick}
+            >
+              {btn}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Retrain Logs */}
+      {retrainStatus !== "idle" && (
+        <div className="card cardPad" style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Retrain Logs</span>
+              {retrainStatus === "running" && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#16A34A",
+                    background: "#DCFCE7",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  RUNNING
+                </span>
+              )}
+              {retrainStatus === "done" && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#15803D",
+                    background: "#DCFCE7",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  DONE
+                </span>
+              )}
+              {retrainStatus === "error" && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#991B1B",
+                    background: "#FEE2E2",
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  ERROR
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRetrainStatus("idle")}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 18,
+                color: "var(--faint)",
+                lineHeight: 1,
+                padding: "0 4px",
+              }}
+            >
+              ×
+            </button>
+          </div>
+          {retrainStatus === "running" && (
+            <div
+              style={{
+                height: 4,
+                background: "var(--elevated)",
+                borderRadius: 4,
+                marginBottom: 12,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  background: "linear-gradient(90deg, #2563EB, #16A34A)",
+                  borderRadius: 4,
+                  animation: "cc-progress 2s ease-in-out infinite",
+                  width: "60%",
+                }}
+              />
+            </div>
+          )}
+          <div className="logBox">
+            {retrainLogs.map((line, i) => (
+              <div
+                key={i}
+                style={{
+                  color: line.includes("ERROR")
+                    ? "#F87171"
+                    : line.includes("Done") || line.includes("better")
+                    ? "#4ADE80"
+                    : "#94A3B8",
+                }}
+              >
+                {line}
+              </div>
+            ))}
+            {retrainStatus === "running" && (
+              <div style={{ color: "#60A5FA" }}>_</div>
+            )}
+          </div>
+          <style>{`
+            @keyframes cc-progress {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(200%); }
+            }
+          `}</style>
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--faint)" }}>
-          Loading backend data...
-        </div>
+        <div className="loading">Loading backend data…</div>
       ) : (
-        <>
-          {/* Quick Actions */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-              marginBottom: 28,
-            }}
-          >
-            <ActionCard
-              title="Generate Data"
-              desc="Trigger one cycle of synthetic data generation for all platforms."
-              btnLabel={
-                actionLoading === "Generate Data"
-                  ? "Generating..."
-                  : "Generate Now"
-              }
-              disabled={!!actionLoading}
-              onClick={() =>
-                doAction("Generate Data", "/api/backend/admin/generate-data")
-              }
-              color="var(--primary)"
-            />
-            <ActionCard
-              title="Retrain Model"
-              desc="Retrain the XGBoost model on latest data. Takes 10-30 seconds."
-              btnLabel={
-                actionLoading === "Retrain Model"
-                  ? "Training..."
-                  : "Retrain Now"
-              }
-              disabled={!!actionLoading}
-              onClick={handleRetrain}
-              color="#059669"
-            />
-            <ActionCard
-              title="Refresh All"
-              desc="Reload data summary and model status from the backend."
-              btnLabel="Refresh"
-              disabled={!!actionLoading}
-              onClick={refresh}
-              color="#0f172a"
-            />
-          </div>
-
-          {/* Retrain Log Panel */}
-          {retrainStatus !== "idle" && (
-            <div
-              style={{
-                background: "#0f172a",
-                borderRadius: 12,
-                border: "1px solid #1e293b",
-                padding: 20,
-                marginBottom: 28,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* ML Model Status */}
+          <div className="card">
+            <div className="sectionHead">
+              <div className="sectionTitle">ML Model Status</div>
+              <span
+                className={`badge ${modelStatus?.model_loaded ? "badgeGreen" : "badgeAmber"}`}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: "#f8fafc",
-                    }}
-                  >
-                    Retrain Logs
-                  </span>
-                  {retrainStatus === "running" && (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        gap: 4,
-                        alignItems: "center",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: "50%",
-                          background: "#4ade80",
-                          animation: "pulse 1.5s infinite",
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "#4ade80",
-                          fontWeight: 600,
-                        }}
-                      >
-                        RUNNING
-                      </span>
-                    </span>
-                  )}
-                  {retrainStatus === "done" && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "#4ade80",
-                        fontWeight: 600,
-                        background: "#14532d",
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      DONE
-                    </span>
-                  )}
-                  {retrainStatus === "error" && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "#f87171",
-                        fontWeight: 600,
-                        background: "#450a0a",
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      ERROR
-                    </span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRetrainStatus("idle")}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "#64748b",
-                    cursor: "pointer",
-                    fontSize: 18,
-                    lineHeight: 1,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              {retrainStatus === "running" && (
-                <div
-                  style={{
-                    height: 4,
-                    background: "#1e293b",
-                    borderRadius: 4,
-                    marginBottom: 12,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      background: "linear-gradient(90deg, var(--primary), #059669)",
-                      borderRadius: 4,
-                      animation: "progress-slide 2s ease-in-out infinite",
-                      width: "60%",
-                    }}
-                  />
-                </div>
-              )}
+                {modelStatus?.model_loaded ? "Loaded" : "Formula Fallback"}
+              </span>
+            </div>
+            <div style={{ padding: "20px 24px" }}>
               <div
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: 12,
-                  color: "#94a3b8",
-                  maxHeight: 260,
-                  overflowY: "auto",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                }}
+                style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}
               >
-                {retrainLogs.map((line, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      color: line.includes("ERROR")
-                        ? "#f87171"
-                        : line.includes("Done") || line.includes("better")
-                          ? "#4ade80"
-                          : "#94a3b8",
-                    }}
-                  >
-                    {line}
+                {[
+                  ["RMSE", modelStatus?.metadata ? modelStatus.metadata.rmse.toFixed(2) : "N/A"],
+                  ["Training Samples", modelStatus?.metadata?.n_samples?.toLocaleString() || "N/A"],
+                  ["Last Trained", modelStatus?.metadata?.trained_at
+                    ? new Date(modelStatus.metadata.trained_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                    : "Never"],
+                  ["Model Loaded", modelStatus?.model_loaded ? "Yes" : "No"],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <div className="statLabel">{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--white)" }}>{value}</div>
                   </div>
                 ))}
-                {retrainStatus === "running" && (
-                  <div style={{ color: "var(--primary)" }}>_</div>
-                )}
               </div>
+
+              {modelStatus?.tiers && (
+                <>
+                  <div
+                    style={{ fontSize: 12, fontWeight: 600, color: "var(--faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}
+                  >
+                    Tier Configuration
+                  </div>
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Tier</th>
+                          <th>Rate</th>
+                          <th>Min Premium</th>
+                          <th>Max Premium</th>
+                          <th>Max Payout</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(modelStatus.tiers).map(([tier, cfg]) => (
+                          <tr key={tier}>
+                            <td style={{ fontWeight: 600 }}>
+                              {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                            </td>
+                            <td style={{ color: "var(--muted)" }}>{(cfg.rate * 100).toFixed(1)}%</td>
+                            <td style={{ color: "var(--muted)" }}>₹{cfg.min}</td>
+                            <td style={{ color: "var(--muted)" }}>₹{cfg.max}</td>
+                            <td style={{ fontWeight: 600 }}>₹{cfg.max_payout?.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
-          )}
-          <style>{`
-                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-                @keyframes progress-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-              `}</style>
+          </div>
 
-          {/* Model Status */}
-          <Section title="ML Model Status">
-            {modelStatus ? (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: 16,
-                }}
-              >
-                <InfoCard
-                  label="Model Loaded"
-                  value={
-                    modelStatus.model_loaded
-                      ? "Yes"
-                      : "No (using formula fallback)"
-                  }
-                />
-                <InfoCard
-                  label="RMSE"
-                  value={
-                    modelStatus.metadata
-                      ? `${modelStatus.metadata.rmse.toFixed(2)}`
-                      : "N/A"
-                  }
-                />
-                <InfoCard
-                  label="Training Samples"
-                  value={modelStatus.metadata?.n_samples?.toString() || "N/A"}
-                />
-                <InfoCard
-                  label="Last Trained"
-                  value={modelStatus.metadata?.trained_at || "Never"}
-                />
-              </div>
-            ) : (
-              <p style={{ color: "#64748b", fontSize: 13 }}>
-                Could not load model status.
-              </p>
-            )}
-            {modelStatus?.tiers && (
-              <div style={{ marginTop: 16 }}>
-                <h4
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--muted)",
-                    marginBottom: 8,
-                  }}
-                >
-                  Tier Configuration
-                </h4>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 13,
-                  }}
-                >
-                  <thead>
-                    <tr style={{ background: "var(--elevated)" }}>
-                      {[
-                        "Tier",
-                        "Rate",
-                        "Min Premium",
-                        "Max Premium",
-                        "Max Payout",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            fontWeight: 700,
-                            color: "var(--faint)",
-                            borderBottom: "1px solid var(--border)",
-                            fontSize: 11,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(modelStatus.tiers).map(([tier, cfg]) => (
-                      <tr
-                        key={tier}
-                        style={{
-                          borderBottom: "1px solid var(--border)",
-                        }}
-                      >
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            fontWeight: 600,
-                            color: "var(--white)",
-                          }}
-                        >
-                          {tier.charAt(0).toUpperCase() + tier.slice(1)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {(cfg.rate * 100).toFixed(1)}%
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {cfg.min}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {cfg.max}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {cfg.max_payout}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
-
-          {/* Data Summary */}
-          <Section title="Platform Data Summary (Today)">
-            {dataSummary ? (
-              <>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: 16,
-                    marginBottom: 16,
-                  }}
-                >
-                  <InfoCard label="Date" value={dataSummary.date} />
-                  <InfoCard
-                    label="Total Workers (Today)"
-                    value={dataSummary.total_workers.toString()}
-                  />
-                  <InfoCard
-                    label="Overall Avg Earnings"
-                    value={`${dataSummary.overall_avg_earnings}`}
-                  />
+          {/* Platform Data Summary */}
+          {dataSummary && (
+            <div className="card">
+              <div className="sectionHead">
+                <div className="sectionTitle">Platform Data Summary</div>
+                <div style={{ fontSize: 12, color: "var(--faint)" }}>
+                  {dataSummary.date} · {dataSummary.total_workers.toLocaleString()} total workers · avg ₹{dataSummary.overall_avg_earnings?.toFixed(0)}/day
                 </div>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 13,
-                  }}
-                >
+              </div>
+              <div className="tableWrap">
+                <table>
                   <thead>
-                    <tr style={{ background: "var(--elevated)" }}>
-                      {[
-                        "Platform",
-                        "Workers",
-                        "Avg Earnings",
-                        "Min",
-                        "Max",
-                        "Avg Deliveries",
-                        "Total Earnings",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            padding: "8px 12px",
-                            textAlign: "left",
-                            fontWeight: 700,
-                            color: "var(--faint)",
-                            borderBottom: "1px solid var(--border)",
-                            fontSize: 11,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
+                    <tr>
+                      <th>Platform</th>
+                      <th>Workers</th>
+                      <th>Avg Earnings</th>
+                      <th>Min</th>
+                      <th>Max</th>
+                      <th>Avg Deliveries</th>
+                      <th>Total Earnings</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dataSummary.platforms.map((p) => (
-                      <tr
-                        key={p.platform}
-                        style={{
-                          borderBottom: "1px solid var(--border)",
-                        }}
-                      >
-                        <td
-                          style={{
-                            padding: "8px 12px",
-                            fontWeight: 600,
-                            color: "var(--white)",
-                          }}
-                        >
-                          {p.platform}
+                      <tr key={p.platform}>
+                        <td style={{ fontWeight: 600 }}>
+                          {p.platform.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                         </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.worker_count}
-                        </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.avg_earnings}
-                        </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.min_earnings}
-                        </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.max_earnings}
-                        </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.avg_deliveries}
-                        </td>
-                        <td style={{ padding: "8px 12px", color: "var(--muted)" }}>
-                          {p.total_earnings}
-                        </td>
+                        <td style={{ color: "var(--muted)" }}>{p.worker_count?.toLocaleString()}</td>
+                        <td style={{ fontWeight: 600 }}>₹{p.avg_earnings?.toFixed(0)}</td>
+                        <td style={{ color: "var(--faint)" }}>₹{p.min_earnings?.toFixed(0)}</td>
+                        <td style={{ color: "var(--faint)" }}>₹{p.max_earnings?.toFixed(0)}</td>
+                        <td style={{ color: "var(--muted)" }}>{p.avg_deliveries?.toFixed(1)}</td>
+                        <td style={{ fontWeight: 600 }}>₹{p.total_earnings?.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </>
-            ) : (
-              <p style={{ color: "#64748b", fontSize: 13 }}>
-                No data available. Generate data first.
+              </div>
+            </div>
+          )}
+
+          {/* Bottom row: Adjust Income + Test Premium */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {/* Adjust Income */}
+            <div className="card cardPad">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <IconZap />
+                <div className="sectionTitle">Adjust Income Data</div>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--faint)", marginBottom: 18, lineHeight: 1.5 }}>
+                Apply multipliers to earnings and deliveries for testing model responses.
               </p>
-            )}
-          </Section>
-
-          {/* Adjust Income */}
-          <Section title="Adjust Income Data">
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-              Multiply today&apos;s earnings/deliveries for a platform to test
-              how the ML model responds. Use this to verify the model produces
-              different premiums for different income levels.
-            </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Platform (empty = all)</label>
-                <select
-                  value={adjPlatform}
-                  onChange={(e) => setAdjPlatform(e.target.value)}
-                  style={selectStyle}
-                >
-                  <option value="">All platforms</option>
-                  {PLATFORMS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Earnings Multiplier</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  max="10"
-                  value={adjEarnings}
-                  onChange={(e) => setAdjEarnings(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Deliveries Multiplier</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  max="10"
-                  value={adjDeliveries}
-                  onChange={(e) => setAdjDeliveries(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                    Platform (leave blank for all)
+                  </label>
+                  <select
+                    className="select"
+                    value={adjPlatform}
+                    onChange={(e) => setAdjPlatform(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">All Platforms</option>
+                    {PLATFORMS.map((p) => (
+                      <option key={p} value={p}>
+                        {p.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                      Earnings Multiplier
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={adjEarnings}
+                      onChange={(e) => setAdjEarnings(e.target.value)}
+                      step="0.1"
+                      min="0.1"
+                      max="5"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                      Deliveries Multiplier
+                    </label>
+                    <input
+                      type="number"
+                      className="input"
+                      value={adjDeliveries}
+                      onChange={(e) => setAdjDeliveries(e.target.value)}
+                      step="0.1"
+                      min="0.1"
+                      max="5"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
+                  className="btn btnPrimary"
+                  style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
+                  disabled={actionLoading === "Adjust Income"}
                   onClick={handleAdjustIncome}
-                  disabled={!!actionLoading}
-                  style={{
-                    ...btnStyle,
-                    background: "#d97706",
-                    width: "100%",
-                  }}
                 >
-                  {actionLoading === "Adjust Income"
-                    ? "Applying..."
-                    : "Apply Adjustment"}
+                  {actionLoading === "Adjust Income" ? "Applying…" : "Apply Adjustments"}
                 </button>
               </div>
             </div>
-            <p style={{ fontSize: 12, color: "#94a3b8" }}>
-              Example: Set earnings to 0.3x to simulate low-income scenario, or
-              3.0x for high-income. Then retrain and check premium predictions.
-            </p>
-          </Section>
 
-          {/* Test Premium */}
-          <Section title="Test Premium Prediction">
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-              Enter a worker ID from the data above and compute their predicted
-              premium to verify the model is working.
-            </p>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Worker ID</label>
-                <input
-                  type="text"
-                  placeholder="UUID from platform data"
-                  value={testWorkerId}
-                  onChange={(e) => setTestWorkerId(e.target.value)}
-                  style={inputStyle}
-                />
+            {/* Test Premium */}
+            <div className="card cardPad">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <IconSearch />
+                <div className="sectionTitle">Test Premium Prediction</div>
               </div>
-              <div>
-                <label style={labelStyle}>City</label>
-                <select
-                  value={testCity}
-                  onChange={(e) => setTestCity(e.target.value)}
-                  style={selectStyle}
-                >
-                  {CITIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Tier</label>
-                <select
-                  value={testTier}
-                  onChange={(e) => setTestTier(e.target.value)}
-                  style={selectStyle}
-                >
-                  <option value="basic">Basic</option>
-                  <option value="standard">Standard</option>
-                  <option value="pro">Pro</option>
-                </select>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={handleTestPremium}
-                  disabled={!!actionLoading}
-                  style={{
-                    ...btnStyle,
-                    background: "var(--primary)",
-                    width: "100%",
-                  }}
-                >
-                  {actionLoading === "Test Premium"
-                    ? "Computing..."
-                    : "Compute Premium"}
-                </button>
-              </div>
-            </div>
-            {premiumResult && (
-              <div
-                style={{
-                  background: "var(--primary-container)",
-                  border: "1px solid rgba(108,99,255,0.3)",
-                  borderRadius: 10,
-                  padding: 20,
-                  marginTop: 8,
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    marginBottom: 12,
-                    color: "var(--primary-dim)",
-                  }}
-                >
-                  Premium Result
-                </h4>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, 1fr)",
-                    gap: 12,
-                    fontSize: 13,
-                  }}
-                >
-                  <ResultItem
-                    label="Weekly Premium"
-                    value={`${premiumResult.weekly_premium}`}
-                  />
-                  <ResultItem
-                    label="With AutoPay"
-                    value={`${premiumResult.weekly_premium_autopay}`}
-                  />
-                  <ResultItem
-                    label="Raw Prediction"
-                    value={`${premiumResult.raw_prediction}`}
-                  />
-                  <ResultItem label="Tier" value={premiumResult.tier} />
-                  <ResultItem
-                    label="Max Payout"
-                    value={`${premiumResult.max_payout}`}
-                  />
-                  <ResultItem
-                    label="Weather Risk"
-                    value={`${(premiumResult.weather_risk * 100).toFixed(1)}%`}
-                  />
-                  <ResultItem
-                    label="City Risk"
-                    value={`${premiumResult.city_risk}`}
-                  />
-                  <ResultItem
-                    label="Weekly Earnings Est"
-                    value={`${premiumResult.weekly_earnings_est}`}
-                  />
-                  <ResultItem
-                    label="History Days"
-                    value={`${premiumResult.history_days}`}
+              <p style={{ fontSize: 12, color: "var(--faint)", marginBottom: 18, lineHeight: 1.5 }}>
+                Compute insurance premium for a specific worker ID, city, and tier.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                    Worker / Delivery ID
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Enter delivery ID…"
+                    value={testWorkerId}
+                    onChange={(e) => setTestWorkerId(e.target.value)}
+                    style={{ width: "100%" }}
                   />
                 </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                      City
+                    </label>
+                    <select
+                      className="select"
+                      value={testCity}
+                      onChange={(e) => setTestCity(e.target.value)}
+                      style={{ width: "100%" }}
+                    >
+                      {CITIES.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6 }}>
+                      Tier
+                    </label>
+                    <select
+                      className="select"
+                      value={testTier}
+                      onChange={(e) => setTestTier(e.target.value)}
+                      style={{ width: "100%" }}
+                    >
+                      <option value="basic">Basic</option>
+                      <option value="standard">Standard</option>
+                      <option value="pro">Pro</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
+                  disabled={actionLoading === "Test Premium"}
+                  onClick={handleTestPremium}
+                >
+                  {actionLoading === "Test Premium" ? "Computing…" : "Compute Premium"}
+                </button>
+
+                {premiumResult && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      background: "var(--elevated)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--faint)", marginBottom: 10 }}
+                    >
+                      Result
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px" }}>
+                      {[
+                        ["Weekly Premium", `₹${premiumResult.weekly_premium?.toFixed(2)}`],
+                        ["Autopay Premium", `₹${premiumResult.weekly_premium_autopay?.toFixed(2)}`],
+                        ["Max Payout", `₹${premiumResult.max_payout?.toLocaleString()}`],
+                        ["Tier", premiumResult.tier],
+                        ["Weather Risk", `${(premiumResult.weather_risk * 100).toFixed(0)}%`],
+                        ["City Risk", `${(premiumResult.city_risk * 100).toFixed(0)}%`],
+                        ["Weekly Earnings Est.", `₹${premiumResult.weekly_earnings_est?.toFixed(0)}`],
+                        ["History Days", premiumResult.history_days?.toString()],
+                      ].map(([k, v]) => (
+                        <div key={k}>
+                          <div style={{ fontSize: 11, color: "var(--faint)", marginBottom: 2 }}>{k}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </Section>
-        </>
+            </div>
+          </div>
+        </div>
       )}
-    </section>
-  );
-}
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 600,
-  color: "var(--faint)",
-  marginBottom: 4,
-};
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  height: 38,
-  padding: "0 10px",
-  fontSize: 13,
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  outline: "none",
-  background: "var(--input)",
-  color: "var(--white)",
-};
-const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
-const btnStyle: React.CSSProperties = {
-  height: 38,
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-  padding: "0 16px",
-};
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--card)",
-        borderRadius: 12,
-        border: "1px solid var(--border)",
-        padding: 24,
-        marginBottom: 24,
-      }}
-    >
-      <h3
-        style={{
-          fontSize: 16,
-          fontWeight: 700,
-          marginBottom: 16,
-          color: "var(--white)",
-        }}
-      >
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
-
-function ActionCard({
-  title,
-  desc,
-  btnLabel,
-  disabled,
-  onClick,
-  color,
-}: {
-  title: string;
-  desc: string;
-  btnLabel: string;
-  disabled: boolean;
-  onClick: () => void;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--card)",
-        borderRadius: 12,
-        border: "1px solid var(--border)",
-        padding: 20,
-      }}
-    >
-      <h3
-        style={{
-          fontSize: 15,
-          fontWeight: 700,
-          marginBottom: 4,
-          color: "var(--white)",
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        style={{
-          fontSize: 12,
-          color: "var(--faint)",
-          marginBottom: 14,
-          lineHeight: 1.5,
-        }}
-      >
-        {desc}
-      </p>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onClick}
-        style={{
-          background: color,
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          padding: "8px 18px",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.6 : 1,
-          width: "100%",
-        }}
-      >
-        {btnLabel}
-      </button>
-    </div>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        background: "var(--elevated)",
-        borderRadius: 8,
-        padding: "12px 16px",
-        border: "1px solid var(--border)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          color: "var(--faint)",
-          fontWeight: 600,
-          textTransform: "uppercase",
-          marginBottom: 4,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ResultItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: "var(--faint)", fontWeight: 500 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--white)" }}>
-        {value}
-      </div>
     </div>
   );
 }

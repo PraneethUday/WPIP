@@ -169,20 +169,7 @@ export default function ProfileScreen({ navigation }) {
               ios_backgroundColor={COLORS.surfaceHighest}
             />
           </View>
-          <TouchableOpacity
-            style={[styles.themeToggleBtn, { backgroundColor: isDark ? COLORS.primaryContainer : COLORS.amberContainer, borderColor: isDark ? COLORS.primary + "40" : COLORS.amber + "40" }]}
-            onPress={toggleTheme}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={isDark ? "sunny-outline" : "moon-outline"}
-              size={18}
-              color={isDark ? COLORS.primary : COLORS.amber}
-            />
-            <Text style={[styles.themeToggleBtnText, { color: isDark ? COLORS.primary : COLORS.amber }]}>
-              {isDark ? t("switch_to_light") : t("switch_to_dark")}
-            </Text>
-          </TouchableOpacity>
+
         </View>
 
         {/* ── Language ── */}
