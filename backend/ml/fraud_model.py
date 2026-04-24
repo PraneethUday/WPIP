@@ -1,8 +1,17 @@
-import requests
 import os
+import logging
 from datetime import date, timedelta
+from pathlib import Path
+
+import joblib
+import numpy as np
+import requests
+
+logger = logging.getLogger(__name__)
 
 ML_SERVICE_URL = os.getenv("ML_SERVICE_URL", "http://localhost:8001")
+MODEL_DIR = Path(__file__).parent / "saved_models"
+FRAUD_MODEL_PATH = MODEL_DIR / "fraud_model.joblib"
 
 
 def get_fraud_score(claim_data: dict) -> dict:
@@ -167,39 +176,44 @@ FRAUD_FEATURE_COLS = [
 def _check_curfew_zone_mismatch(
     worker_id: str, city: str, supabase_client
 ) -> float:
-    """Check if a worker's last 3 GPS pings are outside the affected curfew sub-zone.
+    """Return curfew mismatch signal.
 
-    For T-06 claims: if ALL 3 of the worker's most recent GPS pings fall outside
-    the affected city sub-zone, this returns 1.0 (triggering a +0.50 penalty in
-    rule-based scoring).  Otherwise returns 0.0.
-
-    If there are fewer than 3 pings or no zone data, returns 0.0 (benefit of doubt).
+    GPS-based mismatch checks are currently disabled in this backend path,
+    so this returns 0.0 (no mismatch penalty).
     """
-    Score a claim. Routes to ML service first, rule-based fallback second.
-    Returns (fraud_score: float, fraud_flags: list[str]).
+    return 0.0
+
+
+def compute_fraud_score(
+    features: dict, trigger_type: str = ""
+) -> tuple[float, list[str]]:
+    """Score a claim and return `(fraud_score, fraud_flags)`.
+
+    Primary path: call external ML service.
+    Fallback path: local rule-based scoring.
     """
-    flags: list[str] = []
-    score = 0.0
+    claim_data = {
+        "delivery_activity_detected": features.get("cross_platform_flag", 0) > 0,
+        "duplicate_claim": features.get("claim_count_30d", 0) > 5,
+        "new_registration_fraud": False,
+        "abnormal_claim_freq": features.get("claim_count_30d", 0) > 3,
+        "payout_amount": features.get("payout_amount", 0.0),
+        "daily_wage": features.get("daily_wage", 0.0),
+        "claim_count_30d": features.get("claim_count_30d", 0),
+        "total_payout_30d": features.get("total_payout_30d", 0.0),
+        "cross_platform_flag": features.get("cross_platform_flag", 0.0),
+        "curfew_zone_mismatch": features.get("curfew_zone_mismatch", 0.0),
+    }
 
-    # --- Try ML model first ---
-    model = _load_fraud_model()
-    if model is not None:
-        try:
-            X = np.array([[features[col] for col in FRAUD_FEATURE_COLS]])
-            # IsolationForest.decision_function: lower = more anomalous
-            raw_score = model.decision_function(X)[0]
-            # Normalize: decision_function returns ~[-0.5, 0.5] typically
-            # Map to 0-1 where higher = more fraudulent
-            score = float(np.clip(0.5 - raw_score, 0.0, 1.0))
-            if score > 0.6:
-                flags.append("ML_anomaly_detected")
-        except Exception as e:
-            logger.warning("Fraud model prediction failed: %s, falling back to rules", e)
-            score, flags = _rule_based_score(features, trigger_type)
-    else:
-        score, flags = _rule_based_score(features, trigger_type)
-
-    return round(score, 4), flags
+    try:
+        ml_result = get_fraud_score(claim_data)
+        score = float(ml_result.get("fraud_risk_score", 0.0))
+        score = float(np.clip(score, 0.0, 1.0))
+        signals = [str(s).lower() for s in ml_result.get("signals", [])]
+        return round(score, 4), signals
+    except Exception as exc:
+        logger.warning("Fraud scoring failed, using fallback rules: %s", exc)
+        return _rule_based_score(features, trigger_type)
 
 
 def _rule_based_score(
@@ -231,6 +245,11 @@ def _rule_based_score(
     if features["total_payout_30d"] > 3000:
         score += 0.10
         flags.append("high_cumulative_payout")
+
+    # Curfew mismatch is a strong fraud signal when available.
+    if trigger_type == "curfew" and features.get("curfew_zone_mismatch", 0) > 0:
+        score += 0.50
+        flags.append("curfew_zone_mismatch")
 
     return min(score, 1.0), flags
 
