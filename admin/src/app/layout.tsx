@@ -10,7 +10,12 @@ export const metadata: Metadata = {
 const IconSearch = () => (
   <svg width="15" height="15" fill="none" viewBox="0 0 15 15">
     <circle cx="6.5" cy="6.5" r="4.5" stroke="#94A3B8" strokeWidth="1.4" />
-    <path d="M10 10l3 3" stroke="#94A3B8" strokeWidth="1.4" strokeLinecap="round" />
+    <path
+      d="M10 10l3 3"
+      stroke="#94A3B8"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
@@ -22,12 +27,20 @@ function formatDate() {
   });
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"

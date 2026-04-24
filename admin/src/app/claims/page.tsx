@@ -47,10 +47,12 @@ const PLATFORM_NAMES: Record<string, string> = {
 
 function ClaimStatusBadge({ status }: { status: string }) {
   const s = status?.toLowerCase();
-  if (s === "approved") return <span className="badge badgeGreen">Approved</span>;
+  if (s === "approved")
+    return <span className="badge badgeGreen">Approved</span>;
   if (s === "paid") return <span className="badge badgeGreen">Paid</span>;
   if (s === "rejected") return <span className="badge badgeRed">Rejected</span>;
-  if (s === "under_review") return <span className="badge badgeBlue">Under Review</span>;
+  if (s === "under_review")
+    return <span className="badge badgeBlue">Under Review</span>;
   if (s === "pending") return <span className="badge badgeAmber">Pending</span>;
   return <span className="badge badgeGray">{status}</span>;
 }
@@ -69,7 +71,14 @@ function FraudBar({ score }: { score: number }) {
           overflow: "hidden",
         }}
       >
-        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3 }} />
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: color,
+            borderRadius: 3,
+          }}
+        />
       </div>
       <span style={{ fontSize: 12, fontWeight: 600, color }}>{pct}%</span>
     </div>
@@ -78,8 +87,19 @@ function FraudBar({ score }: { score: number }) {
 
 const IconRefresh = () => (
   <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
-    <path d="M12.25 7A5.25 5.25 0 1 1 7 1.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    <path d="M7 1.75L9.5 4.25 7 6.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M12.25 7A5.25 5.25 0 1 1 7 1.75"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <path
+      d="M7 1.75L9.5 4.25 7 6.75"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -89,9 +109,18 @@ const IconChevron = ({ open }: { open: boolean }) => (
     height="14"
     fill="none"
     viewBox="0 0 14 14"
-    style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+    style={{
+      transform: open ? "rotate(180deg)" : "rotate(0deg)",
+      transition: "transform 0.2s",
+    }}
   >
-    <path d="M3 5l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M3 5l4 4 4-4"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -103,10 +132,14 @@ export default function ClaimsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedClaim, setExpandedClaim] = useState<string | null>(null);
-  const [approveAmounts, setApproveAmounts] = useState<Record<string, string>>({});
+  const [approveAmounts, setApproveAmounts] = useState<Record<string, string>>(
+    {},
+  );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  useEffect(() => { fetchClaims(); }, []);
+  useEffect(() => {
+    fetchClaims();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -119,12 +152,18 @@ export default function ClaimsPage() {
     setLoading(true);
     fetch("/api/claims/all")
       .then((r) => r.json())
-      .then((data) => { setClaims(data.claims || data.data || []); })
+      .then((data) => {
+        setClaims(data.claims || data.data || []);
+      })
       .catch(() => setError("Failed to load claims"))
       .finally(() => setLoading(false));
   };
 
-  const updateClaim = async (claimId: string, status: string, amount?: number) => {
+  const updateClaim = async (
+    claimId: string,
+    status: string,
+    amount?: number,
+  ) => {
     setUpdatingId(claimId);
     setNotice("");
     setError("");
@@ -132,11 +171,20 @@ export default function ClaimsPage() {
       const res = await fetch("/api/claims/update", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claimId, status, approved_amount: amount ?? null }),
+        body: JSON.stringify({
+          claimId,
+          status,
+          approved_amount: amount ?? null,
+        }),
       });
       const data = await res.json();
-      if (!res.ok || data.error) { setError(data.error || "Failed to update claim"); return; }
-      setClaims((prev) => prev.map((c) => (c.id === claimId ? { ...c, ...data.claim } : c)));
+      if (!res.ok || data.error) {
+        setError(data.error || "Failed to update claim");
+        return;
+      }
+      setClaims((prev) =>
+        prev.map((c) => (c.id === claimId ? { ...c, ...data.claim } : c)),
+      );
       setNotice(`Claim ${status === "paid" ? "marked as paid" : status}.`);
       setExpandedClaim(null);
       fetchClaims();
@@ -177,8 +225,12 @@ export default function ClaimsPage() {
 
   const stats = {
     total: claims.length,
-    pending: claims.filter((c) => c.payout_status === "pending" || c.status === "under_review").length,
-    approved: claims.filter((c) => c.payout_status === "approved" || c.status === "approved").length,
+    pending: claims.filter(
+      (c) => c.payout_status === "pending" || c.status === "under_review",
+    ).length,
+    approved: claims.filter(
+      (c) => c.payout_status === "approved" || c.status === "approved",
+    ).length,
     paid: claims.filter((c) => c.payout_status === "paid").length,
     totalPayout: claims.reduce((s, c) => s + (c.payout_amount || 0), 0),
   };
@@ -190,11 +242,16 @@ export default function ClaimsPage() {
         <div>
           <h1 className="pageTitle">Claims</h1>
           <p className="pageSubtitle">
-            Insurance claim lifecycle — review, approve, reject, and track payouts.
+            Insurance claim lifecycle — review, approve, reject, and track
+            payouts.
           </p>
         </div>
         <div className="pageActions">
-          <button type="button" className="btn btnSecondary" onClick={fetchClaims}>
+          <button
+            type="button"
+            className="btn btnSecondary"
+            onClick={fetchClaims}
+          >
             <IconRefresh /> Refresh
           </button>
         </div>
@@ -206,10 +263,22 @@ export default function ClaimsPage() {
         style={{ gridTemplateColumns: "repeat(5, 1fr)", marginBottom: 24 }}
       >
         {[
-          { label: "Total Claims", value: loading ? "—" : stats.total.toLocaleString() },
-          { label: "Awaiting Action", value: loading ? "—" : stats.pending.toLocaleString() },
-          { label: "Approved", value: loading ? "—" : stats.approved.toLocaleString() },
-          { label: "Paid Out", value: loading ? "—" : stats.paid.toLocaleString() },
+          {
+            label: "Total Claims",
+            value: loading ? "—" : stats.total.toLocaleString(),
+          },
+          {
+            label: "Awaiting Action",
+            value: loading ? "—" : stats.pending.toLocaleString(),
+          },
+          {
+            label: "Approved",
+            value: loading ? "—" : stats.approved.toLocaleString(),
+          },
+          {
+            label: "Paid Out",
+            value: loading ? "—" : stats.paid.toLocaleString(),
+          },
           {
             label: "Total Payout",
             value: loading ? "—" : `₹${stats.totalPayout.toLocaleString()}`,
@@ -217,7 +286,9 @@ export default function ClaimsPage() {
         ].map(({ label, value }) => (
           <div key={label} className="statCard">
             <div className="statLabel">{label}</div>
-            <div className="statValue" style={{ fontSize: 22 }}>{value}</div>
+            <div className="statValue" style={{ fontSize: 22 }}>
+              {value}
+            </div>
           </div>
         ))}
       </div>
@@ -268,23 +339,34 @@ export default function ClaimsPage() {
                   <React.Fragment key={c.id}>
                     <tr
                       style={{
-                        background: expandedClaim === c.id ? "#FAFBFD" : undefined,
-                        borderBottom: expandedClaim === c.id ? "none" : undefined,
+                        background:
+                          expandedClaim === c.id ? "#FAFBFD" : undefined,
+                        borderBottom:
+                          expandedClaim === c.id ? "none" : undefined,
                       }}
                     >
                       <td>
-                        <span className="mono" style={{ fontWeight: 700, fontSize: 12 }}>
+                        <span
+                          className="mono"
+                          style={{ fontWeight: 700, fontSize: 12 }}
+                        >
                           {c.claim_number}
                         </span>
                       </td>
                       <td>
                         <div
                           className="mono"
-                          style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}
+                          style={{
+                            fontSize: 11,
+                            color: "var(--muted)",
+                            marginBottom: 2,
+                          }}
                         >
                           {c.worker_id?.slice(0, 12)}…
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--faint)" }}>{c.city}</div>
+                        <div style={{ fontSize: 11, color: "var(--faint)" }}>
+                          {c.city}
+                        </div>
                       </td>
                       <td style={{ fontSize: 12, color: "var(--muted)" }}>
                         {PLATFORM_NAMES[c.platform] || c.platform}
@@ -299,21 +381,33 @@ export default function ClaimsPage() {
                         <FraudBar score={c.fraud_score} />
                       </td>
                       <td>
-                        <ClaimStatusBadge status={c.payout_status || c.status} />
+                        <ClaimStatusBadge
+                          status={c.payout_status || c.status}
+                        />
                       </td>
-                      <td style={{ fontSize: 12, color: "var(--faint)", whiteSpace: "nowrap" }}>
+                      <td
+                        style={{
+                          fontSize: 12,
+                          color: "var(--faint)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {new Date(c.created_at).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
                         })}
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <div
+                          style={{ display: "flex", gap: 4, flexWrap: "wrap" }}
+                        >
                           <button
                             type="button"
                             className="btn btnSm btnOutline"
                             onClick={() =>
-                              setExpandedClaim(expandedClaim === c.id ? null : c.id)
+                              setExpandedClaim(
+                                expandedClaim === c.id ? null : c.id,
+                              )
                             }
                           >
                             {expandedClaim === c.id ? "Close" : "Review"}
@@ -334,7 +428,8 @@ export default function ClaimsPage() {
                               Mark Paid
                             </button>
                           )}
-                          {(c.payout_status === "pending" || c.status === "under_review") && (
+                          {(c.payout_status === "pending" ||
+                            c.status === "under_review") && (
                             <>
                               <button
                                 type="button"
@@ -370,7 +465,10 @@ export default function ClaimsPage() {
 
                     {expandedClaim === c.id && (
                       <tr>
-                        <td colSpan={9} style={{ padding: 0, background: "#FAFBFD" }}>
+                        <td
+                          colSpan={9}
+                          style={{ padding: 0, background: "#FAFBFD" }}
+                        >
                           <div
                             style={{
                               display: "grid",
@@ -404,13 +502,32 @@ export default function ClaimsPage() {
                                 {[
                                   ["Daily Wage Est.", `₹${c.daily_wage_est}`],
                                   ["Disrupted Hours", `${c.disrupted_hours}h`],
-                                  ["GPS Verified", c.gps_verified ? "Yes ✓" : "No ✗"],
-                                  ["Cross-platform", c.cross_platform_clear ? "Clear ✓" : "Failed ✗"],
-                                  ["Multiplier", `${c.fuzzy_payout_multiplier?.toFixed(2)}x`],
+                                  [
+                                    "GPS Verified",
+                                    c.gps_verified ? "Yes ✓" : "No ✗",
+                                  ],
+                                  [
+                                    "Cross-platform",
+                                    c.cross_platform_clear
+                                      ? "Clear ✓"
+                                      : "Failed ✗",
+                                  ],
+                                  [
+                                    "Multiplier",
+                                    `${c.fuzzy_payout_multiplier?.toFixed(2)}x`,
+                                  ],
                                   ["Trigger ID", c.trigger_id || "—"],
                                 ].map(([k, v]) => (
                                   <div key={k}>
-                                    <div style={{ fontSize: 11, color: "var(--faint)", marginBottom: 2 }}>{k}</div>
+                                    <div
+                                      style={{
+                                        fontSize: 11,
+                                        color: "var(--faint)",
+                                        marginBottom: 2,
+                                      }}
+                                    >
+                                      {k}
+                                    </div>
                                     <div
                                       style={{
                                         fontSize: 13,
@@ -419,8 +536,8 @@ export default function ClaimsPage() {
                                           v === "Yes ✓" || v === "Clear ✓"
                                             ? "#16A34A"
                                             : v === "No ✗" || v === "Failed ✗"
-                                            ? "#DC2626"
-                                            : "var(--white)",
+                                              ? "#DC2626"
+                                              : "var(--white)",
                                       }}
                                     >
                                       {v}
@@ -431,10 +548,25 @@ export default function ClaimsPage() {
 
                               {c.fraud_flags?.length > 0 && (
                                 <div style={{ marginTop: 14 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--faint)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: "var(--faint)",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.05em",
+                                      marginBottom: 6,
+                                    }}
+                                  >
                                     Fraud Flags
                                   </div>
-                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 6,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
                                     {c.fraud_flags.map((flag) => (
                                       <span
                                         key={flag}
@@ -449,8 +581,17 @@ export default function ClaimsPage() {
                               )}
 
                               {c.transaction_id && (
-                                <div style={{ marginTop: 12, fontSize: 11, color: "var(--faint)" }}>
-                                  TXN: <span className="mono">{c.transaction_id}</span>
+                                <div
+                                  style={{
+                                    marginTop: 12,
+                                    fontSize: 11,
+                                    color: "var(--faint)",
+                                  }}
+                                >
+                                  TXN:{" "}
+                                  <span className="mono">
+                                    {c.transaction_id}
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -470,7 +611,12 @@ export default function ClaimsPage() {
                                 Payout Adjustment
                               </div>
                               <label
-                                style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}
+                                style={{
+                                  display: "block",
+                                  fontSize: 12,
+                                  color: "var(--muted)",
+                                  marginBottom: 6,
+                                }}
                               >
                                 Override payout amount (₹)
                               </label>
@@ -480,7 +626,10 @@ export default function ClaimsPage() {
                                 placeholder={`Current ₹${c.payout_amount}`}
                                 value={approveAmounts[c.id] ?? ""}
                                 onChange={(e) =>
-                                  setApproveAmounts((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                  setApproveAmounts((prev) => ({
+                                    ...prev,
+                                    [c.id]: e.target.value,
+                                  }))
                                 }
                                 style={{ width: "100%", marginBottom: 10 }}
                               />
@@ -493,10 +642,16 @@ export default function ClaimsPage() {
                                     updateClaim(
                                       c.id,
                                       "approved",
-                                      approveAmounts[c.id] ? parseFloat(approveAmounts[c.id]) : c.payout_amount,
+                                      approveAmounts[c.id]
+                                        ? parseFloat(approveAmounts[c.id])
+                                        : c.payout_amount,
                                     )
                                   }
-                                  style={{ background: "#F0FDF4", color: "#166534", border: "1px solid #86EFAC" }}
+                                  style={{
+                                    background: "#F0FDF4",
+                                    color: "#166534",
+                                    border: "1px solid #86EFAC",
+                                  }}
                                 >
                                   Approve with Amount
                                 </button>
@@ -505,7 +660,11 @@ export default function ClaimsPage() {
                                   className="btn btnSm"
                                   disabled={updatingId === c.id}
                                   onClick={() => updateClaim(c.id, "rejected")}
-                                  style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA" }}
+                                  style={{
+                                    background: "#FEF2F2",
+                                    color: "#B91C1C",
+                                    border: "1px solid #FECACA",
+                                  }}
                                 >
                                   Reject
                                 </button>
