@@ -80,6 +80,29 @@ type CurfewData = {
   source: string;
 };
 
+type Claim = {
+  id: string;
+  claim_number?: string;
+  worker_id?: string;
+  platform?: string;
+  city?: string;
+  trigger_id?: string;
+  trigger_type?: string;
+  payout_amount?: number;
+  daily_wage_est?: number;
+  disrupted_hours?: number;
+  payout_status?: string;
+  fraud_score?: number;
+  fraud_flags?: string[];
+  cross_platform_clear?: boolean;
+  status?: string;
+  created_at?: string;
+  reviewed_at?: string | null;
+  paid_at?: string | null;
+  transaction_id?: string | null;
+  fuzzy_payout_multiplier?: number;
+};
+
 type Tier = "basic" | "standard" | "pro";
 type QuoteMap = Partial<Record<Tier, Premium>>;
 
@@ -444,7 +467,7 @@ export default function DashboardPage() {
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [premiumError, setPremiumError] = useState("");
   const [planMessage, setPlanMessage] = useState("");
-  const [claims, setClaims] = useState<Record<string, unknown>[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
   const [loadingClaims, setLoadingClaims] = useState(false);
   const [claimsFilter, setClaimsFilter] = useState<
     "all" | "paid" | "review" | "rejected"
