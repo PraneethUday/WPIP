@@ -457,6 +457,14 @@ export default function DashboardPage() {
   const [loadingTraffic, setLoadingTraffic] = useState(false);
   const [loadingCurfew, setLoadingCurfew] = useState(false);
 
+  // chatbot
+  type ChatMsg = { role: "user" | "assistant"; content: string };
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   // language
   const [language, setLanguageState] = useState<Language>("en");
 
@@ -722,6 +730,38 @@ export default function DashboardPage() {
       /* silently fail */
     }
   };
+
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    const userMsg: ChatMsg = { role: "user", content: text };
+    const updated = [...chatMessages, userMsg];
+    setChatMessages(updated);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updated }),
+      });
+      const data = await res.json();
+      const reply = data.reply || "Sorry, I couldn't get a response right now.";
+      setChatMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Something went wrong. Please try again." },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
 
   const fetchCurrentPremium = async (u: User) => {
     if (!u.delivery_id) return;
@@ -2703,6 +2743,151 @@ export default function DashboardPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile Bottom Tab Bar ── */}
+      <nav className={styles.mobileNav}>
+        {/* Home */}
+        <button type="button" className={`${styles.mobileNavBtn} ${tab === "home" ? styles.mobileNavBtnActive : ""}`} onClick={() => setTab("home")}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <span>Home</span>
+        </button>
+        {/* Claims */}
+        <button type="button" className={`${styles.mobileNavBtn} ${tab === "claims" ? styles.mobileNavBtnActive : ""}`} onClick={() => setTab("claims")}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="m9 14 2 2 4-4"/>
+          </svg>
+          <span>Claims</span>
+        </button>
+        {/* Center Chat Button */}
+        <div className={styles.mobileNavChatWrap}>
+          <button type="button" className={`${styles.mobileNavChat} ${chatOpen ? styles.mobileNavChatActive : ""}`} onClick={() => setChatOpen((o) => !o)} aria-label="Open AI assistant">
+            {chatOpen ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            )}
+          </button>
+          <span className={styles.mobileNavChatLabel}>AI Chat</span>
+        </div>
+        {/* Payments */}
+        <button type="button" className={`${styles.mobileNavBtn} ${tab === "payments" ? styles.mobileNavBtnActive : ""}`} onClick={() => setTab("payments")}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><path d="M7 14h4"/>
+          </svg>
+          <span>Pay</span>
+        </button>
+        {/* Profile */}
+        <button type="button" className={`${styles.mobileNavBtn} ${tab === "profile" ? styles.mobileNavBtnActive : ""}`} onClick={() => setTab("profile")}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>
+          </svg>
+          <span>Profile</span>
+        </button>
+      </nav>
+
+      {/* ── Floating Chat Button (desktop only) ── */}
+      <button
+        type="button"
+        className={styles.chatFab}
+        onClick={() => setChatOpen((o) => !o)}
+        aria-label="Open AI assistant"
+      >
+        {chatOpen ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        )}
+      </button>
+
+      {/* ── Chat Modal ── */}
+      {chatOpen && (
+        <div className={styles.chatModal}>
+          <div className={styles.chatHeader}>
+            <div className={styles.chatHeaderLeft}>
+              <div className={styles.chatAvatar}>AI</div>
+              <div>
+                <div className={styles.chatTitle}>WPIP Assistant</div>
+                <div className={styles.chatSubtitle}>Ask me anything about your coverage</div>
+              </div>
+            </div>
+            <button type="button" className={styles.chatCloseBtn} title="Close chat" onClick={() => setChatOpen(false)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className={styles.chatBody}>
+            {chatMessages.length === 0 && (
+              <div className={styles.chatEmpty}>
+                <div className={styles.chatEmptyIcon}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </div>
+                <p className={styles.chatEmptyText}>Hi! I&apos;m your WPIP assistant.</p>
+                <p className={styles.chatEmptyHint}>Ask me about claims, premiums, coverage tiers, or how the platform works.</p>
+                <div className={styles.chatSuggestions}>
+                  {["How do claims work?", "What does Standard cover?", "When will I get paid?"].map((s) => (
+                    <button key={s} type="button" className={styles.chatSuggestion} onClick={() => { setChatInput(s); }}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`${styles.chatBubbleRow} ${msg.role === "user" ? styles.chatBubbleRowUser : ""}`}>
+                {msg.role === "assistant" && <div className={styles.chatBubbleAvatar}>AI</div>}
+                <div className={`${styles.chatBubble} ${msg.role === "user" ? styles.chatBubbleUser : styles.chatBubbleAssistant}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className={styles.chatBubbleRow}>
+                <div className={styles.chatBubbleAvatar}>AI</div>
+                <div className={`${styles.chatBubble} ${styles.chatBubbleAssistant} ${styles.chatTyping}`}>
+                  <span/><span/><span/>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className={styles.chatInputRow}>
+            <input
+              className={styles.chatInput}
+              placeholder="Ask anything…"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+              disabled={chatLoading}
+            />
+            <button
+              type="button"
+              className={styles.chatSendBtn}
+              title="Send message"
+              onClick={sendChat}
+              disabled={!chatInput.trim() || chatLoading}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
           </div>
         </div>
       )}
