@@ -366,6 +366,7 @@ def auth_register(req: RegisterRequest):
         raise HTTPException(status_code=500, detail="Registration failed. Please try again.")
 
     matched_platforms: list[str] = []
+    platform_city: str | None = None
     for platform in req.platforms:
         table = PLATFORM_TABLE.get(platform)
         if not table:
@@ -373,15 +374,25 @@ def auth_register(req: RegisterRequest):
         try:
             check = (
                 supabase.table(table)
-                .select("worker_id")
+                .select("worker_id, city")
                 .eq("worker_id", delivery_id)
                 .limit(1)
                 .execute()
             )
             if check.data:
                 matched_platforms.append(platform)
+                if not platform_city:
+                    platform_city = check.data[0].get("city") or None
         except Exception:
             continue
+
+    # Reject if the selected city doesn't match what the platform has on record.
+    if matched_platforms and platform_city:
+        if _normalize_city(req.city) != _normalize_city(platform_city):
+            raise HTTPException(
+                status_code=400,
+                detail=f"City mismatch: your delivery ID is registered in {platform_city}, but you selected {req.city}. Please select the correct city.",
+            )
 
     password_hash = hash_password(req.password)
     payload = {
@@ -472,6 +483,7 @@ def verify_delivery_id(req: VerifyIdRequest):
         )
 
     matched_platforms: list[str] = []
+    detected_city: str | None = None
     for platform in platforms:
         table = PLATFORM_TABLE.get(platform)
         if not table:
@@ -479,13 +491,15 @@ def verify_delivery_id(req: VerifyIdRequest):
         try:
             check = (
                 supabase.table(table)
-                .select("worker_id")
+                .select("worker_id, city")
                 .eq("worker_id", delivery_id)
                 .limit(1)
                 .execute()
             )
             if check.data:
                 matched_platforms.append(platform)
+                if not detected_city:
+                    detected_city = check.data[0].get("city") or None
         except Exception:
             continue
 
@@ -493,6 +507,7 @@ def verify_delivery_id(req: VerifyIdRequest):
         "verified": len(matched_platforms) > 0,
         "matched_platforms": matched_platforms,
         "checked_platforms": platforms,
+        "detected_city": detected_city,
     }
 
 
